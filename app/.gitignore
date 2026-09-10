@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and environments
+.venv/
+venv/
+ENV/
+env/
+
+# Configuration and credentials
+.env*
+*.bak
+
+# Temporary / scratch
+scratch/
+project_dump.txt
+.tempmediaStorage/
+*.tmp
+
+# Histories
+historico/*.json
+!historico/.gitkeep

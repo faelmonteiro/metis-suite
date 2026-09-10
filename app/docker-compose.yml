@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      network: host
+    container_name: metis_app
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_HOST=http://127.0.0.1:11434
+      - SEARXNG_URL=http://127.0.0.1:8080
+    volumes:
+      - ./agente:/app/agente
+      - ./app.py:/app/app.py
+      - ./historico:/app/historico
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://127.0.0.1:8080/
+    network_mode: "host"
+    restart: unless-stopped

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Metis Vision
+Comment=Assistente Visual de Tela e Análise Multimodal com IA
+Exec=sh -c "$HOME/.local/bin/metis-vision"
+Icon=metis-vision
+Path=
+Terminal=false
+Type=Application
+Categories=Utility;Development;Graphics;
+Keywords=ai;vision;screen;metis;screenshot;ocr;
+StartupWMClass=metis-vision

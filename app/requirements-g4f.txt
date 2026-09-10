@@ -1,0 +1,7 @@
+# Dependências opcionais para o modo g4f.
+# Instale somente se for usar a opção de IA web gratuita:
+# pip install -r requirements-g4f.txt
+
+g4f
+browser_cookie3
+curl_cffi

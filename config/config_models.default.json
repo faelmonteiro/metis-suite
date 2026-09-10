@@ -1,0 +1,86 @@
+{
+  "builtin_models": {
+    "Groq": [
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "deepseek-r1-distill-llama-70b",
+      "llama-3.1-8b-instant",
+      "mixtral-8x7b-32768",
+      "gemma2-9b-it"
+    ],
+    "Gemini": [
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-lite-preview-02-05"
+    ],
+    "NVIDIA": [
+      "meta/llama-3.1-70b-instruct",
+      "nvidia/llama-3.1-nemotron-70b-instruct",
+      "mistralai/mistral-large-2-instruct",
+      "meta/llama-3.3-70b-instruct",
+      "deepseek-ai/deepseek-r1"
+    ],
+    "G4F": [
+      "gpt-4o-mini",
+      "gpt-4o",
+      "deepseek-r1",
+      "claude-3.5-sonnet",
+      "llama-3.3-70b",
+      "blackboxai",
+      "gemini-2.0-flash",
+      "qwen-2.5-coder-32b"
+    ],
+    "OpenRouter": [
+      "minimax/minimax-m3:free",
+      "openrouter/auto",
+      "openai/gpt-oss-20b:free",
+      "liquid/lfm-2.5-2.6b:free",
+      "google/gemma-4-31b-it:free",
+      "cohere/north-mini-code:free",
+      "z-ai/glm-5.2:free",
+      "stealth/ox-alpha"
+    ],
+    "Ollama": []
+  },
+  "removed_models": {},
+  "removed_servers": [],
+  "custom_servers": [
+    {
+      "id": "openrouter",
+      "nome": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1/chat/completions",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "api_key": "",
+      "modelo_atual": "minimax/minimax-m3:free",
+      "modelos": [
+        "minimax/minimax-m3:free",
+        "openrouter/auto",
+        "openai/gpt-oss-20b:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "google/gemma-4-31b-it:free",
+        "cohere/north-mini-code:free",
+        "z-ai/glm-5.2:free",
+        "stealth/ox-alpha"
+      ]
+    }
+  ],
+  "preferences": {
+    "web_search_enabled": false,
+    "last_active_provider": "",
+    "last_active_model": "",
+    "theme_id": "metis_oracle",
+    "window_size": [
+      860,
+      550
+    ],
+    "window_opacity": 80,
+    "font_size": "medium",
+    "font_family": "default",
+    "neon_glow": false,
+    "copy_btn_enabled": true
+  },
+  "user_settings": {
+    "is_sidebar_collapsed": false
+  }
+}

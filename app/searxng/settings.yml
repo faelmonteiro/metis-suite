@@ -1,0 +1,18 @@
+use_default_settings: true
+
+server:
+  port: 8080
+  bind_address: "127.0.0.1"
+  secret_key: "490169f641c9154d914defb99a974cde7ce55bd1b08fb2fddc771ac29bcaaf45"
+  limiter: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "pt"
+  formats:
+    - html
+    - json
+
+ui:
+  static_use_hash: true

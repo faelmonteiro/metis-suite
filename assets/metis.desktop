@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Metis AI
+Comment=Agente de Inteligência Artificial e Copiloto de Terminal
+Exec=sh -c "$HOME/.local/share/metis/bin/metis gui"
+Icon=metis_app_icon
+Path=
+Terminal=false
+Type=Application
+Categories=Utility;Development;
+Keywords=ai;assistant;terminal;metis;
