@@ -6,6 +6,8 @@ set -e
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
@@ -13,32 +15,62 @@ echo -e "${YELLOW}${BOLD}🔄 Atualizando Metis & ZSH AI Suite...${NC}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/.local/share/metis"
+CONFIG_DIR="$HOME/.config/metis"
+REPO_URL="https://github.com/faelmonteiro/metis-suite.git"
 
-# Se estiver em repositório Git, puxa as novidades
+CLEANUP_TEMP=0
+SOURCE_DIR=""
+
+# 1. Identifica a origem das atualizações
 if [ -d "$SCRIPT_DIR/.git" ]; then
-    echo "📡 Baixando atualizações do Git..."
+    echo -e "  ${CYAN}📡 Atualizando repositório Git local em $SCRIPT_DIR...${NC}"
     cd "$SCRIPT_DIR"
-    git pull --quiet 2>/dev/null || true
+    git pull --quiet 2>/dev/null || git pull
+    SOURCE_DIR="$SCRIPT_DIR"
+elif [ -d "$HOME/metis-suite/.git" ]; then
+    echo -e "  ${CYAN}📡 Atualizando repositório Git em $HOME/metis-suite...${NC}"
+    cd "$HOME/metis-suite"
+    git pull --quiet 2>/dev/null || git pull
+    SOURCE_DIR="$HOME/metis-suite"
+elif [ -d "$HOME/.metis-suite/.git" ]; then
+    echo -e "  ${CYAN}📡 Atualizando repositório Git em $HOME/.metis-suite...${NC}"
+    cd "$HOME/.metis-suite"
+    git pull --quiet 2>/dev/null || git pull
+    SOURCE_DIR="$HOME/.metis-suite"
+else
+    echo -e "  ${CYAN}📡 Baixando versão mais recente do GitHub...${NC}"
+    TEMP_DIR="$(mktemp -d)/metis-suite-update"
+    git clone --depth 1 "$REPO_URL" "$TEMP_DIR" --quiet || {
+        echo -e "${RED}❌ Falha ao clonar do GitHub. Verifique sua conexão com a internet.${NC}"
+        exit 1
+    }
+    SOURCE_DIR="$TEMP_DIR"
+    CLEANUP_TEMP=1
 fi
 
-# Atualiza os arquivos instalados
+# 2. Atualiza os arquivos instalados
 if [ -d "$INSTALL_DIR" ]; then
-    echo "📂 Atualizando arquivos em $INSTALL_DIR..."
+    echo -e "  ${CYAN}📂 Atualizando arquivos em $INSTALL_DIR...${NC}"
+
+    # Backup preventivo de configurações legadas (caso existam em app/)
     BACKUP_TMP="$(mktemp -d)"
     [ -f "$INSTALL_DIR/app/.env" ] && cp "$INSTALL_DIR/app/.env" "$BACKUP_TMP/.env"
     [ -f "$INSTALL_DIR/app/config_models.json" ] && cp "$INSTALL_DIR/app/config_models.json" "$BACKUP_TMP/config_models.json"
 
-    cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
-    cp -r "$SCRIPT_DIR/zsh" "$INSTALL_DIR/"
-    cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
-    cp -r "$SCRIPT_DIR/assets" "$INSTALL_DIR/"
-    cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
-    
+    cp -r "$SOURCE_DIR/app" "$INSTALL_DIR/"
+    cp -r "$SOURCE_DIR/zsh" "$INSTALL_DIR/"
+    cp -r "$SOURCE_DIR/bin" "$INSTALL_DIR/"
+    cp -r "$SOURCE_DIR/assets" "$INSTALL_DIR/"
+    cp "$SOURCE_DIR/requirements.txt" "$INSTALL_DIR/"
+    cp "$SOURCE_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$SOURCE_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
+
+    # Restaura configurações legadas se existiam
     [ -f "$BACKUP_TMP/.env" ] && cp "$BACKUP_TMP/.env" "$INSTALL_DIR/app/.env"
     [ -f "$BACKUP_TMP/config_models.json" ] && cp "$BACKUP_TMP/config_models.json" "$INSTALL_DIR/app/config_models.json"
     rm -rf "$BACKUP_TMP"
 
-    chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" 2>/dev/null || true
+    chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
     BIN_DIR="$HOME/.local/bin"
     APPS_DIR="$HOME/.local/share/applications"
@@ -51,24 +83,44 @@ if [ -d "$INSTALL_DIR" ]; then
 
     # Atualiza ícones do sistema
     if [ -f "$INSTALL_DIR/assets/icons/icon_128x128.png" ]; then
-        cp "$INSTALL_DIR/assets/icons/icon_128x128.png" "$ICONS_DIR/128x128/apps/metis-vision.png"
+        cp "$INSTALL_DIR/assets/icons/icon_128x128.png" "$ICONS_DIR/128x128/apps/metis-vision.png" 2>/dev/null || true
         cp "$INSTALL_DIR/assets/icons/icon_256x256.png" "$ICONS_DIR/256x256/apps/metis-vision.png" 2>/dev/null || true
         cp "$INSTALL_DIR/assets/icons/icon_256x256.png" "$ICONS_DIR/256x256/apps/metis_app_icon.png" 2>/dev/null || true
         command -v gtk-update-icon-cache &>/dev/null && gtk-update-icon-cache -f -t "$ICONS_DIR" 2>/dev/null || true
     fi
 
     # Atualiza Desktop Entries
-    if [ -f "$SCRIPT_DIR/assets/metis.desktop" ]; then
-        cp "$SCRIPT_DIR/assets/metis.desktop" "$APPS_DIR/metis.desktop"
+    if [ -f "$SOURCE_DIR/assets/metis.desktop" ]; then
+        cp "$SOURCE_DIR/assets/metis.desktop" "$APPS_DIR/metis.desktop"
     fi
-    if [ -f "$SCRIPT_DIR/assets/metis-vision.desktop" ]; then
-        cp "$SCRIPT_DIR/assets/metis-vision.desktop" "$APPS_DIR/metis-vision.desktop"
+    if [ -f "$SOURCE_DIR/assets/metis-vision.desktop" ]; then
+        cp "$SOURCE_DIR/assets/metis-vision.desktop" "$APPS_DIR/metis-vision.desktop"
     fi
     command -v update-desktop-database &>/dev/null && update-desktop-database "$APPS_DIR" 2>/dev/null || true
 
-    echo "🐍 Atualizando dependências no venv..."
-    "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet
+    # Atualiza fontes se existirem
+    FONTS_DIR="$HOME/.local/share/fonts"
+    if [ -f "$SOURCE_DIR/assets/fonts/MetisIcons.ttf" ]; then
+        mkdir -p "$FONTS_DIR"
+        cp "$SOURCE_DIR/assets/fonts/MetisIcons.ttf" "$FONTS_DIR/MetisIcons.ttf"
+        command -v fc-cache &>/dev/null && fc-cache -f "$FONTS_DIR" 2>/dev/null || true
+    fi
+
+    # Atualiza dependências Python no venv
+    if [ -d "$INSTALL_DIR/venv" ]; then
+        echo -e "  ${CYAN}🐍 Atualizando dependências no venv...${NC}"
+        "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet 2>/dev/null || true
+    fi
+else
+    echo -e "${RED}❌ Instalação do Metis não encontrada em $INSTALL_DIR.${NC}"
+    echo "Por favor, instale o Metis executando: bash install.sh"
+    exit 1
+fi
+
+# Limpeza se usou diretório temporário
+if [ "$CLEANUP_TEMP" -eq 1 ] && [ -n "$SOURCE_DIR" ]; then
+    rm -rf "$SOURCE_DIR"
 fi
 
 echo -e "\n${GREEN}${BOLD}✅ Metis AI Suite atualizado com sucesso!${NC}"
-echo "ℹ️ Suas configurações em ~/.config/metis/ foram mantidas intactas."
+echo -e "ℹ️  Suas configurações em ~/.config/metis/ foram mantidas intactas.\n"

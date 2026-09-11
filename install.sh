@@ -483,6 +483,7 @@ echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + G]${NC}          Menu interativo FZ
 echo -e "${BORDER}│${NC}    ${CYAN}[Alt + H]${NC}           Histórico de prompts de IA"
 echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + X Ctrl + P]${NC} Autocomplete inteligente no prompt"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis]${NC}             Copiloto de diagnóstico e resolução de erros"
+echo -e "${BORDER}│${NC}    ${CYAN}[metis update]${NC}      Atualiza o Metis para a versão mais recente"
 echo -e "${BORDER}│${NC}    ${CYAN}[Super + R]${NC}         Abre a interface visual do Metis de qualquer lugar"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis gui]${NC}         Comando para abrir a interface gráfica via terminal"
 echo -e "${BORDER}│${NC}    ${CYAN}[ia <pergunta>]${NC}     Consulta rápida com suporte a pipes"

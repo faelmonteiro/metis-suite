@@ -25,7 +25,7 @@ elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
 elif [ "$1" = "uninstall" ]; then
     exec "$METIS_INSTALL_DIR/uninstall.sh"
-elif [ "$1" = "update" ]; then
+elif [ "$1" = "update" ] || [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
     exec "$METIS_INSTALL_DIR/update.sh"
 else
     cd "$METIS_INSTALL_DIR/app" 2>/dev/null || true
