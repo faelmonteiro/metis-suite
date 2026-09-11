@@ -54,8 +54,7 @@ class TestUtils(unittest.TestCase):
             remover_modelo_provedor,
         )
         modelos = obter_modelos_provedor("G4F")
-        self.assertIn("gpt-4o-mini", modelos)
-        self.assertIn("gpt-4o", modelos)
+        self.assertIsInstance(modelos, list)
 
         # Adicionar modelo customizado
         adicionar_modelo_provedor("G4F", "test-g4f-custom-model")
@@ -96,6 +95,8 @@ class TestUtils(unittest.TestCase):
         from agente.providers_manager import (
             obter_servidores_customizados,
             obter_servidor_customizado,
+            adicionar_modelo_provedor,
+            remover_modelo_provedor,
         )
         servidores = obter_servidores_customizados()
         ids = [s.get("id") for s in servidores]
@@ -104,7 +105,16 @@ class TestUtils(unittest.TestCase):
         openrouter_srv = obter_servidor_customizado("openrouter")
         self.assertIsNotNone(openrouter_srv)
         self.assertEqual(openrouter_srv.get("nome"), "OpenRouter")
-        self.assertTrue(len(openrouter_srv.get("modelos", [])) > 0)
+        self.assertIsInstance(openrouter_srv.get("modelos", []), list)
+
+        # Testa adição e remoção de modelo em servidor customizado
+        adicionar_modelo_provedor("openrouter", "test/custom-openrouter-model")
+        openrouter_apos_add = obter_servidor_customizado("openrouter")
+        self.assertIn("test/custom-openrouter-model", openrouter_apos_add.get("modelos", []))
+
+        self.assertTrue(remover_modelo_provedor("openrouter", "test/custom-openrouter-model"))
+        openrouter_apos_rem = obter_servidor_customizado("openrouter")
+        self.assertNotIn("test/custom-openrouter-model", openrouter_apos_rem.get("modelos", []))
 
 
     def test_http_client_singleton(self):

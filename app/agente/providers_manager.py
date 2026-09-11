@@ -46,7 +46,17 @@ DEFAULT_MODELS: Dict[str, List[str]] = {
     "Ollama": []
 }
 
-DEFAULT_CUSTOM_SERVERS: List[dict] = []
+DEFAULT_CUSTOM_SERVERS: List[dict] = [
+    {
+        "id": "openrouter",
+        "nome": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1/chat/completions",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "api_key": "",
+        "modelo_atual": "",
+        "modelos": []
+    }
+]
 
 
 def carregar_dados() -> dict:
@@ -92,6 +102,13 @@ def carregar_dados() -> dict:
                 if prov not in dados["builtin_models"]:
                     dados["builtin_models"][prov] = list(models)
 
+            # Garante que servidores padrão (como OpenRouter) existam caso não removidos
+            server_ids = {s.get("id") for s in dados.get("custom_servers", [])}
+            removed_servers = set(dados.get("removed_servers", []))
+            for def_srv in DEFAULT_CUSTOM_SERVERS:
+                if def_srv["id"] not in server_ids and def_srv["id"] not in removed_servers:
+                    dados["custom_servers"].append(dict(def_srv))
+
             return dados
     except Exception as e:
         logger.error(f"Erro ao ler {config_file}: {e}")
@@ -102,7 +119,7 @@ def carregar_dados() -> dict:
 
 
 def salvar_dados(dados: dict) -> None:
-    """Salva os dados no arquivo config_models.json e replica para outros locais existentes."""
+    """Salva os dados no arquivo config_models.json canônico."""
     config_file = get_config_file_path()
     try:
         config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -110,14 +127,6 @@ def salvar_dados(dados: dict) -> None:
             json.dump(dados, f, indent=2, ensure_ascii=False)
     except Exception as e:
         logger.error(f"Erro ao salvar {config_file}: {e}")
-
-    app_cfg = config.PROJECT_ROOT / "config_models.json"
-    if app_cfg.exists() and app_cfg.resolve() != config_file.resolve():
-        try:
-            with open(app_cfg, "w", encoding="utf-8") as f:
-                json.dump(dados, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
 
 
 def get_target_env_files() -> List[Path]:
