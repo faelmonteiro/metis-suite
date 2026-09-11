@@ -217,6 +217,11 @@ else
     echo -e "${GRAY}  ℹ️  Arquivo .env existente preservado.${NC}"
 fi
 
+# Corrige automaticamente modelos legados inválidos caso existam de instalações prévias
+if [ -f "$CONFIG_DIR/config_models.json" ] && grep -Fq "openai/gpt-oss-120b" "$CONFIG_DIR/config_models.json"; then
+    sed -i 's|openai/gpt-oss-120b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
+fi
+
 # 6. Criar atalhos executáveis, fontes personalizadas e Desktop Entry
 echo -e "\n${CYAN}🚀 [5/6] Registrando lançadores, fontes e ícones no sistema...${NC}"
 ln -sf "$INSTALL_DIR/bin/metis" "$BIN_DIR/metis"

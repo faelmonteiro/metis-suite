@@ -90,6 +90,11 @@ if [ -d "$INSTALL_DIR" ]; then
         fi
     fi
 
+    # Corrige automaticamente modelos legados inválidos caso ainda constem no config
+    if [ -f "$CONFIG_DIR/config_models.json" ] && grep -Fq "openai/gpt-oss-120b" "$CONFIG_DIR/config_models.json"; then
+        sed -i 's|openai/gpt-oss-120b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
+    fi
+
     chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
     BIN_DIR="$HOME/.local/bin"
