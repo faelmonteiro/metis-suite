@@ -217,7 +217,7 @@ chamar_ia() {
         return 1
       fi
 
-      local cur_m="$("$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" get_active "$PROVIDER" 2>/dev/null)"
+      local cur_m="$("$PYTHON_BIN" "${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}" get_active "$PROVIDER" 2>/dev/null)"
       run_with_spinner "Consultando $PROVIDER (${cur_m:-automático})..." "$PYTHON_BIN" "$API_SCRIPT" "$PROVIDER" "$prompt"
       code=$?
       resp="$SPINNER_RESULT"

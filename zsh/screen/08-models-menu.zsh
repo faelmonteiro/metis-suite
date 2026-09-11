@@ -4,7 +4,16 @@
 # Menus interativos FZF para gestão de modelos, provedores e persistência.
 # =============================================================================
 
-source ~/.ZSH/ai/models_menu.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/models_menu.zsh" 2>/dev/null || source ~/.ZSH/ai/models_menu.zsh 2>/dev/null || true
+
+_get_manage_models_script() {
+  local s="${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}"
+  if [[ -f "$s" ]]; then
+    print -r -- "$s"
+  else
+    print -r -- "$HOME/.ZSH/ai/manage_models.py"
+  fi
+}
 
 digitar_novo_modelo_para_provedor() {
   _ai_menu_digitar_novo_modelo "$@"
@@ -196,7 +205,7 @@ gerenciar_modelos() {
       "🔄 7."*)
         clear
         _print_header
-        "$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" sync
+        "$PYTHON_BIN" "$(_get_manage_models_script)" sync
         load_env_file "$HOME/Metis/.env"
         load_env_file "$HOME/.ZSH/ai/.env_local"
         printf '\n\033[36mPressione ENTER para continuar...\033[0m'
@@ -248,7 +257,7 @@ trocar_modelo_sessao() {
         ;;
       *)
         local py_b="${PYTHON_BIN:-python3}"
-        if "$py_b" "$HOME/.ZSH/ai/manage_models.py" get_active "$arg" >/dev/null 2>&1; then
+        if "$py_b" "$(_get_manage_models_script)" get_active "$arg" >/dev/null 2>&1; then
           PROVIDER="$arg"
           _save_active_provider "$arg"
         else
@@ -270,7 +279,7 @@ trocar_modelo_sessao() {
 
   while IFS= read -r line_item; do
     [[ -n "$line_item" ]] && api_menu_lines+=("$line_item")
-  done < <("${PYTHON_BIN:-python3}" "$HOME/.ZSH/ai/manage_models.py" api_menu 2>/dev/null)
+  done < <("${PYTHON_BIN:-python3}" "$(_get_manage_models_script)" api_menu 2>/dev/null)
 
   for line_item in "${api_menu_lines[@]}"; do
     local display_text="${line_item%%|*}"
@@ -444,7 +453,7 @@ _get_active_provider_info() {
     6) print -r -- "OpenRouter: ${OPENROUTER_MODEL:-liquid/lfm-2.5-2.6b:free}" ;;
     *)
       local py_b="${PYTHON_BIN:-python3}"
-      local cur_m="$("$py_b" "$HOME/.ZSH/ai/manage_models.py" get_active "$p" 2>/dev/null)"
+      local cur_m="$("$py_b" "$(_get_manage_models_script)" get_active "$p" 2>/dev/null)"
       if [[ -n "$cur_m" ]]; then
         print -r -- "$p: $cur_m"
       else

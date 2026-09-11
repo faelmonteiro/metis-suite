@@ -242,7 +242,7 @@ main() {
 
         while IFS= read -r line_item; do
           [[ -n "$line_item" ]] && api_menu_lines+=("$line_item")
-        done < <("$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" api_menu 2>/dev/null)
+        done < <("$PYTHON_BIN" "${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}" api_menu 2>/dev/null)
 
         for line_item in "${api_menu_lines[@]}"; do
           local display_text="${line_item%%|*}"
@@ -284,7 +284,7 @@ main() {
         if [[ "$modelo_fzf" == *"Sincronizar com Metis"* ]]; then
           clear
           _print_header
-          "$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" sync
+          "$PYTHON_BIN" "${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}" sync
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
           printf '\n\033[36mPressione ENTER para continuar...\033[0m'

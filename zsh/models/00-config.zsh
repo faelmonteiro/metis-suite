@@ -4,7 +4,7 @@
 # Inicialização, helpers básicos e validação de dependências do menu de modelos.
 # =============================================================================
 
-source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
 
 _ai_menu_resolve_provider() {
   local prov="$1"
@@ -113,10 +113,13 @@ _ai_menu_prepare() {
     return 1
   fi
 
-  AI_MENU_MANAGE_SCRIPT="$HOME/.ZSH/ai/manage_models.py"
+  AI_MENU_MANAGE_SCRIPT="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py"
+  if [[ ! -f "$AI_MENU_MANAGE_SCRIPT" ]]; then
+    AI_MENU_MANAGE_SCRIPT="$HOME/.ZSH/ai/manage_models.py"
+  fi
 
   if [[ ! -f "$AI_MENU_MANAGE_SCRIPT" ]]; then
-    printf '\033[31mErro: manage_models.py indisponível.\033[0m\n'
+    printf '\033[31mErro: manage_models.py indisponível em %s.\033[0m\n' "$AI_MENU_MANAGE_SCRIPT"
     sleep 1
     return 1
   fi

@@ -33,9 +33,27 @@ if [[ ! -s "$FILE" && -s "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; t
   FILE="/tmp/qwen_tela.txt"
 fi
 
-PYTHON_BIN="${PYTHON_BIN:-$HOME/Metis/.venv/bin/python}"
-G4F_SCRIPT="${G4F_SCRIPT:-$HOME/.ZSH/ai/g4f_ask.py}"
-API_SCRIPT="${API_SCRIPT:-$HOME/.ZSH/ai/api_ask.py}"
+ZSH_AI_DIR="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}"
+METIS_ROOT="${METIS_ROOT:-$HOME/.local/share/metis}"
+
+if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
+  if [[ -x "$METIS_ROOT/venv/bin/python" ]]; then
+    PYTHON_BIN="$METIS_ROOT/venv/bin/python"
+  elif [[ -x "$HOME/Metis/.venv/bin/python" ]]; then
+    PYTHON_BIN="$HOME/Metis/.venv/bin/python"
+  else
+    PYTHON_BIN="$(command -v python3)"
+  fi
+fi
+
+G4F_SCRIPT="${G4F_SCRIPT:-$ZSH_AI_DIR/g4f_ask.py}"
+[[ -f "$G4F_SCRIPT" ]] || G4F_SCRIPT="$HOME/.ZSH/ai/g4f_ask.py"
+
+API_SCRIPT="${API_SCRIPT:-$ZSH_AI_DIR/api_ask.py}"
+[[ -f "$API_SCRIPT" ]] || API_SCRIPT="$HOME/.ZSH/ai/api_ask.py"
+
+MANAGE_MODELS_SCRIPT="${MANAGE_MODELS_SCRIPT:-$ZSH_AI_DIR/manage_models.py}"
+[[ -f "$MANAGE_MODELS_SCRIPT" ]] || MANAGE_MODELS_SCRIPT="$HOME/.ZSH/ai/manage_models.py"
 
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 OLLAMA_URL="${OLLAMA_URL:-${AI_FIX_OLLAMA_URL:-http://localhost:11434/api/generate}}"
@@ -49,10 +67,10 @@ AI_ASSIST_TYPE_EFFECT="${AI_ASSIST_TYPE_EFFECT:-1}"
 
 AI_AUTO_MAX_STEPS="${AI_AUTO_MAX_STEPS:-${METIS_MAX_STEPS:-6}}"
 AI_AUTO_SLEEP="${AI_AUTO_SLEEP:-2}"
-AI_AUTO_LOG_DIR="${AI_AUTO_LOG_DIR:-$HOME/.ZSH/ai/logs}"
+AI_AUTO_LOG_DIR="${AI_AUTO_LOG_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/metis/logs}"
 AI_AUTO_ALLOW_MULTILINE="${AI_AUTO_ALLOW_MULTILINE:-0}"
 
-ACTIVE_PROVIDER_FILE="$HOME/.ZSH/ai/.last_provider"
+ACTIVE_PROVIDER_FILE="${ACTIVE_PROVIDER_FILE:-${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider}"
 
 ORIG_KITTY_ID="${ORIG_KITTY_ID:-$(cat /tmp/orig_kitty_id 2>/dev/null)}"
 KITTY_LISTEN_ON="${KITTY_LISTEN_ON:-$(cat /tmp/orig_kitty_listen 2>/dev/null)}"
@@ -223,7 +241,7 @@ _auto_log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$msg" >> "$logfile" 2>/dev/null || true
 }
 
-source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
 # Carregamento de Ambientes (.env)
@@ -234,6 +252,7 @@ load_env_file() {
   fi
 }
 
+load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 load_env_file "$HOME/Metis/.env"
 load_env_file "$HOME/.ZSH/ai/.env_local"
 

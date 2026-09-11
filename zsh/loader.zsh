@@ -4,8 +4,8 @@
 # =============================================================================
 
 # Diretório base do módulo ZSH
-ZSH_AI_DIR="${0:A:h}"
-METIS_ROOT="${ZSH_AI_DIR:h}"
+export ZSH_AI_DIR="${0:A:h}"
+export METIS_ROOT="${ZSH_AI_DIR:h}"
 
 # Adiciona o executável do venv e binários locais ao PATH se existirem
 if [[ -d "$METIS_ROOT/venv/bin" ]]; then
