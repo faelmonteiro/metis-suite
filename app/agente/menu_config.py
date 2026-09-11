@@ -117,20 +117,27 @@ def configurar_modelo_dinamico(provedor: str, env_var: Optional[str] = None, ser
         print(f"{CYAN}🤖 Modelos Salvos para {provedor}:{RESET}")
         print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
 
-        for i, m in enumerate(modelos, 1):
-            if m == modelo_atual:
-                print(f"  {GREEN}{BOLD}{i}. [*] {m} (Ativo){RESET}")
-            else:
-                print(f"  {i}. [ ] {m}")
+        if not modelos:
+            print(f"  {YELLOW}(Nenhum modelo cadastrado ainda){RESET}")
+        else:
+            for i, m in enumerate(modelos, 1):
+                if m == modelo_atual:
+                    print(f"  {GREEN}{BOLD}{i}. [*] {m} (Ativo){RESET}")
+                else:
+                    print(f"  {i}. [ ] {m}")
 
         print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
-        print(f"  {RED}[-] Remover modelo(s) da lista{RESET}")
+        if modelos:
+            print(f"  {RED}[-] Remover modelo(s) da lista{RESET}")
         print(f"{BOLD}══════════════════════════════════════════════════{RESET}")
-        print(f"{GRAY}• Pressione ENTER para manter o atual ({modelo_atual}).{RESET}")
-        print(f"{GRAY}• Digite o número (1-{len(modelos)}) para alternar.{RESET}")
-        print(f"{GRAY}• Ou digite o ID do novo modelo para adicionar e usar.{RESET}")
+        if modelo_atual:
+            print(f"{GRAY}• Pressione ENTER para manter o atual ({modelo_atual}).{RESET}")
+        if modelos:
+            print(f"{GRAY}• Digite o número (1-{len(modelos)}) para alternar.{RESET}")
+        print(f"{GRAY}• Digite o ID do modelo desejado para cadastrar e ativar.{RESET}")
 
-        escolha = safe_input(f"\n{BOLD}Opção (1-{len(modelos)}), [-] ou ID do modelo: {RESET}", multiline=False).strip()
+        prompt_str = f"\n{BOLD}Opção (1-{len(modelos)}), [-] ou ID do modelo: {RESET}" if modelos else f"\n{BOLD}Digite o ID do modelo para {provedor}: {RESET}"
+        escolha = safe_input(prompt_str, multiline=False).strip()
 
         # ENTER = Manter atual
         if not escolha:

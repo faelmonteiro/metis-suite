@@ -38,60 +38,15 @@ def get_config_file_path() -> Path:
 CONFIG_FILE = get_config_file_path()
 
 DEFAULT_MODELS: Dict[str, List[str]] = {
-    "Groq": [
-        "llama-3.3-70b-versatile",
-        "deepseek-r1-distill-llama-70b",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it"
-    ],
-    "Gemini": [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash-lite-preview-02-05"
-    ],
-    "NVIDIA": [
-        "meta/llama-3.1-70b-instruct",
-        "nvidia/llama-3.1-nemotron-70b-instruct",
-        "mistralai/mistral-large-2-instruct",
-        "meta/llama-3.3-70b-instruct",
-        "deepseek-ai/deepseek-r1"
-    ],
-    "G4F": [
-        "gpt-4o-mini",
-        "gpt-4o",
-        "deepseek-r1",
-        "claude-3.5-sonnet",
-        "llama-3.3-70b",
-        "blackboxai",
-        "gemini-2.0-flash",
-        "qwen-2.5-coder-32b"
-    ],
-    "OpenRouter": [
-        "liquid/lfm-2.5-2.6b:free",
-        "inclusionai/ling-3.0-flash-fin:free",
-        "minimax/minimax-m3:free",
-        "poolside/laguna-s-2.1:free"
-    ]
+    "Groq": [],
+    "Gemini": [],
+    "NVIDIA": [],
+    "G4F": [],
+    "OpenRouter": [],
+    "Ollama": []
 }
 
-DEFAULT_CUSTOM_SERVERS: List[dict] = [
-    {
-        "id": "openrouter",
-        "nome": "OpenRouter",
-        "base_url": "https://openrouter.ai/api/v1/chat/completions",
-        "api_key_env": "OPENROUTER_API_KEY",
-        "api_key": "",
-        "modelo_atual": "liquid/lfm-2.5-2.6b:free",
-        "modelos": [
-            "liquid/lfm-2.5-2.6b:free",
-            "inclusionai/ling-3.0-flash-fin:free",
-            "minimax/minimax-m3:free",
-            "poolside/laguna-s-2.1:free"
-        ]
-    }
-]
+DEFAULT_CUSTOM_SERVERS: List[dict] = []
 
 
 def carregar_dados() -> dict:

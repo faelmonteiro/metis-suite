@@ -40,40 +40,12 @@ GLOBAL_CONFIG_FILE = get_metis_config_path()
 ENV_LOCAL = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env"
 
 DEFAULT_MODELS = {
-    "Groq": [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
-    ],
-    "Gemini": [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash-lite-preview-02-05"
-    ],
-    "NVIDIA": [
-        "meta/llama-3.2-11b-vision-instruct",
-        "meta/llama-3.2-90b-vision-instruct"
-    ],
-    "OpenRouter": [
-        "liquid/lfm-2.5-2.6b:free",
-        "inclusionai/ling-3.0-flash-fin:free",
-        "minimax/minimax-m3:free",
-        "poolside/laguna-s-2.1:free"
-    ],
-    "G4F": [
-        "gpt-4o-mini",
-        "gpt-4o",
-        "deepseek-r1",
-        "llama-3.3-70b",
-        "qwen-2.5-coder-32b"
-    ],
-    "Ollama": [
-        "llama3.2-vision:11b",
-        "qwen3.5:9b",
-        "qwen3.5:4b",
-        "llama3.2:3b",
-        "qwen2.5-coder:7b"
-    ]
+    "Groq": [],
+    "Gemini": [],
+    "NVIDIA": [],
+    "OpenRouter": [],
+    "G4F": [],
+    "Ollama": []
 }
 
 PROVIDER_ENV_MAP = {
@@ -310,10 +282,10 @@ def get_active(provider: str) -> str:
 
 def list_api_providers_menu():
     lines = []
-    gem_m = get_active("Gemini") or "gemini-2.0-flash"
-    groq_m = get_active("Groq") or "llama-3.3-70b-versatile"
-    nvd_m = get_active("NVIDIA") or "meta/llama-3.2-11b-vision-instruct"
-    openrouter_m = get_active("OpenRouter") or "minimax/minimax-m3:free"
+    gem_m = get_active("Gemini") or "não configurado"
+    groq_m = get_active("Groq") or "não configurado"
+    nvd_m = get_active("NVIDIA") or "não configurado"
+    openrouter_m = get_active("OpenRouter") or "não configurado"
 
     lines.append(f"✨ 1. Gemini ({gem_m})|Gemini|{gem_m}")
     lines.append(f"🚀 2. Groq ({groq_m})|Groq|{groq_m}")

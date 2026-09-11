@@ -1,44 +1,15 @@
 {
   "schema_version": 1,
   "builtin_models": {
-    "NVIDIA": [
-      "meta/llama-3.2-11b-vision-instruct",
-      "meta/llama-3.2-90b-vision-instruct",
-      "deepseek-ai/deepseek-r1",
-      "meta/llama-3.1-70b-instruct"
-    ],
-    "Gemini": [
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-2.0-flash-lite-preview-02-05"
-    ],
-    "OpenRouter": [
-      "liquid/lfm-2.5-2.6b:free",
-      "inclusionai/ling-3.0-flash-fin:free",
-      "minimax/minimax-m3:free",
-      "poolside/laguna-s-2.1:free"
-    ],
-    "Ollama": [
-      "llama3.2-vision:11b",
-      "qwen3.5:9b",
-      "qwen3.5:4b",
-      "llama3.2:3b",
-      "qwen2.5-coder:7b"
-    ],
-    "Groq": [
-      "llama-3.3-70b-versatile"
-    ],
-    "G4F": [
-      "gpt-4o-mini",
-      "gpt-4o",
-      "deepseek-r1",
-      "llama-3.3-70b",
-      "qwen-2.5-coder-32b"
-    ]
+    "NVIDIA": [],
+    "Gemini": [],
+    "OpenRouter": [],
+    "Ollama": [],
+    "Groq": [],
+    "G4F": []
   },
-  "active_provider": "gemini",
-  "active_model": "gemini-2.0-flash",
+  "active_provider": "",
+  "active_model": "",
   "user_settings": {
     "is_sidebar_collapsed": true
   }
