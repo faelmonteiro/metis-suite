@@ -388,7 +388,7 @@ def normalizar_prompt_enviado(texto: str) -> str:
 
 def configurar_api_key(chave_nome: str) -> bool:
     from agente.colors import YELLOW, RESET, BOLD, GREEN
-    from agente.providers_manager import salvar_variavel_env
+    from agente.providers_manager import sincronizar_config
 
     print(f"\n{YELLOW}A chave {chave_nome} não está configurada ou é inválida.{RESET}")
     nova_chave = input(f"{BOLD}Cole sua {chave_nome} (ou Enter para cancelar): {RESET}").strip()
@@ -397,16 +397,8 @@ def configurar_api_key(chave_nome: str) -> bool:
         print("Operação cancelada.")
         return False
 
-    salvar_variavel_env(chave_nome, nova_chave)
-
-    env_path = config.PROJECT_ROOT / ".env"
-    try:
-        os.chmod(env_path, 0o600)
-    except Exception:
-        pass
-
-    setattr(config, chave_nome, nova_chave)
-    print(f"{GREEN}Chave salva com sucesso no arquivo .env!{RESET}")
+    sincronizar_config(chave_nome, nova_chave)
+    print(f"{GREEN}Chave salva com sucesso no arquivo .env e sincronizada em memória!{RESET}")
     return True
 
 

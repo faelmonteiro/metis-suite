@@ -7,6 +7,12 @@ from agente import config
 from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET
 from agente.utils import caminho_leitura_seguro
 
+try:
+    from agente.providers_manager import obter_preferencia
+    AUTO_APPROVE_MODE = bool(obter_preferencia("auto_approve_mode", False))
+except Exception:
+    AUTO_APPROVE_MODE = False
+
 def _resolver_caminho_amigavel(caminho_str: str) -> str:
     """
     Resolve dinamicamente qualquer caminho relativo, absoluto ou nome de pasta/arquivo

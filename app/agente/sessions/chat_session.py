@@ -120,6 +120,7 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
     erro = False
     tempo_inicio = time.time()
 
+    tamanho_inicial = len(mensagens)
     try:
         print(f"\033[K{BOLD}Assistente:{RESET}")
         resposta_completa = imprimir_stream_colorido(service.gerar_resposta_stream(mensagens))
@@ -158,6 +159,12 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
         desbloquear_teclado()
         tempo_fim = time.time()
         duracao = tempo_fim - tempo_inicio
+
+    # Persiste no histórico todas as chamadas de ferramentas geradas no processo
+    if len(mensagens) > tamanho_inicial:
+        for extra_msg in mensagens[tamanho_inicial:]:
+            if isinstance(extra_msg, dict) and extra_msg.get("role") in {"functionCall", "functionResponse", "tool"}:
+                hm.adicionar_raw(extra_msg)
 
     if resposta_completa.strip():
         print(f"\n\x1b[38;5;240m[⏱️ {duracao:.2f}s]\x1b[0m")

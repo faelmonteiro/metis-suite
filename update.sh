@@ -18,18 +18,28 @@ INSTALL_DIR="$HOME/.local/share/metis"
 if [ -d "$SCRIPT_DIR/.git" ]; then
     echo "📡 Baixando atualizações do Git..."
     cd "$SCRIPT_DIR"
-    git pull --quiet
+    git pull --quiet 2>/dev/null || true
 fi
 
 # Atualiza os arquivos instalados
 if [ -d "$INSTALL_DIR" ]; then
     echo "📂 Atualizando arquivos em $INSTALL_DIR..."
+    BACKUP_TMP="$(mktemp -d)"
+    [ -f "$INSTALL_DIR/app/.env" ] && cp "$INSTALL_DIR/app/.env" "$BACKUP_TMP/.env"
+    [ -f "$INSTALL_DIR/app/config_models.json" ] && cp "$INSTALL_DIR/app/config_models.json" "$BACKUP_TMP/config_models.json"
+
     cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/zsh" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/assets" "$INSTALL_DIR/"
     cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
     
+    [ -f "$BACKUP_TMP/.env" ] && cp "$BACKUP_TMP/.env" "$INSTALL_DIR/app/.env"
+    [ -f "$BACKUP_TMP/config_models.json" ] && cp "$BACKUP_TMP/config_models.json" "$INSTALL_DIR/app/config_models.json"
+    rm -rf "$BACKUP_TMP"
+
+    chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" 2>/dev/null || true
+
     BIN_DIR="$HOME/.local/bin"
     APPS_DIR="$HOME/.local/share/applications"
     ICONS_DIR="$HOME/.local/share/icons/hicolor"

@@ -10,7 +10,20 @@ while [ -L "$SCRIPT_PATH" ]; do
     [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$DIR/$SCRIPT_PATH"
 done
 DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
-VENV_PYTHON="$DIR/.venv/bin/python"
+
+if [ -f "$DIR/.venv/bin/python" ]; then
+    VENV_PYTHON="$DIR/.venv/bin/python"
+elif [ -n "$METIS_INSTALL_DIR" ] && [ -f "$METIS_INSTALL_DIR/venv/bin/python" ]; then
+    VENV_PYTHON="$METIS_INSTALL_DIR/venv/bin/python"
+elif [ -f "$HOME/.local/share/metis/venv/bin/python" ]; then
+    VENV_PYTHON="$HOME/.local/share/metis/venv/bin/python"
+elif [ -f "$DIR/../../venv/bin/python" ]; then
+    VENV_PYTHON="$DIR/../../venv/bin/python"
+elif [ -f "$DIR/../venv/bin/python" ]; then
+    VENV_PYTHON="$DIR/../venv/bin/python"
+else
+    VENV_PYTHON="$DIR/.venv/bin/python"
+fi
 
 if [ ! -f "$VENV_PYTHON" ]; then
     echo "Ambiente virtual não encontrado. Criando e instalando dependências..."

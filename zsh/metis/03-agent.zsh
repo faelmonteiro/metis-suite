@@ -11,25 +11,59 @@ metis() {
     printf '\033[33m⚠️  Aviso: Metis está rodando como root. Tenha cuidado.\033[0m\n'
   fi
 
-  local input="$*"
   local num_lines=30
-  local query=""
-  local screen_ctx=""
+  local has_line_flag=0
+  local max_steps="${METIS_MAX_STEPS:-5}"
+  local -a query_words=()
 
-  # Suporte a flags de quantidade de linhas: -50, -100, -n 50, -n50 etc.
-  if [[ "$input" =~ ^-([0-9]+)([[:space:]]+(.*)|$) ]]; then
-    num_lines="${match[1]}"
-    query="${match[3]}"
-  elif [[ "$input" =~ ^-[nN][[:space:]]*([0-9]+)([[:space:]]+(.*)|$) ]]; then
-    num_lines="${match[1]}"
-    query="${match[3]}"
-  else
-    query="$input"
-  fi
+  # Suporte a flags: -p/--passos <n>, -p<n>, -n/--lines <n>, -n<n>, -<n> (ex: -50)
+  while (( $# > 0 )); do
+    case "$1" in
+      -p|--passos|--steps)
+        shift
+        if [[ "$1" == <-> ]]; then
+          max_steps="$1"
+          shift
+        fi
+        ;;
+      -p<->)
+        max_steps="${1#-p}"
+        shift
+        ;;
+      -n|--lines)
+        shift
+        if [[ "$1" == <-> ]]; then
+          num_lines="$1"
+          has_line_flag=1
+          shift
+        fi
+        ;;
+      -n<->)
+        num_lines="${1#-n}"
+        has_line_flag=1
+        shift
+        ;;
+      -<->)
+        num_lines="${1#-}"
+        has_line_flag=1
+        shift
+        ;;
+      *)
+        query_words+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  local query="${(j: :)query_words}"
+  local screen_ctx=""
 
   [[ "$num_lines" == <-> ]] || num_lines=30
   (( num_lines < 1 )) && num_lines=30
   (( num_lines > 500 )) && num_lines=500
+
+  [[ "$max_steps" == <-> ]] || max_steps=5
+  (( max_steps < 1 )) && max_steps=1
 
   query="$(print -r -- "$query" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
@@ -49,7 +83,7 @@ $screen_ctx"
     fi
   else
     # Se informou query com flag de linhas, anexa contexto da tela.
-    if [[ "$input" =~ ^-[0-9]+ || "$input" =~ ^-[nN] ]]; then
+    if (( has_line_flag )); then
       screen_ctx="$(_metis_capture_screen "$num_lines")"
 
       if [[ -n "$screen_ctx" ]]; then
@@ -65,7 +99,7 @@ $screen_ctx"
   local icon="$(_ai_get_metis_icon)"
   local active_label="${AI_ACTIVE_LABEL:-IA ativa}"
 
-  printf '\n%s\033[1;38;2;240;195;115m[Metis]: \033[0m\033[90mIniciando copiloto (%d linhas) via %s...\033[0m\n' "$icon" "$num_lines" "$active_label"
+  printf '\n%s\033[1;38;2;240;195;115m[Metis]: \033[0m\033[90mIniciando copiloto (%d linhas, até %d passos) via %s...\033[0m\n' "$icon" "$num_lines" "$max_steps" "$active_label"
 
   local system_prompt="Você é a Metis, uma Copiloto Autônoma Linux de alta precisão.
 
@@ -97,7 +131,6 @@ comando_para_executar
 ✔ Resolvido: <resumo de uma linha do que foi verificado ou corrigido>"
 
   local current_context="[Instrução do Agente]: $system_prompt"
-  local max_steps="${METIS_MAX_STEPS:-5}"
   local step=1
   local resp=""
   local metis_timeout="${METIS_TIMEOUT:-120}"

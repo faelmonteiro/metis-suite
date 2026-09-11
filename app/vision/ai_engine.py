@@ -161,6 +161,26 @@ class VisionAIEngine:
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
                 return
+        elif prov == "g4f":
+            try:
+                from g4f.client import Client
+                client = Client()
+                g4f_messages = [{"role": "system", "content": sys_prompt}]
+                for m in messages:
+                    g4f_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
+                response = client.chat.completions.create(
+                    model=self.model or "gpt-4o-mini",
+                    messages=g4f_messages,
+                    stream=True
+                )
+                for chunk in response:
+                    content = getattr(chunk.choices[0].delta, "content", None) or ""
+                    if content:
+                        yield content
+                return
+            except Exception as e:
+                yield f"⚠️ Erro no G4F Multi-turn: {str(e)}"
+                return
         else:
             # Resolução dinâmica de Servidores Customizados cadastrados no Metis
             import model_manager
@@ -245,6 +265,26 @@ class VisionAIEngine:
             )
         elif prov == "ollama":
             yield from self._stream_ollama(b64_image, prompt, sys_prompt)
+        elif prov == "g4f":
+            try:
+                from g4f.client import Client
+                client = Client()
+                messages = [
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": prompt}
+                ]
+                response = client.chat.completions.create(
+                    model=self.model or "gpt-4o",
+                    messages=messages,
+                    image=image_bytes,
+                    stream=True
+                )
+                for chunk in response:
+                    content = chunk.choices[0].delta.content or ""
+                    if content:
+                        yield content
+            except Exception as e:
+                yield f"⚠️ Erro no G4F Vision: {str(e)}"
         else:
             # Verifica servidores customizados
             import model_manager
@@ -367,6 +407,25 @@ class VisionAIEngine:
                                     pass
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
+        elif prov == "g4f":
+            try:
+                from g4f.client import Client
+                client = Client()
+                messages = [
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": full_user_prompt}
+                ]
+                response = client.chat.completions.create(
+                    model=self.model or "gpt-4o",
+                    messages=messages,
+                    stream=True
+                )
+                for chunk in response:
+                    content = chunk.choices[0].delta.content or ""
+                    if content:
+                        yield content
+            except Exception as e:
+                yield f"⚠️ Erro no G4F: {str(e)}"
         else:
             # Verifica servidores customizados
             import model_manager

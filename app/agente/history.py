@@ -22,6 +22,7 @@ class HistoryManager:
         self.dir_path.mkdir(parents=True, exist_ok=True)
         self.file_path = self.dir_path / f"{self.sessao}.json"
         self.historico = []
+        self.saved_provider = ""
         self.saved_model = ""
         self.carregar()
 
@@ -35,12 +36,15 @@ class HistoryManager:
 
             if isinstance(dados, list):
                 self.historico = dados
+                self.saved_provider = ""
                 self.saved_model = ""
             elif isinstance(dados, dict):
-                self.saved_model = str(dados.get("OLLAMA_MODEL", "")).strip()
+                self.saved_provider = str(dados.get("provider", "")).strip().lower()
+                self.saved_model = str(dados.get("model", dados.get("OLLAMA_MODEL", ""))).strip()
                 self.historico = dados.get("historico", [])
             else:
                 self.historico = []
+                self.saved_provider = ""
                 self.saved_model = ""
 
             self._validar_consistencia()
@@ -59,8 +63,31 @@ class HistoryManager:
 
     def salvar(self):
         try:
+            prov = (self.saved_provider or getattr(config, "DEFAULT_PROVIDER", "") or "ollama").lower()
+            modelo_atual = self.saved_model or ""
+            if not modelo_atual:
+                if prov == "ollama":
+                    modelo_atual = getattr(config, "OLLAMA_MODEL", "")
+                elif prov == "gemini":
+                    modelo_atual = getattr(config, "GEMINI_MODEL", "")
+                elif prov == "groq":
+                    modelo_atual = getattr(config, "GROQ_MODEL", "")
+                elif prov == "nvidia":
+                    modelo_atual = getattr(config, "NVIDIA_MODEL", "")
+                elif prov == "g4f":
+                    modelo_atual = getattr(config, "G4F_MODEL", "")
+                elif prov.startswith("custom:"):
+                    try:
+                        from agente.providers_manager import obter_servidor_customizado
+                        srv = obter_servidor_customizado(prov.split("custom:", 1)[1])
+                        modelo_atual = srv.get("modelo_atual", "") if srv else ""
+                    except Exception:
+                        modelo_atual = ""
+
             dados = {
                 "OLLAMA_MODEL": config.OLLAMA_MODEL,
+                "provider": prov,
+                "model": modelo_atual or config.OLLAMA_MODEL,
                 "historico": self.historico
             }
 
@@ -80,6 +107,12 @@ class HistoryManager:
 
         except Exception as e:
             logger.exception("Falha ao salvar histórico")
+
+    def adicionar_raw(self, msg: dict):
+        """Adiciona uma mensagem estruturada (ex: functionCall, functionResponse) ao histórico."""
+        if isinstance(msg, dict) and msg.get("role"):
+            self.historico.append(dict(msg))
+            self.salvar()
 
     def adicionar_mensagem(self, role: str, content: str, media_paths: list = None):
         if role == "assistant" and not str(content or "").strip():

@@ -20,7 +20,8 @@ from agente.providers_manager import (
     salvar_servidor_customizado,
     remover_servidor_customizado,
     atualizar_modelo_ativo_servidor,
-    salvar_variavel_env
+    salvar_variavel_env,
+    salvar_preferencia
 )
 
 
@@ -39,10 +40,14 @@ def limpar_tela():
 
 
 def _salvar_modelo_ativo(provedor: str, modelo: str, env_var: Optional[str] = None, server_id: Optional[str] = None):
-    """Atualiza o modelo ativo tanto no .env/config quanto no arquivo de dados."""
+    """Atualiza o modelo ativo tanto no .env/config quanto no arquivo de dados e preferências."""
     if env_var:
         salvar_variavel_env(env_var, modelo)
         setattr(config, env_var, modelo)
+    prov_id = f"custom:{server_id}" if server_id else provedor.lower()
+    salvar_variavel_env("DEFAULT_PROVIDER", prov_id)
+    salvar_preferencia("last_active_provider", prov_id)
+    salvar_preferencia("last_active_model", modelo)
     if server_id:
         atualizar_modelo_ativo_servidor(server_id, modelo)
     adicionar_modelo_provedor(provedor, modelo, server_id=server_id)

@@ -289,15 +289,19 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
+        import uuid
         from agente.services.tool_executor import executar_tool
         ultimo_resultado = ""
         for fc in function_calls_detected:
             name = fc["name"]
             args = fc.get("args", {})
+            call_id = fc.get("id") or f"call_ollama_{iteration}_{uuid.uuid4().hex[:8]}"
+            fc_dict = dict(fc)
+            fc_dict["id"] = call_id
             
             mensagens.append({
                 "role": "functionCall",
-                "functionCall": fc
+                "functionCall": fc_dict
             })
             
             result = executar_tool(name, args)
@@ -305,6 +309,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                 
             mensagens.append({
                 "role": "functionResponse",
+                "id": call_id,
                 "name": name,
                 "content": result
             })

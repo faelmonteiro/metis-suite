@@ -16,6 +16,8 @@ def _env(key: str, default: str = "") -> str:
 # Carrega variáveis de ambientes conhecidos se existirem
 # Nota: .env_local usa override=True para sobrescrever valores dos .env genéricos
 _env_paths = [
+    Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env",
+    Path(__file__).resolve().parent.parent / ".env",
     Path(__file__).parent / ".env",
     Path.home() / "Metis" / ".env",
     Path.home() / ".config" / "screenai" / ".env",

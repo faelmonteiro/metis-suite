@@ -387,7 +387,7 @@ exibir_ajuda() {
   printf "${c}╰%s╯${r}\n\n" "$sep"
 
   printf "${m}🤖 AUTOMAÇÃO & DIAGNÓSTICO${r}\n"
-  printf "  ${g}%-18s${r} ${dim}│${r} %s\n" "/auto [objetivo]" "Diagnostica e resolve erros sozinho no terminal"
+  printf "  ${g}%-18s${r} ${dim}│${r} %s\n" "/auto [-p N] [obj]" "Resolve erros no terminal (-p passos, ex: /auto -p 10)"
   printf "  ${g}%-18s${r} ${dim}│${r} %s\n\n" "/s [-n] [msg]" "Sincroniza a tela atualizada (-n linhas) e envia à IA"
 
   printf "${b}💻 GESTÃO DE COMANDOS${r}\n"

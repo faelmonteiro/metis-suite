@@ -26,6 +26,7 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
     import mimetypes
 
     formatted_messages = []
+    last_call_id = None
     
     for m in mensagens:
         role_raw = m.get("role", "")
@@ -35,10 +36,14 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
             continue
 
         if role_raw == "functionCall":
+            import uuid
             args_data = m["functionCall"].get("args", {})
             args_str = json.dumps(args_data) if isinstance(args_data, dict) else str(args_data)
+            call_id = m["functionCall"].get("id") or f"call_{len(formatted_messages)}_{uuid.uuid4().hex[:8]}"
+            m["functionCall"]["id"] = call_id
+            last_call_id = call_id
             tc_obj = {
-                "id": m["functionCall"].get("id", "call_123"),
+                "id": call_id,
                 "type": "function",
                 "function": {
                     "name": m["functionCall"]["name"],
@@ -56,9 +61,11 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
             continue
             
         if role_raw == "functionResponse":
+            import uuid
+            call_id = m.get("id") or last_call_id or f"call_{len(formatted_messages)}_{uuid.uuid4().hex[:8]}"
             formatted_messages.append({
                 "role": "tool",
-                "tool_call_id": m.get("id", "call_123"),
+                "tool_call_id": call_id,
                 "name": m["name"],
                 "content": str(m["content"])
             })

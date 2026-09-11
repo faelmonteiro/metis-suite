@@ -45,6 +45,7 @@ from agente.providers_manager import (
     remover_servidor_customizado,
     atualizar_modelo_ativo_servidor,
     salvar_variavel_env,
+    sincronizar_config,
     obter_preferencia,
     salvar_preferencia
 )
@@ -190,6 +191,7 @@ class AIWorker(QThread):
 
             mensagens.append(user_msg_dict)
 
+            tamanho_inicial = len(mensagens)
             full_response = ""
             for chunk in self.service.gerar_resposta_stream(mensagens):
                 if self._is_cancelled:
@@ -213,11 +215,19 @@ class AIWorker(QThread):
                     self.chunk_received.emit(full_response)
 
                 self.hm.adicionar_mensagem("user", self.pergunta, media_paths=self.media_paths if self.media_paths else None)
+                if len(mensagens) > tamanho_inicial:
+                    for extra_msg in mensagens[tamanho_inicial:]:
+                        if isinstance(extra_msg, dict) and extra_msg.get("role") in {"functionCall", "functionResponse", "tool"}:
+                            self.hm.adicionar_raw(extra_msg)
                 self.hm.adicionar_mensagem("assistant", full_response)
                 self.finished_response.emit(full_response)
             else:
                 if full_response.strip():
                     self.hm.adicionar_mensagem("user", self.pergunta)
+                    if len(mensagens) > tamanho_inicial:
+                        for extra_msg in mensagens[tamanho_inicial:]:
+                            if isinstance(extra_msg, dict) and extra_msg.get("role") in {"functionCall", "functionResponse", "tool"}:
+                                self.hm.adicionar_raw(extra_msg)
                     self.hm.adicionar_mensagem("assistant", full_response)
                 self.finished_response.emit(full_response)
 
@@ -582,29 +592,17 @@ class ModernApisDialog(QDialog):
         cmd_val = "1" if self.chk_enable_cmd.isChecked() else "0"
         fetch_val = "1" if self.chk_fetch_page.isChecked() else "0"
 
-        # Salva no .env
-        salvar_variavel_env("GEMINI_API_KEY", gemini_val)
-        salvar_variavel_env("GROQ_API_KEY", groq_val)
-        salvar_variavel_env("NVIDIA_API_KEY", nvidia_val)
-        salvar_variavel_env("OPENROUTER_API_KEY", openrouter_val)
+        # Sincroniza em disco (.env), os.environ e memória (config)
+        sincronizar_config("GEMINI_API_KEY", gemini_val)
+        sincronizar_config("GROQ_API_KEY", groq_val)
+        sincronizar_config("NVIDIA_API_KEY", nvidia_val)
+        sincronizar_config("OPENROUTER_API_KEY", openrouter_val)
         if ollama_val:
-            salvar_variavel_env("OLLAMA_HOST", ollama_val)
+            sincronizar_config("OLLAMA_HOST", ollama_val)
         if searx_val:
-            salvar_variavel_env("SEARXNG_URL", searx_val)
-        salvar_variavel_env("ENABLE_COMMAND_TOOL", cmd_val)
-        salvar_variavel_env("FETCH_PAGE_CONTENT", fetch_val)
-
-        # Atualiza em memória no módulo config / os.environ
-        config.GEMINI_API_KEY = gemini_val
-        config.GROQ_API_KEY = groq_val
-        config.NVIDIA_API_KEY = nvidia_val
-        os.environ["OPENROUTER_API_KEY"] = openrouter_val
-        if ollama_val:
-            config.OLLAMA_HOST = ollama_val
-        if searx_val:
-            config.SEARXNG_URL = searx_val
-        config.ENABLE_COMMAND_TOOL = (cmd_val == "1")
-        config.FETCH_PAGE_CONTENT = (fetch_val == "1")
+            sincronizar_config("SEARXNG_URL", searx_val)
+        sincronizar_config("ENABLE_COMMAND_TOOL", cmd_val)
+        sincronizar_config("FETCH_PAGE_CONTENT", fetch_val)
 
         self.keys_saved.emit()
         self.accept()
@@ -1082,18 +1080,8 @@ class ModernRemoveModelDialog(QDialog):
         if not self.env_name:
             return
         new_val = self.inp_api_key.text().strip()
-        salvar_variavel_env(self.env_name, new_val)
-        os.environ[self.env_name] = new_val
+        sincronizar_config(self.env_name, new_val)
         self.current_key = new_val
-
-        if self.env_name == "GEMINI_API_KEY":
-            config.GEMINI_API_KEY = new_val
-        elif self.env_name == "GROQ_API_KEY":
-            config.GROQ_API_KEY = new_val
-        elif self.env_name == "NVIDIA_API_KEY":
-            config.NVIDIA_API_KEY = new_val
-        elif self.env_name == "OLLAMA_HOST":
-            config.OLLAMA_HOST = new_val
 
         if self.server_id:
             srv = obter_servidor_customizado(self.server_id)

@@ -28,18 +28,58 @@ extrair_linhas_e_query() {
   local input="$1"
   local default_lines="$2"
   local parsed_lines="$default_lines"
-  local clean_msg="$input"
+  local parsed_steps=""
+  local -a words=()
+  local -a remaining_words=()
 
-  input="${input#"${input%%[![:space:]]*}"}"
+  words=(${=input})
 
-  if [[ "$input" =~ ^-([0-9]+)([[:space:]]+(.*)|$) ]]; then
-    parsed_lines="${match[1]}"
-    clean_msg="${match[3]}"
-  elif [[ "$input" =~ ^-[nN][[:space:]]*([0-9]+)([[:space:]]+(.*)|$) ]]; then
-    parsed_lines="${match[1]}"
-    clean_msg="${match[3]}"
-  fi
+  while (( $#words > 0 )); do
+    case "$words[1]" in
+      -p|--passos|--steps)
+        shift words
+        if [[ "$words[1]" == <-> ]]; then
+          parsed_steps="$words[1]"
+          shift words
+        fi
+        ;;
+      -p<->)
+        parsed_steps="${words[1]#-p}"
+        shift words
+        ;;
+      -n|--lines)
+        shift words
+        if [[ "$words[1]" == <-> ]]; then
+          parsed_lines="$words[1]"
+          shift words
+        fi
+        ;;
+      -n<->)
+        parsed_lines="${words[1]#-n}"
+        shift words
+        ;;
+      /s|/sync)
+        shift words
+        if [[ "$words[1]" == -<-> ]]; then
+          parsed_lines="${words[1]#-}"
+          shift words
+        elif [[ "$words[1]" == <-> ]]; then
+          parsed_lines="$words[1]"
+          shift words
+        fi
+        ;;
+      -<->)
+        parsed_lines="${words[1]#-}"
+        shift words
+        ;;
+      *)
+        remaining_words+=("$words[1]")
+        shift words
+        ;;
+    esac
+  done
 
+  local clean_msg="${(j: :)remaining_words}"
   clean_msg="$(_trim "$clean_msg")"
 
   if [[ -n "$parsed_lines" && "$parsed_lines" -lt 1 ]]; then
@@ -47,6 +87,7 @@ extrair_linhas_e_query() {
   fi
 
   PARSED_LINES="$parsed_lines"
+  PARSED_STEPS="$parsed_steps"
   PARSED_QUERY="$clean_msg"
 }
 

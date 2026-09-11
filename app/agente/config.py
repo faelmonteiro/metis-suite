@@ -11,11 +11,16 @@ except Exception:
     load_dotenv = None
 
 if load_dotenv is not None:
-    env_path = PROJECT_ROOT / ".env"
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path, override=True)
-    else:
-        load_dotenv(override=True)
+    candidate_envs = [
+        PROJECT_ROOT / ".env",
+        Path.home() / "Metis" / ".env",
+        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env",
+        Path.home() / ".ZSH" / "ai" / ".env_local",
+    ]
+    for _env_p in candidate_envs:
+        if _env_p.exists():
+            load_dotenv(dotenv_path=_env_p, override=True)
+    load_dotenv(override=False)
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:

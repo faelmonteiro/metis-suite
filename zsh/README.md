@@ -9,8 +9,8 @@ Motor central e ferramentas integradas de IA para o terminal ZSH, compatível co
 | Atalho / Comando | Arquivo | Descrição |
 | :--- | :--- | :--- |
 | **`Ctrl + G`** | [`fix.zsh`](fix.zsh) | Menu interativo FZF: Comando Direto, Me Ensinar (chat didático, salvar notas `/nota`) e Gerenciador de Modelos. |
-| **`metis`** | [`metis.zsh`](metis.zsh) | Copiloto autônomo para diagnóstico e resolução de erros do terminal com chamadas de ferramenta `<tool_call>`. |
-| **`explain_screen`** | [`explain_screen.zsh`](explain_screen.zsh) | Assistente com captura de tela do Kitty, chat contínuo e modo `/auto`. |
+| **`metis [-p N] [-n L]`** | [`metis.zsh`](metis.zsh) | Copiloto autônomo para diagnóstico e resolução de erros com chamadas `<tool_call>` (ex: `metis -p 10` para 10 passos). |
+| **`explain` / `explain_screen [-p N]`** | [`explain_screen.zsh`](explain_screen.zsh) | Assistente com captura de tela do Kitty, chat contínuo e modo `/auto` (suporta flag `-p`). |
 | **`ia <prompt>`** | [`ia.zsh`](ia.zsh) | Consulta direta ou via pipe (ex: `cat log.txt \| ia 'o que quebrou?'`) com caixas coloridas. |
 | **`aiman <cmd>`** | [`aiman.zsh`](aiman.zsh) | Manpage interativa expressa com exemplos práticos. |
 | **`Ctrl + X Ctrl + P`** | [`autocomplete.zsh`](autocomplete.zsh) | Sugestão e autocompletar inline no prompt ZLE. |

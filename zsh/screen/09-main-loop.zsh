@@ -7,6 +7,51 @@
 main() {
   command -v fzf >/dev/null 2>&1 || _die "fzf não encontrado."
 
+  # Suporte a flags na chamada do assistente: -p/--passos <n>, -p<n>, -n/--lines <n>, -<n>
+  local cli_steps=""
+  local cli_lines=""
+
+  while (( $# > 0 )); do
+    case "$1" in
+      -p|--passos|--steps)
+        shift
+        if [[ "$1" == <-> ]]; then
+          cli_steps="$1"
+          shift
+        fi
+        ;;
+      -p<->)
+        cli_steps="${1#-p}"
+        shift
+        ;;
+      -n|--lines)
+        shift
+        if [[ "$1" == <-> ]]; then
+          cli_lines="$1"
+          shift
+        fi
+        ;;
+      -n<->)
+        cli_lines="${1#-n}"
+        shift
+        ;;
+      -<->)
+        cli_lines="${1#-}"
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -n "$cli_steps" ]]; then
+    AI_AUTO_MAX_STEPS="$cli_steps"
+  fi
+  if [[ -n "$cli_lines" ]]; then
+    DEFAULT_SCREEN_LINES="$cli_lines"
+  fi
+
   setup_zle
 
   local busca_principal="" out_principal="" rc=0 menu_principal="" final_query=""

@@ -81,7 +81,8 @@ def process_tool_calls_map(
         except Exception:
             args = {}
 
-        call_id = tc_data.get("id") or f"call_{tc_idx}_{iteration}"
+        import uuid
+        call_id = tc_data.get("id") or f"call_{tc_idx}_{iteration}_{uuid.uuid4().hex[:8]}"
         func_call = {
             "id": call_id,
             "name": name,

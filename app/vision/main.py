@@ -102,6 +102,14 @@ def run_headless(args):
     full_text = "".join(chunks)
     if args.notify and shutil.which("notify-send"):
         icon_path = Path(__file__).parent / "assets" / "icon_128x128.png"
+        if not icon_path.exists():
+            for fallback in [
+                Path(__file__).parent.parent / "assets" / "icons" / "icon_128x128.png",
+                Path(__file__).parent.parent.parent / "assets" / "icons" / "icon_128x128.png",
+            ]:
+                if fallback.exists():
+                    icon_path = fallback
+                    break
         icon_arg = ["-i", str(icon_path)] if icon_path.exists() else []
         subprocess.run(["notify-send", *icon_arg, "✨ Metis Vision", full_text[:400] + "..."])
 

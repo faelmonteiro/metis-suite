@@ -7,7 +7,7 @@
 consultar_agente() {
   local current_context="$1"
   local step=0
-  local max_steps=4
+  local max_steps="${PARSED_STEPS:-${AI_AGENT_MAX_STEPS:-${AI_AUTO_MAX_STEPS:-6}}}"
   local final_response=""
 
   local t_start=${EPOCHREALTIME:-$(date +%s 2>/dev/null)}
@@ -70,7 +70,7 @@ resolver_automatico_no_terminal() {
   local auto_lines="$PARSED_LINES"
   local extra_goal="$PARSED_QUERY"
 
-  local max_steps="${AI_AUTO_MAX_STEPS:-6}"
+  local max_steps="${PARSED_STEPS:-${AI_AUTO_MAX_STEPS:-6}}"
   local step=1
   local nova_tela=""
   local resp=""
@@ -78,7 +78,7 @@ resolver_automatico_no_terminal() {
   typeset -g AUTO_CANCEL=0
   trap 'AUTO_CANCEL=1' INT
 
-  printf '\n\033[1;35m🚀 [Modo Auto-Resolução (%d linhas)]: Assumindo controle do terminal original...\033[0m\n' "$auto_lines"
+  printf '\n\033[1;35m🚀 [Modo Auto-Resolução (%d linhas, até %d passos)]: Assumindo controle do terminal original...\033[0m\n' "$auto_lines" "$max_steps"
   printf '\033[90mOs comandos serão executados diretamente no seu terminal de trabalho.\033[0m\n'
   printf '%s\n' "─────────────────────────────────────────"
 
