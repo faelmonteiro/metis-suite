@@ -18,7 +18,7 @@ ia() {
   local query="$*"
   local piped_data=""
 
-  if [[ ! -t 0 ]]; then
+  if [[ ! -t 0 ]] && read -t 0; then
     local pipe_limit="${AI_MAX_PIPE_BYTES:-100000}"
     [[ "$pipe_limit" =~ ^[0-9]+$ ]] || pipe_limit=100000
 
