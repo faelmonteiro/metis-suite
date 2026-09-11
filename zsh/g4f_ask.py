@@ -81,22 +81,48 @@ def main():
     try:
         messages = parse_messages(prompt)
         client = Client()
-        response = client.chat.completions.create(
-            model=modelo,
-            messages=messages
-        )
-        if hasattr(response, "choices") and response.choices:
+        response = None
+
+        # 1. Tenta o modelo solicitado
+        try:
+            response = client.chat.completions.create(
+                model=modelo,
+                messages=messages
+            )
+        except Exception:
+            # 2. Se falhar, tenta modelos gratuitos conhecidos por estabilidade
+            fallbacks = ["llama-3.1-70b", "llama-3.3-70b", "deepseek-r1"]
+            for fb in fallbacks:
+                if fb == modelo:
+                    continue
+                try:
+                    response = client.chat.completions.create(
+                        model=fb,
+                        messages=messages
+                    )
+                    if hasattr(response, "choices") and response.choices:
+                        break
+                except Exception:
+                    continue
+
+        if response and hasattr(response, "choices") and response.choices:
             message = getattr(response.choices[0], "message", None)
             conteudo = getattr(message, "content", None)
             if conteudo:
                 print(conteudo)
                 sys.exit(0)
+
         print("[Sem resposta]", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception as e:
-        print(f"Erro g4f: {e}", file=sys.stderr)
+        err_str = str(e)
+        if "executable not found" in err_str or "Chrome" in err_str or "RetryProvider" in err_str:
+            print("⚠️ Provedores Web gratuitos do G4F indisponíveis no momento para este modelo.", file=sys.stderr)
+            print("💡 Dica: instale o Chromium ('sudo apt install chromium-browser') ou selecione Groq/Gemini/Ollama em [Ctrl + G].", file=sys.stderr)
+        else:
+            print(f"⚠️ Erro no provedor G4F ({modelo}): {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

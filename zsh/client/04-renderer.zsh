@@ -8,6 +8,22 @@ _ai_render_formatted() {
   local text="$1"
   [[ -z "$text" ]] && return 0
 
+  # 1. Glow se instalado no sistema
+  if command -v glow >/dev/null 2>&1; then
+    print -r -- "$text" | glow -
+    return 0
+  fi
+
+  # 2. Renderizador Python (Rich) da suíte Metis
+  local py_bin="$(_ai_get_python 2>/dev/null)"
+  local render_py="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/render_markdown.py"
+  if [[ -n "$py_bin" && -f "$render_py" ]]; then
+    if "$py_bin" "$render_py" "$text" 2>/dev/null; then
+      return 0
+    fi
+  fi
+
+  # 3. Fallback AWK nativo com realce ANSI
   print -r -- "$text" | awk -v width="${COLUMNS:-80}" '
 BEGIN {
   ESC = sprintf("%c", 27)

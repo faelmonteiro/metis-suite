@@ -19,7 +19,20 @@ BORDER_SOFT='\033[38;2;46;62;84m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+CLEANUP_INSTALL_TMP=0
+
+# Se executado diretamente via curl/pipe ou fora da pasta do repositório
+if [ ! -d "$SCRIPT_DIR/app" ] || [ ! -f "$SCRIPT_DIR/requirements.txt" ]; then
+    echo -e "📡 ${CYAN}Execução direta detectada. Baixando arquivos do Metis AI Suite...${NC}"
+    INSTALL_REPO_TMP="$(mktemp -d)/metis-suite-src"
+    git clone --depth 1 "https://github.com/faelmonteiro/metis-suite.git" "$INSTALL_REPO_TMP" --quiet || {
+        echo -e "${RED}❌ Falha ao clonar repositório. Verifique sua conexão com a internet.${NC}"
+        exit 1
+    }
+    SCRIPT_DIR="$INSTALL_REPO_TMP"
+    CLEANUP_INSTALL_TMP=1
+fi
 
 # Glifo oficial do Metis (Fonte MetisIcons / PUA Unicode U+E900 / U+E00B)
 METIS_GLYPH=$'\ue900'
@@ -72,21 +85,19 @@ install_system_deps() {
     if command -v apt-get &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição baseada em Debian/Ubuntu/Linux Mint detectada (APT).${NC}"
         echo -e "  ${GRAY}Instalando ferramentas essenciais de terminal e Python...${NC}"
-        sudo apt-get update
+        sudo apt-get update -qq
         sudo apt-get install -y python3 python3-venv python3-pip curl git jq xclip fontconfig || {
             echo -e "${RED}  ❌ Falha ao instalar pacotes essenciais. Verifique sua conexão e tente novamente.${NC}"
             exit 1
         }
         echo -e "${GREEN}  ✅ Pacotes essenciais instalados.${NC}"
 
-        # Pacotes opcionais — instala o que conseguir, sem abortar se algum não existir
-        echo -e "  ${GRAY}Instalando pacotes opcionais (ZSH, FZF, drivers gráficos Qt)...${NC}"
-        for pkg in zsh fzf wl-clipboard libgl1 libegl1 libxkbcommon-x11-0 \
+        # Pacotes opcionais em comando único silencioso
+        echo -e "  ${GRAY}Instalando pacotes adicionais (ZSH, FZF, drivers gráficos Qt)...${NC}"
+        sudo apt-get install -y -qq zsh fzf wl-clipboard libgl1 libegl1 libxkbcommon-x11-0 \
                    libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
                    libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
-                   libxcb-sync1 libxcb-xfixes0 libxcb-xkb1; do
-            sudo apt-get install -y "$pkg" 2>/dev/null || echo -e "  ${GRAY}  ⚠ Pacote '$pkg' não encontrado, pulando (não é crítico).${NC}"
-        done
+                   libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 2>/dev/null || true
         echo -e "${GREEN}  ✅ Dependências do sistema instaladas com sucesso.${NC}"
     elif command -v dnf &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição baseada em Fedora/RedHat detectada (DNF).${NC}"
@@ -491,6 +502,11 @@ echo -e "${BORDER}│${NC}    ${CYAN}[gca]${NC}               Gerador automátic
 echo -e "${BORDER}│${NC}"
 echo -e "${BORDER}│${NC}  ${GRAY_DARK}🔧 Configurações:${NC} Adicione suas chaves de API em ${GOLD}~/.config/metis/.env${NC}"
 echo -e "${GOLD_BRIGHT}${BOLD}╰─────────────────────────────────────────────────────────────────────────────────╯${NC}"
+
+# Limpeza de diretório temporário se foi criado na instalação via curl
+if [ "$CLEANUP_INSTALL_TMP" -eq 1 ] && [ -n "$SCRIPT_DIR" ]; then
+    rm -rf "$SCRIPT_DIR"
+fi
 
 if [ -n "$ZSH_VERSION" ]; then
     echo -e "\n${CYAN_SOFT}✨ Recarregando a sessão ZSH para ativar os atalhos agora...${NC}\n"

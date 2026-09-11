@@ -74,7 +74,9 @@ Use formatação Markdown clara (títulos e blocos de código)."
     local m_icon="$(_ai_get_metis_icon)"
     printf '\n%s\e[32m================ MANUAL EXPRESSO: %s (%s) ================\e[0m\n\n' "$m_icon" "$cmd" "$prov_label"
 
-    if command -v glow >/dev/null 2>&1; then
+    if (( ${+functions[_ai_render_formatted]} )); then
+        _ai_render_formatted "$text"
+    elif command -v glow >/dev/null 2>&1; then
         print -r -- "$text" | glow -
     else
         print -r -- "$text"

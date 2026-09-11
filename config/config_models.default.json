@@ -22,6 +22,7 @@
       "deepseek-ai/deepseek-r1"
     ],
     "G4F": [
+      "llama-3.1-70b",
       "gpt-4o-mini",
       "gpt-4o",
       "deepseek-r1",
