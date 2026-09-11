@@ -3,7 +3,23 @@ import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-HISTORICO_DIR = PROJECT_ROOT / "historico"
+
+# Diretório de dados dinâmicos do usuário (XDG: ~/.local/share/metis/historico)
+_data_dir = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "metis"
+HISTORICO_DIR = Path(os.getenv("METIS_HISTORICO_DIR", _data_dir / "historico"))
+
+# Migração suave de histórico legado se existir dentro do repositório
+_legacy_hist = PROJECT_ROOT / "historico"
+if _legacy_hist.exists() and _legacy_hist.is_dir() and _legacy_hist != HISTORICO_DIR:
+    try:
+        HISTORICO_DIR.mkdir(parents=True, exist_ok=True)
+        for _f in _legacy_hist.glob("*.json"):
+            _dst = HISTORICO_DIR / _f.name
+            if not _dst.exists():
+                import shutil
+                shutil.copy2(_f, _dst)
+    except Exception:
+        pass
 
 try:
     from dotenv import load_dotenv
@@ -11,16 +27,21 @@ except Exception:
     load_dotenv = None
 
 if load_dotenv is not None:
-    candidate_envs = [
+    canonical_env = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env"
+    legacy_envs = [
         PROJECT_ROOT / ".env",
         Path.home() / "Metis" / ".env",
-        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env",
         Path.home() / ".ZSH" / "ai" / ".env_local",
     ]
-    for _env_p in candidate_envs:
+    # Carrega variáveis legadas sem sobrescrever variáveis já definidas no ambiente
+    for _env_p in legacy_envs:
         if _env_p.exists():
-            load_dotenv(dotenv_path=_env_p, override=True)
-    load_dotenv(override=False)
+            load_dotenv(dotenv_path=_env_p, override=False)
+    # A configuração canônica do usuário (~/.config/metis/.env) tem prioridade máxima
+    if canonical_env.exists():
+        load_dotenv(dotenv_path=canonical_env, override=True)
+    else:
+        load_dotenv(override=False)
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:
@@ -61,7 +82,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct").strip()
 NVIDIA_MAX_TOKENS = _env_int("NVIDIA_MAX_TOKENS", 4096, minimum=256)
 G4F_MODEL = os.getenv("G4F_MODEL", "gpt-4o-mini").strip()

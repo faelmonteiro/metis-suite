@@ -17,25 +17,28 @@ logger = logging.getLogger(__name__)
 
 def get_config_file_path() -> Path:
     """Retorna o caminho canônico do config_models.json priorizando ~/.config/metis."""
-    candidates = [
-        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json",
-        config.PROJECT_ROOT / "config_models.json",
-        Path.home() / "Metis" / "config_models.json",
-    ]
-    for p in candidates:
-        if p.exists():
-            return p
     metis_cfg_dir = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"))
-    if metis_cfg_dir.exists():
-        return metis_cfg_dir / "config_models.json"
-    return config.PROJECT_ROOT / "config_models.json"
+    canonical = metis_cfg_dir / "config_models.json"
+    if canonical.exists():
+        return canonical
+    # Migração automática de arquivos legados caso existam
+    for p in [config.PROJECT_ROOT / "config_models.json", Path.home() / "Metis" / "config_models.json", Path.home() / ".ZSH" / "ai" / "config_models.json"]:
+        if p.exists() and p.is_file():
+            try:
+                metis_cfg_dir.mkdir(parents=True, exist_ok=True)
+                import shutil
+                shutil.copy2(p, canonical)
+                return canonical
+            except Exception:
+                pass
+    metis_cfg_dir.mkdir(parents=True, exist_ok=True)
+    return canonical
 
 
 CONFIG_FILE = get_config_file_path()
 
 DEFAULT_MODELS: Dict[str, List[str]] = {
     "Groq": [
-        "openai/gpt-oss-120b",
         "llama-3.3-70b-versatile",
         "deepseek-r1-distill-llama-70b",
         "llama-3.1-8b-instant",

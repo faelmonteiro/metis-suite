@@ -41,7 +41,7 @@ _ai_fix_get_active_ia_label() {
   local raw_conf="$(cat "$conf_file" 2>/dev/null)"
 
   if [[ "$raw_conf" == *"Groq"* ]]; then
-    print -r -- "Groq (${GROQ_MODEL:-openai/gpt-oss-120b})"
+    print -r -- "Groq (${GROQ_MODEL:-llama-3.3-70b-versatile})"
   elif [[ "$raw_conf" == *"Gemini"* ]]; then
     print -r -- "Gemini (${GEMINI_MODEL:-gemini-2.0-flash})"
   elif [[ "$raw_conf" == *"NVIDIA"* ]]; then

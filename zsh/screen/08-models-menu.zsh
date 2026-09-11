@@ -11,7 +11,12 @@ _get_manage_models_script() {
   if [[ -f "$s" ]]; then
     print -r -- "$s"
   else
-    print -r -- "$HOME/.ZSH/ai/manage_models.py"
+    local _alt="${0:A:h:h}/manage_models.py"
+    if [[ -f "$_alt" ]]; then
+      print -r -- "$_alt"
+    else
+      print -r -- "$s"
+    fi
   fi
 }
 
@@ -40,6 +45,7 @@ menu_provedor_ollama() {
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
+    load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 
     cur_ollama="${OLLAMA_MODEL:-llama3.2:3b}"
 
@@ -80,12 +86,13 @@ menu_provedor_api() {
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
+    load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 
     cur_model=""
 
     case "$prov_name" in
       Gemini)     cur_model="${GEMINI_MODEL:-gemini-2.0-flash}" ;;
-      Groq)       cur_model="${GROQ_MODEL:-openai/gpt-oss-120b}" ;;
+      Groq)       cur_model="${GROQ_MODEL:-llama-3.3-70b-versatile}" ;;
       NVIDIA)     cur_model="${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}" ;;
       OpenRouter) cur_model="${OPENROUTER_MODEL:-minimax/minimax-m3:free}" ;;
       G4F)        cur_model="${G4F_MODEL:-gpt-4o}" ;;
@@ -129,11 +136,12 @@ gerenciar_modelos() {
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
+    load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 
     escolha="$(
       printf '✨ 1. Gemini (Ativo: %s)\n🚀 2. Groq (Ativo: %s)\n🟢 3. NVIDIA (Ativo: %s)\n🪐 4. OpenRouter (Ativo: %s)\n🤖 5. Ollama Local (Ativo: %s)\n🌍 6. Web G4F (Ativo: %s)\n🔄 7. Sincronizar com Metis\n🗑️  8. Remover Servidor Customizado\n↩️  0. Voltar\n' \
         "${GEMINI_MODEL:-gemini-2.0-flash}" \
-        "${GROQ_MODEL:-openai/gpt-oss-120b}" \
+        "${GROQ_MODEL:-llama-3.3-70b-versatile}" \
         "${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}" \
         "${OPENROUTER_MODEL:-minimax/minimax-m3:free}" \
         "${OLLAMA_MODEL:-llama3.2:3b}" \
@@ -154,6 +162,7 @@ gerenciar_modelos() {
           _save_active_provider 3
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -163,6 +172,7 @@ gerenciar_modelos() {
           _save_active_provider 4
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -172,6 +182,7 @@ gerenciar_modelos() {
           _save_active_provider 5
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -181,6 +192,7 @@ gerenciar_modelos() {
           _save_active_provider 6
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -190,6 +202,7 @@ gerenciar_modelos() {
           _save_active_provider 2
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -199,6 +212,7 @@ gerenciar_modelos() {
           _save_active_provider 1
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           return 0
         fi
         ;;
@@ -227,6 +241,7 @@ trocar_modelo_sessao() {
 
   load_env_file "$HOME/Metis/.env"
   load_env_file "$HOME/.ZSH/ai/.env_local"
+  load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 
   if [[ -n "$arg" ]]; then
     local arg_lower="${arg:l}"
@@ -307,6 +322,7 @@ trocar_modelo_sessao() {
     gerenciar_modelos
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
+    load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
     return 0
   fi
 
@@ -356,6 +372,7 @@ trocar_modelo_sessao() {
 
   load_env_file "$HOME/Metis/.env"
   load_env_file "$HOME/.ZSH/ai/.env_local"
+  load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 }
 
 _get_saved_provider() {
@@ -448,7 +465,7 @@ _get_active_provider_info() {
     1) print -r -- "Web G4F: ${G4F_MODEL:-gpt-4o}" ;;
     2) print -r -- "Ollama Local: ${OLLAMA_MODEL:-llama3.2:3b}" ;;
     3) print -r -- "Gemini: ${GEMINI_MODEL:-gemini-2.0-flash}" ;;
-    4) print -r -- "Groq: ${GROQ_MODEL:-openai/gpt-oss-120b}" ;;
+    4) print -r -- "Groq: ${GROQ_MODEL:-llama-3.3-70b-versatile}" ;;
     5) print -r -- "NVIDIA: ${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}" ;;
     6) print -r -- "OpenRouter: ${OPENROUTER_MODEL:-liquid/lfm-2.5-2.6b:free}" ;;
     *)
@@ -457,7 +474,7 @@ _get_active_provider_info() {
       if [[ -n "$cur_m" ]]; then
         print -r -- "$p: $cur_m"
       else
-        print -r -- "Groq: ${GROQ_MODEL:-openai/gpt-oss-120b}"
+        print -r -- "Groq: ${GROQ_MODEL:-llama-3.3-70b-versatile}"
       fi
       ;;
   esac

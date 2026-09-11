@@ -270,11 +270,14 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
 
 COMANDOS_BLOQUEADOS = [
     r"\bsudo\b",
+    r"\bsu\s+-\b",
+    r"\bdoas\b",
     r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+[/~*]",
     r"\brm\s+-[a-zA-Z]*f[a-zA-Z]*r?\s+[/~*]",
     r"\bmkfs\b",
     r"\bfdisk\b",
     r"\bparted\b",
+    r"\bgdisk\b",
     r"\bdd\s+if=",
     r"\bshutdown\b",
     r"\breboot\b",
@@ -287,11 +290,24 @@ COMANDOS_BLOQUEADOS = [
 ]
 
 COMANDOS_DIAGNOSTICO = (
-    "free", "df", "uptime", "uname", "top -b", "ps", "ip ", "ip a", "ping -c",
-    "hyprctl", "wpctl", "brightnessctl", "nmcli", "bluetoothctl", "systemctl status", "systemctl is-active",
-    "journalctl", "cat ", "head ", "tail ", "ls ", "ls -", "find ", "grep ", "which ", "whereis ", "whoami",
-    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id"
+    "free", "df", "uptime", "uname", "top", "ps", "ip", "ping",
+    "hyprctl", "wpctl", "brightnessctl", "nmcli", "bluetoothctl", "systemctl",
+    "journalctl", "cat", "head", "tail", "ls", "grep", "which", "whereis", "whoami",
+    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id", "pwd"
 )
+
+SENSITIVE_TARGETS = (
+    ".ssh", ".aws", ".gnupg", ".env", "id_rsa", "credentials",
+    "shadow", "sudoers", ".netrc", ".kube", ".docker/config",
+    "/root", ".git-credentials", ".bash_history", ".zsh_history"
+)
+
+OPERADORES_SHELL_RAW = (";", "&&", "||", "|", "`", "$(", "${", ">", "<", "\n", "\r")
+
+class PoliticaComando:
+    SAFE = "SAFE"        # Diagnóstico estritamente somente-leitura, sem operadores shell. Pode executar auto com shell=False.
+    CONFIRM = "CONFIRM"  # Comandos de alteração, compostos, scripts ou que exigem shell. Exigem confirmação do usuário.
+    BLOCK = "BLOCK"      # Comandos destrutivos ou de alto risco. Bloqueados categoricamente.
 
 def normalizar_comando(comando) -> str:
     """Limpa e normaliza argumentos de comando enviados por LLMs (listas, JSON, aspas)."""
@@ -327,14 +343,78 @@ def validar_comando_seguro(comando: str) -> tuple[bool, str]:
             return False, f"Comando bloqueado por segurança (padrão perigoso detectado: {pattern})"
     return True, ""
 
+def avaliar_politica_comando(comando: str) -> tuple[str, str, list[str] | None]:
+    """
+    Avalia a política de segurança de um comando.
+    Retorna: (PoliticaComando, motivo, tokens_argv_se_simples)
+    """
+    cmd_clean = comando.strip()
+    if not cmd_clean:
+        return PoliticaComando.CONFIRM, "Comando vazio", None
+
+    seguro, motivo = validar_comando_seguro(cmd_clean)
+    if not seguro:
+        return PoliticaComando.BLOCK, motivo, None
+
+    # 1. Se contiver operadores de composição, redirecionamento ou substituição shell
+    cmd_lower = cmd_clean.lower()
+    for op in OPERADORES_SHELL_RAW:
+        if op in cmd_lower:
+            return PoliticaComando.CONFIRM, f"Comando composto ou com operador de shell detectado ('{op}')", None
+
+    # 2. Se terminar com & para background (exceto se for tratado como GUI)
+    if cmd_clean.endswith("&") and not any(cmd_clean.startswith(a) for a in ["kate", "gedit", "xdg-open", "firefox", "chromium", "google-chrome", "code"]):
+        return PoliticaComando.CONFIRM, "Comando em segundo plano (&) requer confirmação", None
+
+    # 3. Parsing com shlex para decomposição estruturada
+    import shlex
+    try:
+        argv = shlex.split(cmd_clean)
+    except ValueError as e:
+        return PoliticaComando.CONFIRM, f"Parsing de argumentos shell inconclusivo: {e}", None
+
+    if not argv:
+        return PoliticaComando.CONFIRM, "Nenhum argumento executável identificado", None
+
+    # 4. Avalia o binário principal
+    raw_bin = argv[0].strip()
+    bin_name = os.path.basename(raw_bin).lower()
+
+    if bin_name not in COMANDOS_DIAGNOSTICO:
+        return PoliticaComando.CONFIRM, f"O utilitário '{bin_name}' requer confirmação para execução", argv
+
+    # 5. Validações adicionais para ferramentas com potenciais flags perigosas
+    if bin_name == "find":
+        flags_find = {arg.lower() for arg in argv[1:]}
+        if any(f in flags_find for f in ["-exec", "-execdir", "-delete", "-ok", "-okdir"]):
+            return PoliticaComando.CONFIRM, "Comando find contém parâmetros potencialmente modificadores (-exec/-delete)", argv
+
+    if bin_name in {"cat", "head", "tail", "grep", "ls"}:
+        for arg in argv[1:]:
+            arg_l = arg.lower()
+            if any(s in arg_l for s in SENSITIVE_TARGETS):
+                return PoliticaComando.CONFIRM, "Acesso a arquivos de credenciais ou diretórios sensíveis do sistema", argv
+
+    if bin_name == "systemctl":
+        if len(argv) < 2 or argv[1].lower() not in {"status", "is-active", "is-enabled", "list-units"}:
+            return PoliticaComando.CONFIRM, "Operações de alteração em serviços do systemctl exigem confirmação", argv
+
+    if bin_name == "top" and "-b" not in argv:
+        return PoliticaComando.CONFIRM, "Comando top interativo pode travar sem a opção em lote (-b)", argv
+
+    if bin_name == "ping" and "-c" not in argv:
+        return PoliticaComando.CONFIRM, "Comando ping contínuo requer limite de contagem (-c)", argv
+
+    return PoliticaComando.SAFE, "Comando de diagnóstico somente leitura seguro", argv
+
 def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not config.ENABLE_COMMAND_TOOL:
         return "Erro: a ferramenta executar_comando está desabilitada. Defina ENABLE_COMMAND_TOOL=1 no .env somente se você realmente precisar executar comandos."
 
     comando = normalizar_comando(comando)
 
-    seguro, motivo = validar_comando_seguro(comando)
-    if not seguro:
+    politica, motivo, argv = avaliar_politica_comando(comando)
+    if politica == PoliticaComando.BLOCK:
         print(f"\n{RED}🚫 [Segurança] {motivo}{RESET}")
         return f"Erro de Segurança: {motivo}"
 
@@ -351,35 +431,24 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
     auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
 
     cmd_clean = comando.strip()
-    cmd_lower = cmd_clean.lower()
 
-    # Avaliação para comandos encapsulados ou com caminho absoluto
-    cmd_eval = cmd_lower
-    for prefix in ("sh -c ", "bash -c ", "/bin/sh -c ", "/bin/bash -c "):
-        if cmd_eval.startswith(prefix):
-            cmd_eval = cmd_eval[len(prefix):].strip().strip("'\"")
-            break
-
-    for bin_path in ("/usr/bin/", "/bin/", "/usr/local/bin/"):
-        if cmd_eval.startswith(bin_path):
-            cmd_eval = cmd_eval[len(bin_path):]
-            break
-
-    eh_diagnostico = any(
-        cmd_eval.startswith(d) or cmd_lower.startswith(d) for d in COMANDOS_DIAGNOSTICO
-    ) and not any(op in cmd_lower for op in [">", "| rm", "| sh", "| bash", "; rm"])
-
-    if auto or eh_diagnostico:
+    # Se for SAFE, executa diretamente como diagnóstico
+    if politica == PoliticaComando.SAFE:
         if auto:
-            print(f"\n{YELLOW}⚡ [Metis Auto-Approve] Executando comando: {BOLD}{comando}{RESET}")
+            print(f"\n{YELLOW}⚡ [Metis Auto-Approve] Executando diagnóstico: {BOLD}{comando}{RESET}")
         else:
             print(f"\n{CYAN}🔍 [Diagnóstico do Sistema] Executando: {BOLD}{comando}{RESET}")
     else:
-        print(f"\n{YELLOW}⚠️ A IA quer executar um comando no terminal:{RESET}")
-        print(f"   {CYAN}${RESET} {BOLD}{comando}{RESET}")
-        print(f"   {YELLOW}Diretório:{RESET} {cwd_path}")
-        if not pedir_confirmacao_usuario(f"{YELLOW}Deseja permitir a execução? (s/n): {RESET}"):
-            return "Execução do comando cancelada pelo usuário."
+        # Requer confirmação explícita do usuário
+        if auto:
+            print(f"\n{YELLOW}⚡ [Metis Auto-Approve] Executando comando: {BOLD}{comando}{RESET}")
+        else:
+            print(f"\n{YELLOW}⚠️ A IA quer executar um comando no terminal:{RESET}")
+            print(f"   {CYAN}${RESET} {BOLD}{comando}{RESET}")
+            print(f"   {YELLOW}Diretório:{RESET} {cwd_path}")
+            print(f"   {GRAY}Classificação:{RESET} {motivo}")
+            if not pedir_confirmacao_usuario(f"{YELLOW}Deseja permitir a execução? (s/n): {RESET}"):
+                return "Execução do comando cancelada pelo usuário."
 
     try:
         # Se for um aplicativo gráfico / desanexado comum (kate, xdg-open, navegador, etc.)
@@ -399,9 +468,20 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
             )
             return f"Aplicativo/comando '{comando}' iniciado com sucesso no sistema!"
 
+        # Se for diagnóstico SAFE, executa estritamente com shell=False e argv parsed
+        if politica == PoliticaComando.SAFE and argv:
+            use_shell = False
+            exec_args = argv
+        elif argv and not any(op in cmd_clean for op in OPERADORES_SHELL_RAW):
+            use_shell = False
+            exec_args = argv
+        else:
+            use_shell = True
+            exec_args = comando
+
         resultado = subprocess.run(
-            comando,
-            shell=True,
+            exec_args,
+            shell=use_shell,
             cwd=str(cwd_path),
             capture_output=True,
             text=True,
@@ -430,7 +510,7 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
         return saida
 
     except subprocess.TimeoutExpired:
-        return "Erro: O comando excedeu o tempo limite de 20 segundos e foi interrompido."
+        return "Erro: O comando excedeu o tempo limite e foi interrompido."
     except Exception as e:
         return f"Erro ao executar comando: {e}"
 

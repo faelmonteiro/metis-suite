@@ -39,21 +39,18 @@ METIS_ROOT="${METIS_ROOT:-$HOME/.local/share/metis}"
 if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
   if [[ -x "$METIS_ROOT/venv/bin/python" ]]; then
     PYTHON_BIN="$METIS_ROOT/venv/bin/python"
-  elif [[ -x "$HOME/Metis/.venv/bin/python" ]]; then
-    PYTHON_BIN="$HOME/Metis/.venv/bin/python"
+  elif [[ -x "$HOME/.local/share/metis/venv/bin/python" ]]; then
+    PYTHON_BIN="$HOME/.local/share/metis/venv/bin/python"
   else
     PYTHON_BIN="$(command -v python3)"
   fi
 fi
 
-G4F_SCRIPT="${G4F_SCRIPT:-$ZSH_AI_DIR/g4f_ask.py}"
-[[ -f "$G4F_SCRIPT" ]] || G4F_SCRIPT="$HOME/.ZSH/ai/g4f_ask.py"
+local _screen_parent="${ZSH_AI_DIR:-${0:A:h:h}}"
 
-API_SCRIPT="${API_SCRIPT:-$ZSH_AI_DIR/api_ask.py}"
-[[ -f "$API_SCRIPT" ]] || API_SCRIPT="$HOME/.ZSH/ai/api_ask.py"
-
-MANAGE_MODELS_SCRIPT="${MANAGE_MODELS_SCRIPT:-$ZSH_AI_DIR/manage_models.py}"
-[[ -f "$MANAGE_MODELS_SCRIPT" ]] || MANAGE_MODELS_SCRIPT="$HOME/.ZSH/ai/manage_models.py"
+G4F_SCRIPT="${G4F_SCRIPT:-$_screen_parent/g4f_ask.py}"
+API_SCRIPT="${API_SCRIPT:-$_screen_parent/api_ask.py}"
+MANAGE_MODELS_SCRIPT="${MANAGE_MODELS_SCRIPT:-$_screen_parent/manage_models.py}"
 
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 OLLAMA_URL="${OLLAMA_URL:-${AI_FIX_OLLAMA_URL:-http://localhost:11434/api/generate}}"
@@ -72,8 +69,13 @@ AI_AUTO_ALLOW_MULTILINE="${AI_AUTO_ALLOW_MULTILINE:-0}"
 
 ACTIVE_PROVIDER_FILE="${ACTIVE_PROVIDER_FILE:-${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider}"
 
-ORIG_KITTY_ID="${ORIG_KITTY_ID:-$(cat /tmp/orig_kitty_id 2>/dev/null)}"
-KITTY_LISTEN_ON="${KITTY_LISTEN_ON:-$(cat /tmp/orig_kitty_listen 2>/dev/null)}"
+local _orig_id_file="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_id.$UID"
+[[ ! -f "$_orig_id_file" && -f "/tmp/orig_kitty_id" ]] && _orig_id_file="/tmp/orig_kitty_id"
+local _orig_listen_file="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_listen.$UID"
+[[ ! -f "$_orig_listen_file" && -f "/tmp/orig_kitty_listen" ]] && _orig_listen_file="/tmp/orig_kitty_listen"
+
+ORIG_KITTY_ID="${ORIG_KITTY_ID:-$(_trim "$(cat "$_orig_id_file" 2>/dev/null)")}"
+KITTY_LISTEN_ON="${KITTY_LISTEN_ON:-$(_trim "$(cat "$_orig_listen_file" 2>/dev/null)")}"
 export ORIG_KITTY_ID KITTY_LISTEN_ON
 
 # Validação das variáveis numéricas
@@ -182,7 +184,7 @@ _resolve_path() {
 
 _die() {
   printf '\033[31mErro: %s\033[0m\n' "$1" >&2
-  exit 1
+  return 1 2>/dev/null || exit 1
 }
 
 _warn() {
@@ -191,7 +193,8 @@ _warn() {
 
 _print_header() {
   local icon="🏛️ "
-  local icon_file="$HOME/Metis/assets/icons/metis_emoji_32x32.png"
+  local icon_file="${METIS_ROOT:-$HOME/.local/share/metis}/assets/icons/metis_emoji_32x32.png"
+  [[ -f "$icon_file" ]] || icon_file="${0:A:h:h:h}/assets/icons/metis_emoji_32x32.png"
   if [[ -f "$icon_file" ]] && [[ -n "$KITTY_PID" || -n "$KITTY_WINDOW_ID" || "$TERM" == *"kitty"* ]]; then
     local b64="$(base64 -w 0 "$icon_file" 2>/dev/null || base64 "$icon_file" 2>/dev/null | tr -d '\n')"
     if [[ -n "$b64" ]]; then
@@ -241,7 +244,7 @@ _auto_log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$msg" >> "$logfile" 2>/dev/null || true
 }
 
-source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || source "${0:A:h:h}/ia_client.zsh" 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
 # Carregamento de Ambientes (.env)
@@ -252,9 +255,11 @@ load_env_file() {
   fi
 }
 
-load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
+# Fallbacks legados primeiro
 load_env_file "$HOME/Metis/.env"
 load_env_file "$HOME/.ZSH/ai/.env_local"
+# O arquivo canônico ~/.config/metis/.env tem prioridade máxima
+load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 
 if ! _python_ok "$PYTHON_BIN"; then
   PYTHON_BIN="$(_ai_get_python 2>/dev/null || which python3 2>/dev/null || echo python3)"

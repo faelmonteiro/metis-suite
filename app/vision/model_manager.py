@@ -45,7 +45,8 @@ DEFAULT_MODELS_DATA = {
             "qwen2.5-coder:7b"
         ],
         "Groq": [
-            "openai/gpt-oss-120b"
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant"
         ],
         "G4F": [
             "gpt-4o-mini",
@@ -60,19 +61,28 @@ DEFAULT_MODELS_DATA = {
 }
 
 def get_config_path() -> Path:
-    """Retorna o caminho do arquivo de configuração ativo mais recente (sincronizado com o Metis)."""
+    """Retorna o caminho canônico do config_models.json (~/.config/metis/config_models.json)."""
+    canonical = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
+    if canonical.exists():
+        return canonical
+
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    # Migração automática se houver cópia em caminho antigo
     candidates = [
         Path.home() / ".local/share/metis/app/config_models.json",
-        Path.home() / "Metis" / "config_models.json",
         Path(__file__).resolve().parent.parent / "config_models.json",
-        Path.home() / ".config" / "metis" / "config_models.json",
+        Path.home() / "Metis" / "config_models.json",
     ]
-    existing = [p for p in candidates if p.exists() and p.is_file()]
-    if existing:
-        existing.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        return existing[0]
+    for leg in candidates:
+        if leg.exists() and leg.is_file():
+            try:
+                import shutil
+                shutil.copy2(leg, canonical)
+                return canonical
+            except Exception:
+                pass
 
-    return DEFAULT_CONFIG_PATH
+    return canonical
 
 def ensure_config_exists() -> Path:
     """Garante que o arquivo de configuração existe, inicializando ou mesclando se necessário."""

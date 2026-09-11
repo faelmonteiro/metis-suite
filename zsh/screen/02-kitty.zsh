@@ -114,8 +114,10 @@ obter_conteudo_tela() {
 _obter_kitty_target() {
   local listen_sock=""
 
-  if [[ -f "/tmp/orig_kitty_listen" && ! -L "/tmp/orig_kitty_listen" ]]; then
-    listen_sock="$(_trim "$(cat /tmp/orig_kitty_listen 2>/dev/null)")"
+  local _listen_path="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_listen.$UID"
+  [[ ! -f "$_listen_path" && -f "/tmp/orig_kitty_listen" ]] && _listen_path="/tmp/orig_kitty_listen"
+  if [[ -f "$_listen_path" && ! -L "$_listen_path" ]]; then
+    listen_sock="$(_trim "$(cat "$_listen_path" 2>/dev/null)")"
   fi
   [[ -z "$listen_sock" && -n "$KITTY_LISTEN_ON" ]] && listen_sock="$KITTY_LISTEN_ON"
 
@@ -128,7 +130,7 @@ _obter_kitty_target() {
 
   if [[ -z "$listen_sock" ]]; then
     local -a sock_candidates
-    sock_candidates=(/tmp/mykitty*(N))
+    sock_candidates=(${XDG_RUNTIME_DIR:-/tmp}/kitty_metis_${UID}*(N) /tmp/mykitty*(N))
     for s in "${sock_candidates[@]}"; do
       [[ -S "$s" ]] || continue
       if kitty @ --to "unix:$s" ls >/dev/null 2>&1; then
@@ -139,8 +141,10 @@ _obter_kitty_target() {
   fi
 
   local target_win=""
-  if [[ -f "/tmp/orig_kitty_id" && ! -L "/tmp/orig_kitty_id" ]]; then
-    target_win="$(_trim "$(cat /tmp/orig_kitty_id 2>/dev/null)")"
+  local _id_path="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_id.$UID"
+  [[ ! -f "$_id_path" && -f "/tmp/orig_kitty_id" ]] && _id_path="/tmp/orig_kitty_id"
+  if [[ -f "$_id_path" && ! -L "$_id_path" ]]; then
+    target_win="$(_trim "$(cat "$_id_path" 2>/dev/null)")"
   fi
 
   if [[ -n "$listen_sock" ]] && command -v kitty >/dev/null 2>&1; then

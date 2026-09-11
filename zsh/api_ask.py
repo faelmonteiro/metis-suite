@@ -84,13 +84,14 @@ TOOLS_SCHEMA = [
 ]
 
 def load_env():
-    paths = [
-        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env",
+    canonical_env = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env"
+    legacy_paths = [
         Path(__file__).resolve().parent.parent / ".env",
         Path.home() / "Metis" / ".env",
         Path.home() / ".ZSH" / "ai" / ".env_local",
     ]
-    for env_path in paths:
+    # Carrega variáveis de ambientes legados primeiro sem sobrescrever
+    for env_path in legacy_paths:
         if env_path.exists():
             with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -100,12 +101,30 @@ def load_env():
                         val = val.strip()
                         if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
                             val = val[1:-1]
-                        if val:
+                        if val and key.strip() not in os.environ:
                             os.environ[key.strip()] = val
 
+    # O arquivo canônico ~/.config/metis/.env tem prioridade máxima
+    if canonical_env.exists():
+        with open(canonical_env, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    val = val.strip()
+                    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                        val = val[1:-1]
+                    if val:
+                        os.environ[key.strip()] = val
+
     # Se OPENROUTER_API_KEY ou OPENROUTER_MODEL não estiverem no .env, carrega de custom_servers em config_models.json
-    for cfg_file in [Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json", Path.home() / "Metis" / "config_models.json", Path.home() / ".ZSH" / "ai" / "config_models.json"]:
-        if cfg_file.exists():
+    cfg_file = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
+    if not cfg_file.exists():
+        for f in [Path.home() / "Metis" / "config_models.json", Path.home() / ".ZSH" / "ai" / "config_models.json"]:
+            if f.exists():
+                cfg_file = f
+                break
+    if cfg_file.exists():
             try:
                 with open(cfg_file, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
@@ -424,7 +443,7 @@ def main():
 
         if provider == "GROQ":
             api_key = os.getenv("GROQ_API_KEY")
-            model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+            model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
             url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
             data = {"model": model, "messages": messages, "max_tokens": 4096}

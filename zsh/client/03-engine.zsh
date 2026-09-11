@@ -38,7 +38,7 @@ _ai_get_current_provider_info() {
   case "$selected" in
     GROQ)
       AI_ACTIVE_PROVIDER="GROQ"
-      AI_ACTIVE_MODEL="${GROQ_MODEL:-openai/gpt-oss-120b}"
+      AI_ACTIVE_MODEL="${GROQ_MODEL:-llama-3.3-70b-versatile}"
       AI_ACTIVE_LABEL="Groq (${AI_ACTIVE_MODEL})"
       ;;
     GEMINI)

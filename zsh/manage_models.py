@@ -14,16 +14,26 @@ def clean_string(val: str) -> str:
     return val.strip()
 
 def get_metis_config_path() -> Path:
+    canonical = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
+    if canonical.exists() and canonical.is_file():
+        return canonical
+
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    # Migração automática de locais legados se encontrados
     candidates = [
-        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json",
         Path(os.getenv("METIS_INSTALL_DIR", Path.home() / ".local" / "share" / "metis")) / "app" / "config_models.json",
         Path.home() / "Metis" / "config_models.json",
         Path.home() / ".ZSH" / "ai" / "config_models.json",
     ]
     for p in candidates:
         if p.exists() and p.is_file():
-            return p
-    return candidates[0]
+            try:
+                import shutil
+                shutil.copy2(p, canonical)
+                return canonical
+            except Exception:
+                pass
+    return canonical
 
 LOCAL_CONFIG_FILE = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
 GLOBAL_CONFIG_FILE = get_metis_config_path()
@@ -31,8 +41,8 @@ ENV_LOCAL = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"
 
 DEFAULT_MODELS = {
     "Groq": [
-        "openai/gpt-oss-120b",
-        "qwen/qwen3.8-27b"
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant"
     ],
     "Gemini": [
         "gemini-2.0-flash",
@@ -301,7 +311,7 @@ def get_active(provider: str) -> str:
 def list_api_providers_menu():
     lines = []
     gem_m = get_active("Gemini") or "gemini-2.0-flash"
-    groq_m = get_active("Groq") or "openai/gpt-oss-120b"
+    groq_m = get_active("Groq") or "llama-3.3-70b-versatile"
     nvd_m = get_active("NVIDIA") or "meta/llama-3.2-11b-vision-instruct"
     openrouter_m = get_active("OpenRouter") or "minimax/minimax-m3:free"
 

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metis-suite"
+version = "2.1.0"
+description = "Metis AI Suite - Oráculo & Copiloto Autônomo de Terminal para Linux"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27.0,<1.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "prompt_toolkit>=3.0.0,<4.0.0",
+    "rich>=13.0.0,<14.0.0",
+    "fpdf2>=2.7.0,<3.0.0",
+    "pyperclip>=1.8.0,<2.0.0",
+    "ddgs>=9.16.0",
+    "PyQt6>=6.6.0,<7.0.0",
+    "Pillow>=10.0.0,<12.0.0",
+    "google-genai>=2.20.0",
+    "pydantic>=2.0.0,<3.0.0"
+]
+
+[project.optional-dependencies]
+web = [
+    "g4f>=0.3.0",
+    "curl_cffi>=0.7.0"
+]
+dev = [
+    "ruff>=0.5.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["app"]

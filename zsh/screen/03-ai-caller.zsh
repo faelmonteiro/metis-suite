@@ -184,7 +184,7 @@ chamar_ia() {
         return 1
       fi
 
-      run_with_spinner "Consultando Groq (${GROQ_MODEL:-openai/gpt-oss-120b})..." "$PYTHON_BIN" "$API_SCRIPT" "GROQ" "$prompt"
+      run_with_spinner "Consultando Groq (${GROQ_MODEL:-llama-3.3-70b-versatile})..." "$PYTHON_BIN" "$API_SCRIPT" "GROQ" "$prompt"
       code=$?
       resp="$SPINNER_RESULT"
       ;;

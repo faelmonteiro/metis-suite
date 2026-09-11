@@ -69,7 +69,7 @@ ${cy}🌍 2. IA Web (G4F):${cr}
 
 ${cy}☁️ 3. APIs Externas:${cr}
 • Gemini:     ${cw}${GEMINI_MODEL:-gemini-2.0-flash}${cr}
-• Groq:       ${cw}${GROQ_MODEL:-openai/gpt-oss-120b}${cr}
+• Groq:       ${cw}${GROQ_MODEL:-llama-3.3-70b-versatile}${cr}
 • NVIDIA:     ${cw}${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}${cr}
 • OpenRouter: ${cw}${OPENROUTER_MODEL:-minimax/minimax-m3:free}${cr}
 "
@@ -198,7 +198,7 @@ ${cc}☁️ Provedores de API Externa${cr}
 ────────────────────────────────────────
 ${cy}Modelos Ativos:${cr}
 ✨ Gemini:     ${GEMINI_MODEL:-gemini-2.0-flash}
-🚀 Groq:       ${GROQ_MODEL:-openai/gpt-oss-120b}
+🚀 Groq:       ${GROQ_MODEL:-llama-3.3-70b-versatile}
 🟢 NVIDIA:     ${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}
 🪐 OpenRouter: ${OPENROUTER_MODEL:-minimax/minimax-m3:free}
 "

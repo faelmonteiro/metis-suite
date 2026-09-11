@@ -4,6 +4,15 @@
 # =============================================================================
 set -e
 
+# Verificação para evitar execução acidental com sudo direto
+if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
+    echo -e "\033[31m⚠️  ATENÇÃO: Não execute o instalador completo com 'sudo bash install.sh'.\033[0m"
+    echo -e "   O instalador do Metis configura o ambiente local do seu usuário em $HOME."
+    echo -e "   Execute simplesmente: \033[1mbash install.sh\033[0m"
+    echo -e "   O script solicitará privilégios sudo apenas na etapa de pacotes do sistema."
+    exit 1
+fi
+
 # Paleta Oficial Metis (Truecolor 24-bit)
 GOLD='\033[38;2;240;168;93m'
 GOLD_BRIGHT='\033[38;2;250;208;148m'
@@ -21,6 +30,19 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CLEANUP_INSTALL_TMP=0
+INSTALL_REPO_TMP=""
+
+cleanup_installer() {
+    local ec=$?
+    if [ "$CLEANUP_INSTALL_TMP" -eq 1 ] && [ -n "$INSTALL_REPO_TMP" ] && [ -d "$INSTALL_REPO_TMP" ]; then
+        rm -rf "$INSTALL_REPO_TMP"
+    fi
+    if [ $ec -ne 0 ]; then
+        echo -e "\n${RED}❌ A instalação foi interrompida ou encontrou um erro (código $ec).${NC}"
+        echo -e "   Recursos temporários foram limpos. Seus arquivos pessoais foram preservados."
+    fi
+}
+trap cleanup_installer EXIT INT TERM
 
 # Se executado diretamente via curl/pipe ou fora da pasta do repositório
 if [ ! -d "$SCRIPT_DIR/app" ] || [ ! -f "$SCRIPT_DIR/requirements.txt" ]; then
@@ -150,6 +172,7 @@ cp -r "$SCRIPT_DIR/zsh" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/assets" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" 2>/dev/null || true
@@ -167,6 +190,7 @@ echo -e "  ${GRAY}Instalando dependências (Core, Terminal e GUI PyQt6)...${NC}"
     "$INSTALL_DIR/venv/bin/pip" install PyQt6 --quiet || true
     "$INSTALL_DIR/venv/bin/pip" install g4f curl_cffi --quiet 2>/dev/null || true
 }
+"$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || true
 
 # Verificação do suporte gráfico PyQt6
 if "$INSTALL_DIR/venv/bin/python" -c "import PyQt6.QtWidgets" &>/dev/null; then
@@ -278,9 +302,20 @@ fi
 
 
 
-# 6.5 Configuração Automática dos Atalhos Globais (Super + R e Super + Z)
+## 6.5 Configuração Automática dos Atalhos Globais (Super + R e Super + Z)
 configure_global_shortcut() {
-    echo -e "\n${CYAN}⌨️  [5.5/6] Configurando atalhos globais [Super + R] e [Super + Z] no sistema...${NC}"
+    echo -e "\n${CYAN}⌨️  [5.5/6] Configuração de atalhos globais [Super + R] e [Super + Z]...${NC}"
+    local set_shortcuts="s"
+    if [ -t 0 ]; then
+        read -t 15 -p "   Deseja configurar os atalhos globais de teclado no sistema? (S/n) [tempo limite 15s]: " set_shortcuts || set_shortcuts="s"
+    fi
+    case "$set_shortcuts" in
+        [nN][aA][oO]|[nN])
+            echo -e "${GRAY}  ℹ️  Configuração de atalhos de sistema ignorada a pedido do usuário.${NC}"
+            return 0
+            ;;
+    esac
+
     local desktop="${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}"
     desktop="$(echo "$desktop" | tr '[:upper:]' '[:lower:]')"
     local config_done=0
@@ -327,9 +362,9 @@ configure_global_shortcut() {
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/command "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/binding "['<Super>r']" 2>/dev/null || true
 
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/name "'ScreenAI'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/command "'$BIN_DIR/screenai'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/binding "['<Super>z']" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/name "'ScreenAI'" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/command "'$BIN_DIR/screenai'" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/binding "['<Super>z']" 2>/dev/null || true
 
         dconf write /org/cinnamon/desktop/keybindings/custom-list "['custom-metis', 'custom-screenai']" 2>/dev/null || true
         echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para Linux Mint (Cinnamon).${NC}"
@@ -401,8 +436,8 @@ configure_global_shortcut() {
             echo "" >> "$kitty_conf"
             echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
             echo "allow_remote_control yes" >> "$kitty_conf"
-            echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"cat > /tmp/qwen_tela.txt && echo \\\"\\\$KITTY_WINDOW_ID\\\" > /tmp/orig_kitty_id && echo \\\"\\\$KITTY_LISTEN_ON\\\" > /tmp/orig_kitty_listen && kitty --class kitty-screen-assistant --config NONE -o confirm_os_window_close=0 -o \\\"map shift+enter send_text all \\\\x1b\\\\r\\\" -o \\\"map ctrl+enter send_text all \\\\x1b\\\\r\\\" zsh -c \\\"\\\$HOME/.local/share/metis/zsh/explain_screen.zsh\\\"\"" >> "$kitty_conf"
+            echo "listen_on unix:\${XDG_RUNTIME_DIR:-/tmp}/kitty_metis_\${UID}.sock" >> "$kitty_conf"
+            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"cat > \\\${XDG_RUNTIME_DIR:-/tmp}/qwen_tela.\\\$UID.txt && echo \\\"\\\$KITTY_WINDOW_ID\\\" > \\\${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_id.\\\$UID && echo \\\"\\\$KITTY_LISTEN_ON\\\" > \\\${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_listen.\\\$UID && kitty --class kitty-screen-assistant --config NONE -o confirm_os_window_close=0 -o \\\"map shift+enter send_text all \\\\x1b\\\\r\\\" -o \\\"map ctrl+enter send_text all \\\\x1b\\\\r\\\" zsh -c \\\"\\\$HOME/.local/share/metis/zsh/explain_screen.zsh\\\"\"" >> "$kitty_conf"
             echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do explain_screen integrado ao Kitty (~/.config/kitty/kitty.conf).${NC}"
         else
             sed -i "s|\$HOME/\.ZSH/ai/explain_screen\.zsh|\$HOME/\.local/share/metis/zsh/explain_screen\.zsh|g" "$kitty_conf" 2>/dev/null || true
@@ -429,8 +464,9 @@ LOADER_LINE="[[ -f \"$INSTALL_DIR/zsh/loader.zsh\" ]] && source \"$INSTALL_DIR/z
 touch "$ZSHRC"
 if ! grep -Fq "metis/zsh/loader.zsh" "$ZSHRC"; then
     echo "" >> "$ZSHRC"
-    echo "# --- [ Metis AI Suite ] ---" >> "$ZSHRC"
+    echo "# >>> METIS SUITE >>>" >> "$ZSHRC"
     echo "$LOADER_LINE" >> "$ZSHRC"
+    echo "# <<< METIS SUITE <<<" >> "$ZSHRC"
     echo -e "${GREEN}  ✅ Integração completa adicionada ao ~/.zshrc${NC}"
 else
     echo -e "${GRAY}  ℹ️  Integração já presente no ~/.zshrc${NC}"
@@ -439,13 +475,14 @@ fi
 # B. Integração no ~/.bashrc (para funcionar mesmo no Bash padrão do Mint/Ubuntu)
 BASHRC="$HOME/.bashrc"
 if [ -f "$BASHRC" ]; then
-    if ! grep -Fq "# --- [ Metis AI Suite ] ---" "$BASHRC"; then
+    if ! grep -Fq "METIS SUITE" "$BASHRC" && ! grep -Fq "$INSTALL_DIR/zsh/api_ask.py" "$BASHRC"; then
         echo "" >> "$BASHRC"
-        echo "# --- [ Metis AI Suite ] ---" >> "$BASHRC"
+        echo "# >>> METIS SUITE >>>" >> "$BASHRC"
         echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$BASHRC"
         echo "alias ia=\"$INSTALL_DIR/venv/bin/python $INSTALL_DIR/zsh/api_ask.py\"" >> "$BASHRC"
         echo "alias ai=\"ia\"" >> "$BASHRC"
         echo "alias ai-sync=\"$INSTALL_DIR/venv/bin/python $INSTALL_DIR/zsh/manage_models.py sync\"" >> "$BASHRC"
+        echo "# <<< METIS SUITE <<<" >> "$BASHRC"
         echo -e "${GREEN}  ✅ Comandos 'metis', 'ia' e 'ai' integrados ao ~/.bashrc${NC}"
     fi
 fi

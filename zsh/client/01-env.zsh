@@ -68,9 +68,9 @@ _ai_load_env_file() {
 }
 
 _ai_reload_all_envs() {
-  _ai_load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
-  [[ -n "$ZSH_AI_DIR" && -f "${ZSH_AI_DIR:h}/.env" ]] && _ai_load_env_file "${ZSH_AI_DIR:h}/.env"
   [[ -f "$HOME/Metis/.env" ]] && _ai_load_env_file "$HOME/Metis/.env"
+  [[ -n "$ZSH_AI_DIR" && -f "${ZSH_AI_DIR:h}/.env" ]] && _ai_load_env_file "${ZSH_AI_DIR:h}/.env"
+  _ai_load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
 }
 
 _ai_save_provider_state() {

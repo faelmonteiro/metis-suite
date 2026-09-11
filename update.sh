@@ -62,6 +62,7 @@ if [ -d "$INSTALL_DIR" ]; then
     cp -r "$SOURCE_DIR/bin" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/assets" "$INSTALL_DIR/"
     cp "$SOURCE_DIR/requirements.txt" "$INSTALL_DIR/"
+    cp "$SOURCE_DIR/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SOURCE_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SOURCE_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 
@@ -69,6 +70,25 @@ if [ -d "$INSTALL_DIR" ]; then
     [ -f "$BACKUP_TMP/.env" ] && cp "$BACKUP_TMP/.env" "$INSTALL_DIR/app/.env"
     [ -f "$BACKUP_TMP/config_models.json" ] && cp "$BACKUP_TMP/config_models.json" "$INSTALL_DIR/app/config_models.json"
     rm -rf "$BACKUP_TMP"
+
+    # Garante migração para o diretório canônico ~/.config/metis se necessário
+    mkdir -p "$CONFIG_DIR"
+    if [ ! -f "$CONFIG_DIR/config_models.json" ]; then
+        if [ -f "$INSTALL_DIR/app/config_models.json" ]; then
+            cp "$INSTALL_DIR/app/config_models.json" "$CONFIG_DIR/config_models.json"
+        elif [ -f "$SOURCE_DIR/config/config_models.default.json" ]; then
+            cp "$SOURCE_DIR/config/config_models.default.json" "$CONFIG_DIR/config_models.json"
+        fi
+    fi
+    if [ ! -f "$CONFIG_DIR/.env" ]; then
+        if [ -f "$INSTALL_DIR/app/.env" ]; then
+            cp "$INSTALL_DIR/app/.env" "$CONFIG_DIR/.env"
+            chmod 600 "$CONFIG_DIR/.env"
+        elif [ -f "$SOURCE_DIR/config/.env.example" ]; then
+            cp "$SOURCE_DIR/config/.env.example" "$CONFIG_DIR/.env"
+            chmod 600 "$CONFIG_DIR/.env"
+        fi
+    fi
 
     chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
@@ -98,6 +118,15 @@ if [ -d "$INSTALL_DIR" ]; then
     fi
     command -v update-desktop-database &>/dev/null && update-desktop-database "$APPS_DIR" 2>/dev/null || true
 
+    # Atualiza atalho na Área de Trabalho se existir
+    DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "")"
+    [ -z "$DESKTOP_DIR" ] && [ -d "$HOME/Desktop" ] && DESKTOP_DIR="$HOME/Desktop"
+    [ -z "$DESKTOP_DIR" ] && [ -d "$HOME/Área de trabalho" ] && DESKTOP_DIR="$HOME/Área de trabalho"
+    if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ] && [ -f "$APPS_DIR/metis.desktop" ]; then
+        cp "$APPS_DIR/metis.desktop" "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+        chmod +x "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+    fi
+
     # Atualiza fontes se existirem
     FONTS_DIR="$HOME/.local/share/fonts"
     if [ -f "$SOURCE_DIR/assets/fonts/MetisIcons.ttf" ]; then
@@ -110,6 +139,7 @@ if [ -d "$INSTALL_DIR" ]; then
     if [ -d "$INSTALL_DIR/venv" ]; then
         echo -e "  ${CYAN}🐍 Atualizando dependências no venv...${NC}"
         "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet 2>/dev/null || true
+        "$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || true
     fi
 else
     echo -e "${RED}❌ Instalação do Metis não encontrada em $INSTALL_DIR.${NC}"

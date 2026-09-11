@@ -9,6 +9,9 @@ PYTHON_BIN="$METIS_INSTALL_DIR/venv/bin/python3"
 if [ ! -f "$PYTHON_BIN" ]; then
     PYTHON_BIN="$METIS_INSTALL_DIR/venv/bin/python"
 fi
+if [ ! -f "$PYTHON_BIN" ] && [ -f "$HOME/.local/share/metis/venv/bin/python" ]; then
+    PYTHON_BIN="$HOME/.local/share/metis/venv/bin/python"
+fi
 if [ ! -f "$PYTHON_BIN" ]; then
     PYTHON_BIN="python3"
 fi
@@ -18,7 +21,6 @@ export PYTHONPATH="$METIS_INSTALL_DIR/app:$PYTHONPATH"
 # Roteamento de comandos
 if [ "$1" = "gui" ]; then
     shift
-    cd "$METIS_INSTALL_DIR/app" 2>/dev/null || true
     exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/gui.py" "$@"
 elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     shift
@@ -28,6 +30,5 @@ elif [ "$1" = "uninstall" ]; then
 elif [ "$1" = "update" ] || [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
     exec "$METIS_INSTALL_DIR/update.sh"
 else
-    cd "$METIS_INSTALL_DIR/app" 2>/dev/null || true
     exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
 fi

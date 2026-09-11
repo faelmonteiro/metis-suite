@@ -301,24 +301,64 @@ def handle_arquivo(user_input: str, history_manager: HistoryManager, service: Ba
     return "CONTINUE"
 
 
+def _obter_diretorio_exportacao() -> Path:
+    """Retorna um diretório seguro e gravável para exportações do usuário."""
+    # 1. Prioridade: Downloads ou Documentos do usuário
+    for d in [Path.home() / "Downloads", Path.home() / "Documentos", Path.home() / "Documents"]:
+        if d.exists() and os.access(d, os.W_OK):
+            target = d / "Metis_Exports"
+            try:
+                target.mkdir(parents=True, exist_ok=True)
+                return target
+            except Exception:
+                pass
+
+    # 2. Diretório XDG de dados do usuário (~/.local/share/metis/exports)
+    xdg_exports = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "metis" / "exports"
+    try:
+        xdg_exports.mkdir(parents=True, exist_ok=True)
+        return xdg_exports
+    except Exception:
+        pass
+
+    # 3. Fallback no CWD do usuário
+    fallback = Path.cwd() / "metis_exports"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
 def handle_exportar(history_manager: HistoryManager) -> None:
     turnos = history_manager.listar_turnos()
     if not turnos:
         print(f"{YELLOW}Histórico vazio.{RESET}")
         return
 
-    export_dir = Path(config.PROJECT_ROOT) / "exports"
-    export_dir.mkdir(exist_ok=True)
-    nome = export_dir / f"conversa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     try:
-        with open(nome, "w", encoding="utf-8") as f:
-            f.write(f"# Conversa — {datetime.now().strftime('%d/%m/%Y %H:%M')}\n")
-            for t in turnos:
-                f.write(f"## 🧑 Você\n{t['user']}\n")
-                f.write(f"## 🤖 Assistente\n{t['assistant']}\n\n---\n\n")
-        print(f"{GREEN}Conversa exportada: {nome}{RESET}")
+        export_dir = _obter_diretorio_exportacao()
     except Exception as e:
-        print(f"{RED}Erro ao exportar: {e}{RESET}")
+        print(f"{RED}Erro ao acessar diretório de exportação: {e}{RESET}")
+        return
+
+    data_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    base_nome = f"conversa_{data_str}.md"
+    nome = export_dir / base_nome
+    counter = 1
+    while nome.exists():
+        nome = export_dir / f"conversa_{data_str}_{counter}.md"
+        counter += 1
+
+    try:
+        conteudo = f"# Conversa Metis — {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+        for t in turnos:
+            conteudo += f"## 🧑 Você\n{t.get('user', '')}\n\n"
+            conteudo += f"## 🤖 Assistente\n{t.get('assistant', '')}\n\n---\n\n"
+
+        nome.write_text(conteudo, encoding="utf-8")
+        print(f"{GREEN}✔ Conversa exportada com sucesso: {BOLD}{nome}{RESET}")
+    except PermissionError:
+        print(f"{RED}Erro de permissão: Não foi possível gravar em '{nome}'. Verifique as permissões da pasta.{RESET}")
+    except Exception as e:
+        print(f"{RED}Erro ao exportar conversa: {e}{RESET}")
 
 
 def handle_sessoes(history_manager: HistoryManager) -> HistoryManager:

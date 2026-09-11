@@ -57,7 +57,7 @@ _ai_menu_get_default_model() {
       cur_model="${GEMINI_MODEL:-gemini-2.0-flash}"
       ;;
     GROQ)
-      cur_model="${GROQ_MODEL:-openai/gpt-oss-120b}"
+      cur_model="${GROQ_MODEL:-llama-3.3-70b-versatile}"
       ;;
     NVIDIA)
       cur_model="${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}"
@@ -115,7 +115,10 @@ _ai_menu_prepare() {
 
   AI_MENU_MANAGE_SCRIPT="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py"
   if [[ ! -f "$AI_MENU_MANAGE_SCRIPT" ]]; then
-    AI_MENU_MANAGE_SCRIPT="$HOME/.ZSH/ai/manage_models.py"
+    local _mod_dir="${0:A:h:h}"
+    if [[ -f "$_mod_dir/manage_models.py" ]]; then
+      AI_MENU_MANAGE_SCRIPT="$_mod_dir/manage_models.py"
+    fi
   fi
 
   if [[ ! -f "$AI_MENU_MANAGE_SCRIPT" ]]; then

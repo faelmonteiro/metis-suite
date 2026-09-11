@@ -35,6 +35,7 @@ ZSHRC="$HOME/.zshrc"
 if [ -f "$ZSHRC" ]; then
     echo -e "${YELLOW}🧹 Removendo integração do $ZSHRC...${NC}"
     cp "$ZSHRC" "${ZSHRC}.metis_backup" 2>/dev/null || true
+    sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$ZSHRC"
     sed -i '/# --- \[ Metis AI Suite \] ---/d' "$ZSHRC"
     sed -i '/metis\/zsh\/loader.zsh/d' "$ZSHRC"
     echo -e "${GREEN}✅ Linhas do Metis removidas do $ZSHRC.${NC}"
@@ -43,10 +44,21 @@ fi
 BASHRC="$HOME/.bashrc"
 if [ -f "$BASHRC" ]; then
     echo -e "${YELLOW}🧹 Removendo integração do $BASHRC...${NC}"
+    cp "$BASHRC" "${BASHRC}.metis_backup" 2>/dev/null || true
+    sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$BASHRC"
     sed -i '/# --- \[ Metis AI Suite \] ---/d' "$BASHRC"
     sed -i '\|'"$INSTALL_DIR"'|d' "$BASHRC"
-    sed -i '/alias ai="ia"/d' "$BASHRC"
     echo -e "${GREEN}✅ Linhas do Metis removidas do $BASHRC.${NC}"
+fi
+
+# 1.2 Remover integração do Kitty se presente
+KITTY_CONF="$HOME/.config/kitty/kitty.conf"
+if [ -f "$KITTY_CONF" ] && grep -Fq "explain_screen.zsh" "$KITTY_CONF"; then
+    echo -e "${YELLOW}🧹 Removendo atalho do explain_screen em $KITTY_CONF...${NC}"
+    cp "$KITTY_CONF" "${KITTY_CONF}.metis_backup" 2>/dev/null || true
+    sed -i '/# --- \[ Metis Explain Screen (Ctrl + Shift + E) \] ---/d' "$KITTY_CONF"
+    sed -i '/explain_screen\.zsh/d' "$KITTY_CONF"
+    echo -e "${GREEN}✅ Atalho do explain_screen removido do Kitty.${NC}"
 fi
 
 
@@ -113,9 +125,16 @@ done
 
 [ -f "$ICON_FILE" ] && rm -f "$ICON_FILE"
 [ -f "$VISION_ICON_FILE" ] && rm -f "$VISION_ICON_FILE"
-[ -f "$HOME/.local/share/icons/hicolor/256x256/apps/metis-vision.png" ] && rm -f "$HOME/.local/share/icons/hicolor/256x256/apps/metis-vision.png"
 if command -v update-desktop-database &>/dev/null; then
     update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+fi
+if command -v gtk-update-icon-cache &>/dev/null; then
+    gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+fi
+
+if [ -f "$HOME/.local/share/fonts/MetisIcons.ttf" ]; then
+    rm -f "$HOME/.local/share/fonts/MetisIcons.ttf"
+    command -v fc-cache &>/dev/null && fc-cache -f "$HOME/.local/share/fonts" 2>/dev/null || true
 fi
 
 # 4. Perguntar sobre configurações e chaves de API

@@ -106,13 +106,13 @@ main() {
 • \033[1;37mWeb G4F:\033[0m ${G4F_MODEL:-gpt-4o}
 "
 
-    _get_model_specs "4" "${GROQ_MODEL:-openai/gpt-oss-120b}"
+    _get_model_specs "4" "${GROQ_MODEL:-llama-3.3-70b-versatile}"
     local g_lat="$MODEL_SPEC_LATENCY"
     local g_ctx="$MODEL_SPEC_CONTEXT"
 
     prev_ext="\033[1;35m✨ APIS EXTERNAS & SERVIDORES\033[0m
 ─────────────────────────────
-• \033[1;37mGroq:\033[0m ${GROQ_MODEL:-openai/gpt-oss-120b}
+• \033[1;37mGroq:\033[0m ${GROQ_MODEL:-llama-3.3-70b-versatile}
 • \033[1;37mGemini:\033[0m ${GEMINI_MODEL:-gemini-2.0-flash}
 • \033[1;37mNVIDIA:\033[0m ${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}
 • \033[1;37mOpenRouter:\033[0m ${OPENROUTER_MODEL:-liquid/lfm-2.5-2.6b:free}
@@ -155,7 +155,7 @@ main() {
     rc=$?
 
     if (( rc != 0 )) || [[ -z "$out_principal" ]]; then
-      exit 0
+      return 0
     fi
 
     out_principal="${out_principal%$'\n'}"
@@ -466,7 +466,7 @@ $SCREEN_CONTENT
       fi
 
       if [[ -z "$USER_INPUT" ]]; then
-        exit 0
+        return 0
       fi
 
       CLEAN_INPUT="$(_trim "$USER_INPUT")"
@@ -510,7 +510,7 @@ $SCREEN_CONTENT
           ;;
 
         /sair|/q|/exit|/quit|exit|quit)
-          exit 0
+          return 0
           ;;
 
         /modelos|/modelos\ *|/models|/models\ *|/config_model|/config_model\ *|/mod|/mod\ *|/provedor|/provedor\ *|/provider|/provider\ *|/modelo|/modelo\ *|/ia|/ia\ *)

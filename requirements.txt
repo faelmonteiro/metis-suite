@@ -1,17 +1,18 @@
-# Dependências Obrigatórias (Core & Terminal)
-httpx>=0.27.0
-python-dotenv>=1.0.0
-prompt_toolkit>=3.0.0
-rich>=13.0.0
-fpdf2>=2.7.0
-pyperclip>=1.8.0
+# Dependências Obrigatórias (Core, Terminal & Busca)
+httpx>=0.27.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0
+prompt_toolkit>=3.0.0,<4.0.0
+rich>=13.0.0,<14.0.0
+fpdf2>=2.7.0,<3.0.0
+pyperclip>=1.8.0,<2.0.0
+ddgs>=9.16.0
 
-# Dependências Gráficas (GUI & Vision)
-PyQt6>=6.6.0
-Pillow>=10.0.0
+# Dependências Gráficas & Multimodais (GUI & Vision)
+PyQt6>=6.6.0,<7.0.0
+Pillow>=10.0.0,<12.0.0
 google-genai>=2.20.0
-pydantic>=2.0.0
+pydantic>=2.0.0,<3.0.0
 
-# Dependências Opcionais (IA Web Gratuita)
+# Provedores Opcionais (IA Web Gratuita)
 g4f>=0.3.0
 curl_cffi>=0.7.0

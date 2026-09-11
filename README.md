@@ -11,11 +11,12 @@ O **Metis AI Suite** integra modelos de inteligência artificial de ponta (Googl
 | Atalho / Comando | Descrição |
 | :--- | :--- |
 | **`Ctrl + G`** | **Menu Interativo FZF**: Execução rápida de comandos gerados por IA, modo didático (ensino e notas `/nota`) e gerenciador dinâmico de modelos. |
-| **`Ctrl + Shift + E`** | **Explain Screen**: Captura a tela atual do terminal e abre o assistente inteligente para analisar saídas, logs e erros na hora. |
+| **`Ctrl + Shift + E`** ou **`screen-explain`** | **Explain Screen**: Captura a tela do terminal ativo e abre o copiloto de texto para analisar saídas, logs e erros. |
 | **`Alt + H`** ou **`iah`** | **Histórico de Prompts de IA**: Busca rápida via FZF em todas as suas consultas anteriores de IA. |
 | **`Ctrl + X Ctrl + P`** | **Autocomplete Inline**: Sugestão de comandos com IA diretamente na linha de comando do ZSH. |
 | **`metis`** | **Copiloto Autônomo**: Diagnóstico e resolução inteligente de erros do terminal com execução de ferramentas. |
-| **`metis gui`** | **Interface Visual**: Abre a aplicação gráfica do Metis. |
+| **`metis gui`** | **Interface Visual**: Abre a aplicação gráfica principal do Metis. |
+| **`screenai`** ou **`metis-vision`** | **Metis Vision (GUI)**: Assistente visual multimodal flutuante (PyQt6) com captura de janelas, telas e OCR. |
 | **`ia <pergunta>`** | **Consulta Rápida**: Resposta direta no terminal com suporte a pipes (ex: `cat erro.log | ia 'o que quebrou?'`). |
 | **`aiman <comando>`** | **Manpage Express**: Manual interativo com explicações e exemplos práticos gerados por IA. |
 | **`gca`** | **Git AI Commit**: Gera mensagens de commit automaticamente no padrão *Conventional Commits*. |

@@ -35,7 +35,7 @@ else
 fi
 
 
-alias screenai="source \"$ZSH_AI_DIR/explain_screen.zsh\""
+alias screen-explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
 alias explain_screen="source \"$ZSH_AI_DIR/explain_screen.zsh\""
 
 # Widget interativo para acionar o explain_screen direto no ZSH

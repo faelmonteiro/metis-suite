@@ -159,24 +159,23 @@ def _hex_to_rgba(hex_str: str, alpha: float) -> str:
 
 
 def get_metis_saved_preferences() -> Dict[str, Any]:
-    """Lê as preferências salvas no config_models.json mais recente do Metis."""
-    candidates = [
-        Path.home() / ".local/share/metis/app/config_models.json",
-        Path.home() / "Metis" / "config_models.json",
-        Path(__file__).parent.parent / "config_models.json",
-        Path.home() / ".config" / "metis" / "config_models.json",
-    ]
-    existing = [p for p in candidates if p.exists() and p.is_file()]
-    if not existing:
-        return {}
-    existing.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    for p in existing:
-        try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "preferences" in data:
-                return data["preferences"]
-        except Exception:
-            pass
+    """Lê as preferências salvas no config_models.json canônico do Metis (~/.config/metis)."""
+    cfg_file = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
+    candidates = [cfg_file]
+    if not cfg_file.exists():
+        candidates.extend([
+            Path.home() / ".local/share/metis/app/config_models.json",
+            Path(__file__).resolve().parent.parent / "config_models.json",
+            Path.home() / "Metis" / "config_models.json",
+        ])
+    for p in candidates:
+        if p.exists() and p.is_file():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and "preferences" in data:
+                    return data["preferences"]
+            except Exception:
+                pass
     return {}
 
 

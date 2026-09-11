@@ -27,7 +27,7 @@
       "qwen2.5-coder:7b"
     ],
     "Groq": [
-      "openai/gpt-oss-120b"
+      "llama-3.3-70b-versatile"
     ],
     "G4F": [
       "gpt-4o-mini",
