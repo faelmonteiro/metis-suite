@@ -65,9 +65,11 @@ $tool_result
 resolver_automatico_no_terminal() {
   local raw_input="$1"
 
-  extrair_linhas_e_query "$raw_input" "$DEFAULT_SCREEN_LINES"
+  extrair_linhas_e_query "$raw_input" "${DEFAULT_SCREEN_LINES:-30}"
 
-  local auto_lines="$PARSED_LINES"
+  local auto_lines="${PARSED_LINES:-30}"
+  [[ "$auto_lines" =~ ^[0-9]+$ ]] || auto_lines=30
+  (( auto_lines < 1 )) && auto_lines=30
   local extra_goal="$PARSED_QUERY"
 
   local max_steps="${PARSED_STEPS:-${AI_AUTO_MAX_STEPS:-6}}"
@@ -75,19 +77,48 @@ resolver_automatico_no_terminal() {
   local nova_tela=""
   local resp=""
 
-  typeset -g AUTO_CANCEL=0
-  trap 'AUTO_CANCEL=1' INT
+  local screen_init=""
+  local label_fonte="Terminal do Usuário (últimas $auto_lines linhas)"
 
-  printf '\n\033[1;35m🚀 [Modo Auto-Resolução (%d linhas, até %d passos)]: Assumindo controle do terminal original...\033[0m\n' "$auto_lines" "$max_steps"
-  printf '\033[90mOs comandos serão executados diretamente no seu terminal de trabalho.\033[0m\n'
-  printf '%s\n' "─────────────────────────────────────────"
+  if [[ "$MODO_CAPTURA" == "mouse" && -n "$SCREEN_CONTENT" ]]; then
+    screen_init="$SCREEN_CONTENT"
+    label_fonte="Seleção Ativa do Mouse no Terminal"
+  else
+    screen_init="$(recapturar_tela "$auto_lines" 2>/dev/null)"
+    [[ -z "$screen_init" ]] && screen_init="$SCREEN_CONTENT"
+  fi
 
-  local screen_init
-  screen_init="$(recapturar_tela "$auto_lines" 2>/dev/null)"
-  [[ -z "$screen_init" ]] && screen_init="$SCREEN_CONTENT"
+  local real_lines=0
+  if [[ -n "$screen_init" ]]; then
+    real_lines=$(print -r -- "$screen_init" | wc -l)
+    real_lines="${real_lines##* }"
+  fi
+  (( real_lines == 0 )) && real_lines="$auto_lines"
 
-  local auto_prompt="Você é um Agente Linux autônomo conectado diretamente ao terminal do usuário.
-[Terminal do Usuário (últimas $auto_lines linhas)]:
+  printf '\n\033[1;35m🚀 Modo Auto-Resolução (%d linhas • até %d passos)\033[0m\n' "$real_lines" "$max_steps"
+  printf '\033[90mControle autônomo conectado ao terminal de trabalho.\033[0m\n'
+  printf '%s\n' "──────────────────────────────────────────────────────────"
+
+  obter_status_ultimo_comando "${TARGET_KITTY_WIN:-}"
+  local last_cmd_header=""
+  if [[ -n "$LAST_CMD_NAME" ]]; then
+    local status_label="0 (Sucesso)"
+    [[ "$LAST_CMD_EXIT" != "0" ]] && status_label="$LAST_CMD_EXIT (Falha / Erro)"
+    last_cmd_header="
+[Último Comando Executado no Terminal]: $LAST_CMD_NAME
+[Código de Retorno / Exit Code]: $status_label"
+  fi
+
+  local prev_diag_header=""
+  if [[ -n "$LAST_RESPONSE" ]]; then
+    prev_diag_header="
+[Diagnóstico Inicial Identificado]:
+$LAST_RESPONSE
+"
+  fi
+
+  local auto_prompt="Você é um Agente Linux autônomo conectado diretamente ao terminal do usuário.${last_cmd_header}${prev_diag_header}
+[${label_fonte}]:
 $screen_init
 
 O usuário pediu: ${extra_goal:-Investigar a causa do erro na tela do terminal, aplicar as correções necessárias e resolver o problema.}
@@ -130,7 +161,7 @@ REGRA IMPORTANTE:
       return 130
     fi
 
-    printf '\033[34m🤖 [Passo %d/%d]: IA planejando próxima ação...\033[0m\n' "$step" "$max_steps"
+    printf '\n\033[1;34m🤖 [Passo %d/%d]\033[0m \033[90mPlanejando próxima ação...\033[0m\n' "$step" "$max_steps"
 
     resp="$(chamar_ia "$current_context")"
     local ia_status=$?
@@ -163,12 +194,27 @@ Erro: tool_call sem comando válido.
         continue
       fi
 
-      printf '\n\033[36m⚡ [Passo %d/%d - Ação]: \033[1;38;5;214m%s\033[0m\n' "$step" "$max_steps" "$cmd"
+      printf '\033[1;36m⚡ [Passo %d/%d - Ação]:\033[0m\n  \033[1;38;5;214m$ %s\033[0m\n' "$step" "$max_steps" "$cmd"
+
+      local precisa_confirmar=0
+      local motivo_confirmacao=""
 
       if _is_risky_auto_cmd "$cmd"; then
-        _auto_log "SENSÍVEL: $cmd"
+        precisa_confirmar=1
+        motivo_confirmacao="Comando potencialmente sensível"
+      elif [[ "$cmd" == *$'\n'* && "${AI_AUTO_ALLOW_MULTILINE:-0}" != "1" ]]; then
+        local n_linhas_cmd=0
+        n_linhas_cmd=$(print -r -- "$cmd" | grep -c .)
+        if (( n_linhas_cmd > 1 )); then
+          precisa_confirmar=1
+          motivo_confirmacao="Comando multilinha"
+        fi
+      fi
 
-        if ! _confirmar_acao "A IA quer executar no seu terminal original: \033[1;33m$cmd\033[0m"; then
+      if (( precisa_confirmar )); then
+        _auto_log "CONFIRMAR: $cmd ($motivo_confirmacao)"
+
+        if ! _confirmar_acao_formatada "$cmd" "$motivo_confirmacao"; then
           printf '\033[31m✖ Ação cancelada pelo usuário.\033[0m\n'
           _auto_log "NEGADO: $cmd"
 
@@ -183,24 +229,9 @@ Ação '$cmd' cancelada pelo usuário. Sugira outra abordagem ou finalize.
         fi
       fi
 
-      if [[ "$cmd" == *$'\n'* && "${AI_AUTO_ALLOW_MULTILINE:-0}" != "1" ]]; then
-        _auto_log "MULTILINHA: $cmd"
-        if ! _confirmar_acao "A IA quer executar no seu terminal original um comando com múltiplas linhas:
-\033[1;33m$cmd\033[0m
-Deseja continuar mesmo assim?"; then
-          printf '\033[31m✖ Ação multilinha cancelada pelo usuário.\033[0m\n'
-          _auto_log "NEGADO: $cmd"
-          current_context="$current_context
-[Assistente]: $resp
-<tool_result>
-Ação multilinha cancelada pelo usuário. Sugira outra abordagem ou finalize.
-</tool_result>"
-          (( step++ ))
-          continue
-        fi
-      fi
-
-      printf '\033[32m⌨️  Enviando e executando no seu terminal principal...\033[0m\n'
+      local win_target="${TARGET_KITTY_WIN:-}"
+      [[ -n "$win_target" ]] && rm -f "/tmp/metis_status_${win_target}" 2>/dev/null
+      rm -f "/tmp/metis_last_status" 2>/dev/null
 
       if ! AI_AUTO_CONFIRMED=1 enviar_ao_kitty "$cmd" "" 1; then
         _auto_log "FALHA AO ENVIAR: $cmd"
@@ -217,7 +248,28 @@ Erro: não foi possível enviar o comando ao terminal original.
 
       _auto_log "EXECUTADO: $cmd"
 
-      sleep "${AI_AUTO_SLEEP:-2}"
+      local waited=0
+      local max_wait="${AI_AUTO_TIMEOUT:-12}"
+      local check_status_file="/tmp/metis_last_status"
+      [[ -n "$win_target" ]] && check_status_file="/tmp/metis_status_${win_target}"
+
+      # Aguarda dinamicamente o término do comando detectado pelo hook ZSH
+      while (( waited < max_wait * 10 )); do
+        if (( AUTO_CANCEL == 1 )); then
+          break
+        fi
+        if [[ -f "$check_status_file" ]]; then
+          sleep 0.15 # Pequeno intervalo para o Kitty desenhar a saída no buffer
+          break
+        fi
+        sleep 0.1
+        (( waited++ ))
+      done
+
+      # Fallback caso o hook não tenha disparado a tempo
+      if [[ ! -f "$check_status_file" ]]; then
+        sleep "${AI_AUTO_SLEEP:-1.5}"
+      fi
 
       if (( AUTO_CANCEL == 1 )); then
         printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
@@ -225,19 +277,36 @@ Erro: não foi possível enviar o comando ao terminal original.
         return 130
       fi
 
-      nova_tela="$(recapturar_tela 50)"
+      nova_tela="$(recapturar_tela "${DEFAULT_SCREEN_LINES:-30}")"
 
       if [[ "$nova_tela" == *"$cmd"* ]]; then
         nova_tela="${nova_tela#*"$cmd"}"
       fi
 
+      obter_status_ultimo_comando "$win_target"
+
+      local status_info=""
+      if [[ -n "$LAST_CMD_EXIT" ]]; then
+        if [[ "$LAST_CMD_EXIT" == "0" ]]; then
+          status_info="[Status de Retorno / Exit Code]: 0 (Sucesso / OK)"
+          printf '\033[32m✔ Executado no terminal (Sucesso)\033[0m\n'
+        else
+          status_info="[Status de Retorno / Exit Code]: $LAST_CMD_EXIT (Erro / Falha)"
+          printf '\033[33m⚠ Executado no terminal (Exit: %s)\033[0m\n' "$LAST_CMD_EXIT"
+        fi
+      else
+        printf '\033[32m✔ Executado no terminal\033[0m\n'
+      fi
+
       current_context="$current_context
 [Assistente]: $resp
 <tool_result>
-[Saída do comando '$cmd']:
-$nova_tela
+[Comando executado]: $cmd
+${status_info}
+[Saída capturada do terminal]:
+${nova_tela:-(Sem saída de texto adicional)}
 </tool_result>
-[Sistema]: Analise a saída acima. Se ainda faltam verificações ou comandos para cumprir integralmente o que o usuário pediu, envie a próxima <tool_call name=\"bash\">. NUNCA invente saídas de comandos que não rodaram. Apenas envie o relatório final se TODOS os itens solicitados já foram executados e confirmados:"
+[Sistema]: Analise o status de retorno e a saída acima. Se o comando resolveu o erro com sucesso ou se ainda faltam verificações ou comandos para cumprir integralmente o que o usuário pediu, envie a próxima <tool_call name=\"bash\">. NUNCA invente saídas de comandos que não rodaram. Apenas envie o relatório final se TODOS os itens solicitados já foram executados e confirmados:"
 
       current_context="$(limitar_contexto "$current_context")"
 
@@ -248,7 +317,7 @@ $nova_tela
       printf '\033[1;32m═════════════════════════════════════════════════════════════\033[0m\n'
 
       if command -v perl >/dev/null 2>&1; then
-        resp="$(print -r -- "$resp" | perl -0777 -pe 's/<tool_call[^>]*>.*?<\/tool_call>//gs; s/<tool_result[^>]*>.*?<\/tool_result>//gs' 2>/dev/null)"
+        resp="$(print -r -- "$resp" | perl -0777 -pe 's/<tool_call[^>]*>.*?<\/tool_call>//gs; s/<function[^>]*>.*?<\/function>//gs; s/<tool_result[^>]*>.*?<\/tool_result>//gs; s/<\/?(parameter|function|tool_call)[^>]*>//gi' 2>/dev/null)"
       fi
 
       renderizar "$resp"
@@ -272,7 +341,7 @@ $nova_tela
     resp="$(chamar_ia "$final_report_prompt")"
 
     if command -v perl >/dev/null 2>&1; then
-      resp="$(print -r -- "$resp" | perl -0777 -pe 's/<tool_call[^>]*>.*?<\/tool_call>//gs; s/<tool_result[^>]*>.*?<\/tool_result>//gs' 2>/dev/null)"
+      resp="$(print -r -- "$resp" | perl -0777 -pe 's/<tool_call[^>]*>.*?<\/tool_call>//gs; s/<function[^>]*>.*?<\/function>//gs; s/<tool_result[^>]*>.*?<\/tool_result>//gs; s/<\/?(parameter|function|tool_call)[^>]*>//gi' 2>/dev/null)"
     fi
 
     printf '\n\033[1;32m═════════════════════════════════════════════════════════════\033[0m\n'

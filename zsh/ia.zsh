@@ -15,6 +15,12 @@ if (( ! $+functions[_ai_query] )); then
 fi
 
 ia() {
+  if [[ "$1" == "git" ]]; then
+    shift
+    git_commit_ai "$@"
+    return $?
+  fi
+
   local query="$*"
   local piped_data=""
 

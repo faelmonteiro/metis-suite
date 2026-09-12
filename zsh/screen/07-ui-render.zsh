@@ -404,10 +404,13 @@ exibir_ajuda() {
   printf "  ${g}%-18s${r} ${dim}│${r} %s\n\n" "/sair, /q" "Fecha a janela do assistente"
 
   printf "${y}⌨️  DICAS & ATALHOS DE TECLADO${r}\n"
+  printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Ctrl+Shift+E" "Atalho global no Kitty para abrir o assistente"
   printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "-30 [pergunta]" "Captura as últimas N linhas da tela (ex: -20, -50)"
   printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Shift + Enter" "Pula linha no texto da sua pergunta"
   printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Ctrl + Setas" "Navega palavra por palavra na digitação"
+  printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Tab" "Oculta ou exibe o painel lateral de prévia"
   printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Ctrl + C" "Cancela a geração ou o modo auto com segurança"
+  printf "  ${w_txt}%-18s${r} ${dim}│${r} %s\n" "Esc" "Cancela a ação atual ou fecha o assistente"
 
   printf "\n${dim}%s${r}\n" "$sep"
 }

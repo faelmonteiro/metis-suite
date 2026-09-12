@@ -2,7 +2,7 @@
 
 > **Copiloto Autônomo de Terminal, Agente de IA e Ferramentas Inteligentes para Linux e ZSH.**
 
-O **Metis AI Suite** integra modelos de inteligência artificial de ponta (Google Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama local e G4F) diretamente ao fluxo de trabalho do seu terminal ZSH e sistema Linux.
+O **Metis AI Suite** integra modelos de inteligência artificial de ponta (Google Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama local e G4F) diretamente ao fluxo de trabalho do seu terminal (ZSH & BASH) e sistema Linux.
 
 ---
 
@@ -10,16 +10,16 @@ O **Metis AI Suite** integra modelos de inteligência artificial de ponta (Googl
 
 | Atalho / Comando | Descrição |
 | :--- | :--- |
-| **`Ctrl + G`** | **Menu Interativo FZF**: Execução rápida de comandos gerados por IA, modo didático (ensino e notas `/nota`) e gerenciador dinâmico de modelos. |
-| **`Ctrl + Shift + E`** ou **`screen-explain`** | **Explain Screen**: Captura a tela do terminal ativo e abre o copiloto de texto para analisar saídas, logs e erros. |
-| **`Alt + H`** ou **`iah`** | **Histórico de Prompts de IA**: Busca rápida via FZF em todas as suas consultas anteriores de IA. |
+| **`Ctrl + G`** | **Menu Interativo FZF**: Execução rápida de comandos gerados por IA, modo didático (ensino e notas `/nota`) e gerenciador dinâmico de modelos (ZSH & BASH). |
+| **`Alt + E`** ou **`Ctrl + Shift + E`** | **Explain Screen**: Analisa o erro selecionado com o mouse ou tela do terminal com copiloto inteligente para explicar erros e sugerir correções. |
+| **`Alt + H`** ou **`iah`** | **Histórico de Prompts de IA**: Busca rápida via FZF em todas as suas consultas anteriores de IA (ZSH & BASH). |
 | **`Ctrl + X Ctrl + P`** | **Autocomplete Inline**: Sugestão de comandos com IA diretamente na linha de comando do ZSH. |
-| **`metis`** | **Copiloto Autônomo**: Diagnóstico e resolução inteligente de erros do terminal com execução de ferramentas. |
+| **`metis`** / **`metis explain`** | **Copiloto Autônomo**: Diagnóstico e resolução inteligente de erros do terminal com execução de ferramentas. |
 | **`metis gui`** | **Interface Visual**: Abre a aplicação gráfica principal do Metis. |
 | **`screenai`** ou **`metis-vision`** | **Metis Vision (GUI)**: Assistente visual multimodal flutuante (PyQt6) com captura de janelas, telas e OCR. |
-| **`ia <pergunta>`** | **Consulta Rápida**: Resposta direta no terminal com suporte a pipes (ex: `cat erro.log | ia 'o que quebrou?'`). |
-| **`aiman <comando>`** | **Manpage Express**: Manual interativo com explicações e exemplos práticos gerados por IA. |
-| **`gca`** | **Git AI Commit**: Gera mensagens de commit automaticamente no padrão *Conventional Commits*. |
+| **`ia <pergunta>`** | **Consulta Rápida**: Resposta direta no terminal com suporte a pipes (ex: `cat erro.log | ia 'o que quebrou?'`) (ZSH & BASH). |
+| **`aiman <comando>`** | **Manpage Express**: Manual interativo com explicações e exemplos práticos gerados por IA (ZSH & BASH). |
+| **`gca`** ou **`ai git`** | **Git AI Commit**: Gera mensagens de commit automaticamente no padrão *Conventional Commits* (ZSH & BASH). |
 
 ---
 
@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/faelmonteiro/metis-suite/main/insta
 - ✅ Detecta sua distribuição (`apt`, `dnf`, `pacman`, `zypper`, etc.) e instala ferramentas necessárias.
 - ✅ Cria um ambiente virtual Python isolado (`venv`), sem afetar os pacotes do seu sistema.
 - ✅ Inicializa arquivos de configuração **100% limpos e zerados** em `~/.config/metis/`.
-- ✅ Integra os atalhos e widgets diretamente ao seu `~/.zshrc`.
+- ✅ Integra os atalhos e widgets diretamente ao seu `~/.zshrc` e `~/.bashrc`.
 - ✅ Cria o comando executável `metis` no seu `PATH` e cria o atalho no menu de aplicativos do Linux.
 
 ---

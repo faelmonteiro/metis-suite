@@ -191,6 +191,11 @@ _ai_fix_insert_command() {
     fi
   fi
 
+  if [[ -n "$METIS_BASH_MODE" ]]; then
+    print -r -- "$cmd" > "${XDG_RUNTIME_DIR:-/tmp}/metis_bash_cmd.$UID"
+    return 0
+  fi
+
   if [[ -n "$LBUFFER" && "$LBUFFER" != *[[:space:]] ]]; then
     LBUFFER+=' '
   fi

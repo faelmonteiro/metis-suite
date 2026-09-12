@@ -33,11 +33,13 @@ if [[ ! -s "$FILE" && -s "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; t
   FILE="/tmp/qwen_tela.txt"
 fi
 
-ZSH_AI_DIR="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}"
+ZSH_AI_DIR="${ZSH_AI_DIR:-$HOME/.ZSH/ai}"
 METIS_ROOT="${METIS_ROOT:-$HOME/.local/share/metis}"
 
 if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
-  if [[ -x "$METIS_ROOT/venv/bin/python" ]]; then
+  if [[ -x "$HOME/Metis/.venv/bin/python" ]]; then
+    PYTHON_BIN="$HOME/Metis/.venv/bin/python"
+  elif [[ -x "$METIS_ROOT/venv/bin/python" ]]; then
     PYTHON_BIN="$METIS_ROOT/venv/bin/python"
   elif [[ -x "$HOME/.local/share/metis/venv/bin/python" ]]; then
     PYTHON_BIN="$HOME/.local/share/metis/venv/bin/python"
@@ -56,7 +58,7 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
 OLLAMA_URL="${OLLAMA_URL:-${AI_FIX_OLLAMA_URL:-http://localhost:11434/api/generate}}"
 OLLAMA_THREADS="${OLLAMA_THREADS:-4}"
 
-DEFAULT_SCREEN_LINES="${DEFAULT_SCREEN_LINES:-50}"
+DEFAULT_SCREEN_LINES="${DEFAULT_SCREEN_LINES:-30}"
 MAX_CONTEXT_TURNS="${MAX_CONTEXT_TURNS:-5}"
 
 AI_ASSIST_WORD_WRAP="${AI_ASSIST_WORD_WRAP:-1}"
@@ -66,6 +68,16 @@ AI_AUTO_MAX_STEPS="${AI_AUTO_MAX_STEPS:-${METIS_MAX_STEPS:-6}}"
 AI_AUTO_SLEEP="${AI_AUTO_SLEEP:-2}"
 AI_AUTO_LOG_DIR="${AI_AUTO_LOG_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/metis/logs}"
 AI_AUTO_ALLOW_MULTILINE="${AI_AUTO_ALLOW_MULTILINE:-0}"
+
+# -----------------------------------------------------------------------------
+# Helpers Básicos
+# -----------------------------------------------------------------------------
+_trim() {
+  local s="${1:-}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  print -r -- "$s"
+}
 
 ACTIVE_PROVIDER_FILE="${ACTIVE_PROVIDER_FILE:-${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider}"
 
@@ -79,7 +91,7 @@ KITTY_LISTEN_ON="${KITTY_LISTEN_ON:-$(_trim "$(cat "$_orig_listen_file" 2>/dev/n
 export ORIG_KITTY_ID KITTY_LISTEN_ON
 
 # Validação das variáveis numéricas
-[[ "$DEFAULT_SCREEN_LINES" =~ ^[0-9]+$ ]] || DEFAULT_SCREEN_LINES=50
+[[ "$DEFAULT_SCREEN_LINES" =~ ^[0-9]+$ ]] || DEFAULT_SCREEN_LINES=30
 [[ "$MAX_CONTEXT_TURNS" =~ ^[0-9]+$ ]] || MAX_CONTEXT_TURNS=5
 [[ "$AI_AUTO_MAX_STEPS" =~ ^[0-9]+$ ]] || AI_AUTO_MAX_STEPS=6
 [[ "$AI_AUTO_SLEEP" =~ ^[0-9]+$ ]] || AI_AUTO_SLEEP=2
@@ -94,16 +106,6 @@ typeset -g SPINNER_RESULT="" SPINNER_CODE=0
 typeset -g MODEL_SPEC_LATENCY="" MODEL_SPEC_CONTEXT=""
 typeset -ga CURRENT_CODE_BLOCKS=()
 typeset -g LAST_RESPONSE="" LAST_DURATION="" LAST_SELECTED_CODE="" CONTEXT=""
-
-# -----------------------------------------------------------------------------
-# Helpers Básicos
-# -----------------------------------------------------------------------------
-_trim() {
-  local s="${1:-}"
-  s="${s#"${s%%[![:space:]]*}"}"
-  s="${s%"${s##*[![:space:]]}"}"
-  print -r -- "$s"
-}
 
 _remover_comentarios_linha() {
   local line="$1"

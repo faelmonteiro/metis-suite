@@ -25,6 +25,50 @@ if [ "$1" = "gui" ]; then
 elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     shift
     exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
+    shift
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]; then
+        exec zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
+    else
+        echo "⚠️  O ZSH é necessário para executar o assistente explain_screen." >&2
+        exit 1
+    fi
+elif [ "$1" = "fix" ] || [ "$1" = "menu" ]; then
+    shift
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
+        exec zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt"
+    else
+        echo "⚠️  O ZSH é necessário para executar o menu fix." >&2
+        exit 1
+    fi
+elif [ "$1" = "aiman" ] || [ "$1" = "man" ]; then
+    shift
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
+        exec zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; aiman "$@"' _ "$METIS_INSTALL_DIR" "$@"
+    else
+        echo "⚠️  O ZSH é necessário para executar o aiman." >&2
+        exit 1
+    fi
+elif [ "$1" = "commit" ] || [ "$1" = "gca" ] || [ "$1" = "git" ]; then
+    shift
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
+        exec zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; git_commit_ai "$@"' _ "$METIS_INSTALL_DIR" "$@"
+    else
+        echo "⚠️  O ZSH é necessário para executar o git-ai." >&2
+        exit 1
+    fi
+elif [ "$1" = "history" ] || [ "$1" = "iah" ]; then
+    shift
+    HIST_FILE="${HOME}/.zsh_ai_history"
+    if [ ! -f "$HIST_FILE" ]; then
+        echo "Histórico de IA ainda está vazio."
+        exit 0
+    fi
+    if command -v fzf >/dev/null 2>&1; then
+        tac "$HIST_FILE" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts > "
+    else
+        tail -n 20 "$HIST_FILE" | sed 's/^: [0-9]*:[0-9]*;//'
+    fi
 elif [ "$1" = "uninstall" ]; then
     exec "$METIS_INSTALL_DIR/uninstall.sh"
 elif [ "$1" = "update" ] || [ "$1" = "--update" ] || [ "$1" = "-u" ]; then

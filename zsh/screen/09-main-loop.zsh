@@ -61,13 +61,13 @@ main() {
 
   local FZF_DEFAULT_OPTS=""
 
-  local active_lines=50 SCREEN_CONTENT="" clean_final_query=""
+  local active_lines="${DEFAULT_SCREEN_LINES:-30}" SCREEN_CONTENT="" clean_final_query=""
   local CONTEXT="" LAST_RESPONSE="" ia_status=0 auto_status=0
   local voltar_menu=0 LAST_SELECTED_CODE=""
   local USER_INPUT="" CLEAN_INPUT=""
-  local NOVA_RESPOSTA="" extra_msg="" sync_lines=50 LATEST_SCREEN="" TEMP_CONTEXT=""
+  local NOVA_RESPOSTA="" extra_msg="" sync_lines="${DEFAULT_SCREEN_LINES:-30}" LATEST_SCREEN="" TEMP_CONTEXT=""
   local target_idx="" code_to_copy="" code_to_send=""
-  local custom_lines=50 custom_msg="" custom_screen=""
+  local custom_lines="${DEFAULT_SCREEN_LINES:-30}" custom_msg="" custom_screen=""
 
   while true; do
     clear
@@ -86,13 +86,53 @@ main() {
     local active_model_display="${active_model_raw##*/}"
     _get_model_specs "$cur_prov" "$active_model_raw"
 
-    prev_fast="\033[1;33m⚡ ENVIO RÁPIDO (DIRETO)\033[0m
+    _obter_kitty_target
+
+    local mouse_check="$(obter_selecao_mouse)"
+    local has_mouse=0
+    local mouse_lines=0
+    local mouse_snippet=""
+
+    if [[ -n "$mouse_check" ]]; then
+      has_mouse=1
+      mouse_lines=$(print -r -- "$mouse_check" | wc -l)
+      mouse_snippet="$(print -r -- "$mouse_check" | head -n 5)"
+    fi
+
+    if (( has_mouse )); then
+      prev_fast="\033[1;33m⚡ SELEÇÃO DO MOUSE\033[0m
 ────────────────────────
 • \033[1;37mIA Ativa:\033[0m $active_model_display
-• \033[1;37mAção:\033[0m Captura a tela e envia
+• \033[1;37mAção:\033[0m Analisar texto selecionado no terminal
+• \033[1;37mLinhas:\033[0m $mouse_lines
+• \033[1;37mLatência média:\033[0m $MODEL_SPEC_LATENCY
+• \033[1;37mContexto:\033[0m $MODEL_SPEC_CONTEXT
+
+\033[1;36mTrecho marcado com o mouse:\033[0m
+$mouse_snippet
+"
+    else
+      prev_fast="\033[1;33m⚡ SELEÇÃO DO MOUSE\033[0m
+────────────────────────
+• \033[1;37mIA Ativa:\033[0m $active_model_display
+• \033[1;37mAção:\033[0m Analisar texto selecionado no terminal
+• \033[1;37mStatus:\033[0m \033[1;33mNenhuma seleção ativa detectada\033[0m
+• \033[1;37mLatência média:\033[0m $MODEL_SPEC_LATENCY
+• \033[1;37mContexto:\033[0m $MODEL_SPEC_CONTEXT
+
+\033[1;30m(Dica: Selecione com o mouse no terminal antes de abrir,\nou confirme aqui para analisar a saída recente do terminal)\033[0m
+"
+    fi
+
+    prev_screen="\033[1;33m🖥️ SAÍDA DO TERMINAL\033[0m
+────────────────────────
+• \033[1;37mIA Ativa:\033[0m $active_model_display
+• \033[1;37mAção:\033[0m Capturar saída recente do terminal ($DEFAULT_SCREEN_LINES linhas)
 • \033[1;37mLatência média:\033[0m $MODEL_SPEC_LATENCY
 • \033[1;37mContexto:\033[0m $MODEL_SPEC_CONTEXT
 "
+
+    main_menu_items="$(printf '🖥️ 1. Enviar Saída do Terminal\n⚡ 2. Enviar Seleção do Mouse\n🤖 3. IA Local e Web\n✨ 4. API Externa\n📖 5. Ajuda & Atalhos\n')"
 
     _get_model_specs "2" "${OLLAMA_MODEL:-llama3.2:3b}"
     local o_lat="$MODEL_SPEC_LATENCY"
@@ -106,33 +146,53 @@ main() {
 • \033[1;37mWeb G4F:\033[0m ${G4F_MODEL:-gpt-4o}
 "
 
-    _get_model_specs "4" "${GROQ_MODEL:-llama-3.3-70b-versatile}"
+    _get_model_specs "4" "${GROQ_MODEL:-openai/gpt-oss-120b}"
     local g_lat="$MODEL_SPEC_LATENCY"
     local g_ctx="$MODEL_SPEC_CONTEXT"
 
     prev_ext="\033[1;35m✨ APIS EXTERNAS & SERVIDORES\033[0m
 ─────────────────────────────
-• \033[1;37mGroq:\033[0m ${GROQ_MODEL:-llama-3.3-70b-versatile}
+• \033[1;37mGroq:\033[0m ${GROQ_MODEL:-openai/gpt-oss-120b}
 • \033[1;37mGemini:\033[0m ${GEMINI_MODEL:-gemini-2.0-flash}
 • \033[1;37mNVIDIA:\033[0m ${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}
 • \033[1;37mOpenRouter:\033[0m ${OPENROUTER_MODEL:-liquid/lfm-2.5-2.6b:free}
 "
 
-    prev_help="\033[1;32m💡 GUIA DE AJUDA\033[0m
-────────────────────────
-• \033[1;37m[Enter]\033[0m     Confirma e envia para a IA
-• \033[1;37m[Tab]\033[0m       Oculta / Exibe o painel lateral
-• \033[1;37m[Esc]\033[0m       Cancela e fecha o assistente
+    prev_help="\033[1;32m📖 GUIA COMPLETO & ATALHOS\033[0m
+────────────────────────────
+• \033[1;37mCtrl + Shift + E\033[0m   Abre este assistente no Kitty
+• \033[1;37mEnter\033[0m              Confirma ação / Envia pergunta
+• \033[1;37mShift + Enter\033[0m      Insere nova linha na pergunta
+• \033[1;37mTab\033[0m                Alterna painel lateral (on/off)
+• \033[1;37mCtrl + R\033[0m           Atualiza seleção do mouse
+• \033[1;37mEsc\033[0m                Sai ou cancela ação atual
+
+\033[1;36mComandos no Prompt:\033[0m
+• \033[1;33m/auto\033[0m   Resolve erro de forma autônoma
+• \033[1;33m/s\033[0m      Recaptura terminal e sincroniza
+• \033[1;33m/e [n]\033[0m  Insere comando [n] no seu Kitty
+• \033[1;33m1, 2..\033[0m  Copia comando [n] para área de transf.
+• \033[1;33m/m\033[0m      Volta a este menu inicial
+• \033[1;33m/q\033[0m      Fecha o assistente
 "
 
-    local -x PREV_FAST="$prev_fast"
+    trap 'limpar_selecao_mouse 2>/dev/null; rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null' EXIT INT TERM
+
+    local preview_mouse_script="${SCREEN_MODULES_DIR:-$HOME/.ZSH/ai/screen}/preview_mouse.sh"
+    [[ -f "$preview_mouse_script" ]] || preview_mouse_script="$HOME/.local/share/metis/zsh/screen/preview_mouse.sh"
+
+    local -x PREV_ACTIVE_MODEL="$active_model_display"
+    local -x PREV_MODEL_LAT="$MODEL_SPEC_LATENCY"
+    local -x PREV_MODEL_CTX="$MODEL_SPEC_CONTEXT"
+    local -x TARGET_KITTY_SOCK="$TARGET_KITTY_SOCK"
+    local -x TARGET_KITTY_WIN="$TARGET_KITTY_WIN"
+
+    local -x PREV_SCREEN="$prev_screen"
     local -x PREV_LOCAL="$prev_local"
     local -x PREV_EXT="$prev_ext"
     local -x PREV_HELP="$prev_help"
 
-    local main_menu_items="$(printf '⚡ 1. Envio Rápido\n🤖 2. IA Local e Web\n✨ 3. API Externa\n')"
-
-    local fzf_nav_footer=$'\n↑/↓ navegar  •  Enter confirmar  •  Esc sair\nTab alterna painel'
+    local fzf_nav_footer=$'\n↑/↓ navegar  •  Enter confirmar  •  Esc sair  •  Ctrl+R atualiza seleção\nTab alterna painel'
 
     out_principal="$(
       printf '%s\n' "$main_menu_items" |
@@ -147,15 +207,19 @@ main() {
           --disabled \
           --no-sort \
           --print-query \
-          --preview='case "{}" in *1.*) printf "%b\n" "$PREV_FAST" ;; *2.*) printf "%b\n" "$PREV_LOCAL" ;; *) printf "%b\n" "$PREV_EXT" ;; esac' \
+          --preview='case "{}" in *Saída*|*Terminal*|*Tela*|*1.*) printf "%b\n" "$PREV_SCREEN" ;; *Seleção*|*2.*) "'"$preview_mouse_script"'" ;; *Local*|*3.*) printf "%b\n" "$PREV_LOCAL" ;; *API*|*Externa*|*4.*) printf "%b\n" "$PREV_EXT" ;; *Ajuda*|*Atalhos*|*Help*|*5.*) printf "%b\n" "$PREV_HELP" ;; *) printf "%b\n" "$PREV_HELP" ;; esac' \
           --preview-window="right:48%:wrap:border-rounded" \
           --bind 'tab:toggle-preview' \
+          --bind 'focus:refresh-preview' \
+          --bind 'ctrl-r:refresh-preview' \
           --footer="$fzf_nav_footer"
     )"
     rc=$?
 
     if (( rc != 0 )) || [[ -z "$out_principal" ]]; then
-      return 0
+      limpar_selecao_mouse 2>/dev/null
+      rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
+      exit 0
     fi
 
     out_principal="${out_principal%$'\n'}"
@@ -171,13 +235,29 @@ main() {
     final_query="$busca_principal"
 
     case "$menu_principal" in
-      "⚡ 1."*|"1."*)
+      *"Saída"*|*"Terminal"*|*"Tela Inteira"*|"🖥️ 1."*|"🖥️  1."*|"1."*)
         PROVIDER="$cur_prov"
+        MODO_CAPTURA="tela"
         ;;
 
-      "🤖 2."*|"2."*)
+      *"Seleção"*|"⚡ 2."*|"2."*)
+        PROVIDER="$cur_prov"
+        if (( has_mouse )); then
+          MODO_CAPTURA="mouse"
+        else
+          MODO_CAPTURA="tela"
+        fi
+        ;;
+
+      *"Local"*|"🤖 2."*|"🤖 3."*)
         clear
         _print_header
+
+        if (( has_mouse )); then
+          MODO_CAPTURA="mouse"
+        else
+          MODO_CAPTURA="tela"
+        fi
 
         modelo_out="$(
           printf '🌍 1. Web G4F (%s)\n🤖 2. Qwen (Local: %s)\n↩️  0. Voltar\n' \
@@ -232,9 +312,15 @@ main() {
         _save_active_provider "$PROVIDER"
         ;;
 
-      "✨ 3."*|"3."*)
+      *"API Externa"*|"✨ 3."*|"✨ 4."*|"3."*|"4."*)
         clear
         _print_header
+
+        if (( has_mouse )); then
+          MODO_CAPTURA="mouse"
+        else
+          MODO_CAPTURA="tela"
+        fi
 
         local -a api_menu_lines=()
         local line_item=""
@@ -242,7 +328,7 @@ main() {
 
         while IFS= read -r line_item; do
           [[ -n "$line_item" ]] && api_menu_lines+=("$line_item")
-        done < <("$PYTHON_BIN" "${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}" api_menu 2>/dev/null)
+        done < <("$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" api_menu 2>/dev/null)
 
         for line_item in "${api_menu_lines[@]}"; do
           local display_text="${line_item%%|*}"
@@ -284,7 +370,7 @@ main() {
         if [[ "$modelo_fzf" == *"Sincronizar com Metis"* ]]; then
           clear
           _print_header
-          "$PYTHON_BIN" "${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}" sync
+          "$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" sync
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
           printf '\n\033[36mPressione ENTER para continuar...\033[0m'
@@ -333,22 +419,61 @@ main() {
         _save_active_provider "$PROVIDER"
         ;;
 
+      *"Ajuda"*|*"Help"*|*"Atalhos"*|"📖 5."*|"5."*)
+        clear
+        _print_header
+        exibir_ajuda
+        printf '\n\033[1;36mPressione ENTER para voltar ao menu...\033[0m'
+        read -r </dev/tty 2>/dev/null || read -r
+        continue
+        ;;
+
       *)
         continue
         ;;
     esac
 
-    extrair_linhas_e_query "$final_query" "$DEFAULT_SCREEN_LINES"
+    extrair_linhas_e_query "$final_query" "${DEFAULT_SCREEN_LINES:-30}"
 
-    active_lines="$PARSED_LINES"
+    active_lines="${PARSED_LINES:-30}"
+    [[ "$active_lines" =~ ^[0-9]+$ ]] || active_lines=30
+    (( active_lines < 1 )) && active_lines=30
     final_query="$PARSED_QUERY"
 
-    SCREEN_CONTENT="$(obter_conteudo_tela "$active_lines")"
+    obter_conteudo_tela "$active_lines" >/dev/null 2>&1
 
     clear
     _print_header
 
-    printf '\n\033[33m    → Analisando (%d linhas capturadas)...\033[0m\n' "$active_lines"
+    local is_auto_cmd=0
+    [[ "$final_query" =~ ^/(auto|resolver|fix|corrigir) ]] && is_auto_cmd=1
+
+    if (( ! is_auto_cmd )); then
+      if [[ "$MODO_CAPTURA" == "mouse" && "$TIPO_FONTE_CAPTURA" == "mouse" ]]; then
+        local n_captured_lines=$(print -r -- "$SCREEN_CONTENT" | wc -l)
+        n_captured_lines="${n_captured_lines##* }"
+        printf '\n\033[1;32m📋 Analisando Seleção do Mouse (%d linhas)\033[0m\n' "$n_captured_lines"
+        printf '\033[90mFoco direcionado exclusivamente ao trecho selecionado.\033[0m\n'
+        printf '%s\n' "──────────────────────────────────────────────────────────"
+        limpar_selecao_mouse 2>/dev/null
+      elif [[ "$MODO_CAPTURA" == "mouse" && "$TIPO_FONTE_CAPTURA" != "mouse" && -n "$SCREEN_CONTENT" ]]; then
+        local n_captured_lines=$(print -r -- "$SCREEN_CONTENT" | wc -l)
+        n_captured_lines="${n_captured_lines##* }"
+        printf '\n\033[1;33m💡 Nenhuma seleção detectada • Usando Terminal (%d linhas)\033[0m\n' "$n_captured_lines"
+        printf '\033[90mBuffer de tela capturado para diagnóstico.\033[0m\n'
+        printf '%s\n' "──────────────────────────────────────────────────────────"
+      elif [[ -n "$SCREEN_CONTENT" ]]; then
+        local n_captured_lines=$(print -r -- "$SCREEN_CONTENT" | wc -l)
+        n_captured_lines="${n_captured_lines##* }"
+        printf '\n\033[1;33m🖥️ Analisando Saída do Terminal (%d linhas)\033[0m\n' "$n_captured_lines"
+        printf '\033[90mBuffer de tela capturado para diagnóstico.\033[0m\n'
+        printf '%s\n' "──────────────────────────────────────────────────────────"
+      else
+        printf '\n\033[1;36m💬 Modo Consulta Direta\033[0m\n'
+        printf '\033[90mNenhum texto selecionado ou capturado do terminal.\033[0m\n'
+        printf '%s\n' "──────────────────────────────────────────────────────────"
+      fi
+    fi
 
     local SYSTEM_PROMPT='Você é um assistente de terminal e agente Linux especialista.
 Seu objetivo é ajudar o usuário analisando saídas de terminal, explicando erros, sugerindo comandos e executando tarefas no computador quando solicitado.
@@ -412,16 +537,39 @@ REGRAS:
 
     clean_final_query="$(_trim "$final_query")"
 
+    obter_status_ultimo_comando "$TARGET_KITTY_WIN"
+    local last_cmd_ctx=""
+    if [[ -n "$LAST_CMD_NAME" ]]; then
+      local now_ts="${EPOCHSECONDS:-$(date +%s)}"
+      if [[ -z "$LAST_CMD_TIME" ]] || (( now_ts - LAST_CMD_TIME <= 600 )); then
+        local status_desc="0 (Sucesso)"
+        [[ "$LAST_CMD_EXIT" != "0" ]] && status_desc="$LAST_CMD_EXIT (Falha / Erro)"
+        last_cmd_ctx="
+[Último Comando Executado no Terminal]: $LAST_CMD_NAME
+[Código de Retorno / Exit Code]: $status_desc"
+      fi
+    fi
+
     if [[ -n "$clean_final_query" ]]; then
-      CONTEXT="[Instruções]: $SYSTEM_PROMPT
-[Terminal do Usuário (últimas $active_lines linhas)]:
+      if [[ -n "$SCREEN_CONTENT" ]]; then
+        CONTEXT="[Instruções]: $SYSTEM_PROMPT${last_cmd_ctx}
+[Terminal do Usuário / Seleção do Mouse]:
 $SCREEN_CONTENT
 [Pergunta/Pedido do Usuário]: $final_query"
+      else
+        CONTEXT="[Instruções]: $SYSTEM_PROMPT${last_cmd_ctx}
+[Pergunta/Pedido do Usuário]: $final_query"
+      fi
     else
-      CONTEXT="[Instruções]: $SYSTEM_PROMPT
-[Terminal do Usuário (últimas $active_lines linhas)]:
+      if [[ -z "$SCREEN_CONTENT" ]]; then
+        CONTEXT="[Instruções]: $SYSTEM_PROMPT${last_cmd_ctx}
+[Instrução]: O usuário abriu o assistente sem texto capturado ou selecionado. Apresente-se brevemente como assistente Metis e explique de forma amigável como você pode ajudar (selecione erros no terminal com o mouse ou digite sua dúvida diretamente)."
+      else
+        CONTEXT="[Instruções]: $SYSTEM_PROMPT${last_cmd_ctx}
+[Terminal do Usuário / Seleção do Mouse]:
 $SCREEN_CONTENT
-[Instrução]: Analise o terminal do usuário acima. Explique o erro ou situação encontrada de forma didática e forneça os comandos para solucionar."
+[Instrução]: Analise o terminal do usuário ou seleção do mouse acima. Explique o erro ou situação encontrada de forma didática e forneça os comandos para solucionar."
+      fi
     fi
 
     if [[ "$clean_final_query" =~ ^/(auto|resolver|fix|corrigir) ]]; then
@@ -466,7 +614,7 @@ $SCREEN_CONTENT
       fi
 
       if [[ -z "$USER_INPUT" ]]; then
-        return 0
+        exit 0
       fi
 
       CLEAN_INPUT="$(_trim "$USER_INPUT")"
@@ -510,7 +658,7 @@ $SCREEN_CONTENT
           ;;
 
         /sair|/q|/exit|/quit|exit|quit)
-          return 0
+          exit 0
           ;;
 
         /modelos|/modelos\ *|/models|/models\ *|/config_model|/config_model\ *|/mod|/mod\ *|/provedor|/provedor\ *|/provider|/provider\ *|/modelo|/modelo\ *|/ia|/ia\ *)
@@ -596,12 +744,110 @@ $SCREEN_CONTENT
           continue
           ;;
 
+        /mouse|/mouse\ *|/selecao|/selecao\ *)
+          extra_msg="$(print -r -- "$USER_INPUT" | sed -E 's#^/(mouse|selecao)[[:space:]]*##')"
+          extra_msg="$(_trim "$extra_msg")"
+
+          local new_mouse="$(obter_selecao_mouse)"
+          if [[ -z "$new_mouse" ]]; then
+            _warn "Nenhuma seleção ativa do mouse encontrada no momento."
+            continue
+          fi
+
+          local mouse_n=$(print -r -- "$new_mouse" | wc -l)
+          printf '\n\033[32m📋 Nova seleção do mouse capturada (%d linhas)!\033[0m\n' "$mouse_n"
+
+          if [[ -z "$extra_msg" ]]; then
+            extra_msg="Analise o trecho selecionado com o mouse acima e me ajude a resolver:"
+          fi
+
+          TEMP_CONTEXT="$CONTEXT
+[Assistente]: $LAST_RESPONSE
+[Trecho Selecionado com o Mouse ($mouse_n linhas)]:
+$new_mouse
+[Usuário]: $extra_msg"
+
+          NOVA_RESPOSTA="$(consultar_agente "$TEMP_CONTEXT")"
+          ia_status=$?
+
+          if (( ia_status == 130 )) || [[ "$NOVA_RESPOSTA" == *"KeyboardInterrupt"* || "$NOVA_RESPOSTA" == *"Interrupted"* ]]; then
+            printf '\n\033[33m⚠️  Geração cancelada pelo usuário (Ctrl+C).\033[0m\n'
+            continue
+          fi
+
+          if [[ -z "$NOVA_RESPOSTA" ]]; then
+            _warn "A IA não retornou resposta."
+            continue
+          fi
+
+          CONTEXT="$(limitar_contexto "$TEMP_CONTEXT")"
+          LAST_RESPONSE="$NOVA_RESPOSTA"
+
+          renderizar "$LAST_RESPONSE"
+          extrair_blocos "$LAST_RESPONSE"
+          exibir_blocos
+
+          LAST_SELECTED_CODE=""
+          printf '%s\n' "─────────────────────────────────────────"
+          continue
+          ;;
+
+        /clip|/clip\ *)
+          extra_msg="$(print -r -- "$USER_INPUT" | sed -E 's#^/(clip)[[:space:]]*##')"
+          extra_msg="$(_trim "$extra_msg")"
+
+          local new_clip="$(obter_clipboard)"
+          if [[ -z "$new_clip" ]]; then
+            _warn "Área de transferência (clipboard) está vazia."
+            continue
+          fi
+
+          local clip_n=$(print -r -- "$new_clip" | wc -l)
+          printf '\n\033[32m📋 Conteúdo do clipboard capturado (%d linhas)!\033[0m\n' "$clip_n"
+
+          if [[ -z "$extra_msg" ]]; then
+            extra_msg="Analise o texto copiado acima:"
+          fi
+
+          TEMP_CONTEXT="$CONTEXT
+[Assistente]: $LAST_RESPONSE
+[Texto Copiado do Clipboard ($clip_n linhas)]:
+$new_clip
+[Usuário]: $extra_msg"
+
+          NOVA_RESPOSTA="$(consultar_agente "$TEMP_CONTEXT")"
+          ia_status=$?
+
+          if (( ia_status == 130 )) || [[ "$NOVA_RESPOSTA" == *"KeyboardInterrupt"* || "$NOVA_RESPOSTA" == *"Interrupted"* ]]; then
+            printf '\n\033[33m⚠️  Geração cancelada pelo usuário (Ctrl+C).\033[0m\n'
+            continue
+          fi
+
+          if [[ -z "$NOVA_RESPOSTA" ]]; then
+            _warn "A IA não retornou resposta."
+            continue
+          fi
+
+          CONTEXT="$(limitar_contexto "$TEMP_CONTEXT")"
+          LAST_RESPONSE="$NOVA_RESPOSTA"
+
+          renderizar "$LAST_RESPONSE"
+          extrair_blocos "$LAST_RESPONSE"
+          exibir_blocos
+
+          LAST_SELECTED_CODE=""
+          printf '%s\n' "─────────────────────────────────────────"
+          continue
+          ;;
+
         /sync|/sync\ *|/s|/s\ *|/tela|/tela\ *|/atualizar|/atualizar\ *|/screen|/screen\ *|/update|/update\ *)
           extra_msg="$(print -r -- "$USER_INPUT" | sed -E 's#^/(sync|s|tela|atualizar|screen|update)[[:space:]]*##')"
 
-          extrair_linhas_e_query "$extra_msg" "$DEFAULT_SCREEN_LINES"
+          extrair_linhas_e_query "$extra_msg" "${DEFAULT_SCREEN_LINES:-30}"
 
-          sync_lines="$PARSED_LINES"
+          sync_lines="${PARSED_LINES:-30}"
+          [[ "$sync_lines" =~ ^[0-9]+$ ]] || sync_lines=30
+          (( sync_lines < 1 )) && sync_lines=30
           extra_msg="$PARSED_QUERY"
 
           if [[ -z "$extra_msg" ]]; then
@@ -617,10 +863,20 @@ $SCREEN_CONTENT
             continue
           fi
 
+          obter_status_ultimo_comando "$TARGET_KITTY_WIN"
+          local sync_status_ctx=""
+          if [[ -n "$LAST_CMD_NAME" ]]; then
+            local status_desc="0 (Sucesso)"
+            [[ "$LAST_CMD_EXIT" != "0" ]] && status_desc="$LAST_CMD_EXIT (Falha / Erro)"
+            sync_status_ctx="
+[Último Comando Executado no Terminal]: $LAST_CMD_NAME
+[Código de Retorno / Exit Code]: $status_desc"
+          fi
+
           TEMP_CONTEXT="$CONTEXT
 [Assistente]: $LAST_RESPONSE
 [Terminal Atualizado do Usuário (últimas $sync_lines linhas)]:
-$LATEST_SCREEN
+$LATEST_SCREEN${sync_status_ctx}
 [Usuário]: $extra_msg"
 
           NOVA_RESPOSTA="$(consultar_agente "$TEMP_CONTEXT")"

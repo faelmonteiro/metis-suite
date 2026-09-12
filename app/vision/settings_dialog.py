@@ -180,16 +180,23 @@ class SettingsDialog(QDialog):
         providers = model_manager.get_providers()
         active_prov, _ = model_manager.get_active_model()
 
+        seen_cats = set()
         active_row = 0
-        for i, prov in enumerate(providers):
-            display_name = PROVIDER_ICONS.get(prov.lower(), f"⚡ {prov.upper()}")
+        current_idx = 0
+        for prov in providers:
+            prov_key = prov.strip().lower()
+            if prov_key in seen_cats:
+                continue
+            seen_cats.add(prov_key)
+            display_name = PROVIDER_ICONS.get(prov_key, f"⚡ {prov.upper()}")
             item = QListWidgetItem(display_name)
             item.setData(Qt.ItemDataRole.UserRole, prov)
             self.category_list.addItem(item)
-            if prov.lower() == active_prov.lower():
-                active_row = i
+            if prov_key == active_prov.lower():
+                active_row = current_idx
+            current_idx += 1
 
-        if providers:
+        if self.category_list.count() > 0:
             self.category_list.setCurrentRow(active_row)
 
     def on_category_selected(self, row: int):

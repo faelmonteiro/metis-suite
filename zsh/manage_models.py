@@ -308,12 +308,40 @@ def list_api_providers_menu():
     for line in lines:
         print(line)
 
+def _salvar_estado_zsh_provider(provider: str) -> None:
+    """Sincroniza o provedor ativo com os arquivos lidos pelo ZSH (Ctrl+G)."""
+    metis_cfg_dir = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"))
+    if not metis_cfg_dir.exists():
+        return
+    file_selected = metis_cfg_dir / ".fix_ia_selected"
+    file_last = metis_cfg_dir / ".last_provider"
+
+    prov = (provider or "").strip().lower()
+    label_map = {
+        "ollama": ("Local: Ollama", "1"),
+        "g4f": ("Web: G4F", "2"),
+        "gemini": ("API: Gemini", "3"),
+        "groq": ("API: Groq", "4"),
+        "nvidia": ("API: NVIDIA", "5"),
+        "openrouter": ("API: OpenRouter", "6"),
+    }
+    label, num = label_map.get(prov, (f"API: {provider}", provider))
+    try:
+        file_selected.write_text(f"{label}\n", encoding="utf-8")
+        file_last.write_text(f"{num}\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
 def set_active_env(env_var: str, value: str):
     env_var = clean_string(env_var)
     value = clean_string(value)
 
     if not env_var:
         return
+
+    if env_var == "DEFAULT_PROVIDER":
+        _salvar_estado_zsh_provider(value)
 
     global_cfg = get_metis_config_path()
     target_files = [ENV_LOCAL, global_cfg.parent / ".env", Path(__file__).resolve().parent.parent / ".env", Path.home() / "Metis" / ".env"]
@@ -468,15 +496,14 @@ def sync_models():
         print(f"❌ Erro ao ler {global_cfg}: {e}", file=sys.stderr)
         return False
 
-    local_data = {
-        "builtin_models": {},
-        "removed_models": {},
-        "removed_servers": [],
-        "custom_servers": []
-    }
+    # Preserva preferências e outras configurações existentes no Metis
+    local_data = dict(global_data)
+    local_data["builtin_models"] = {}
+    local_data["removed_models"] = {}
+    local_data["removed_servers"] = list(global_data.get("removed_servers", []))
+    local_data["custom_servers"] = []
 
-    synced_providers = []
-    total_models = 0
+    synced_counts = {}
 
     # 1. Sincroniza exatamente os builtin_models do Metis (espelha fielmente os modelos reais)
     if "builtin_models" in global_data and isinstance(global_data["builtin_models"], dict):
@@ -484,9 +511,12 @@ def sync_models():
             if isinstance(mlist, list):
                 key = _basic_provider_key(prov)
                 models_cleaned = [clean_string(m) for m in mlist if clean_string(m)]
-                local_data["builtin_models"][key] = models_cleaned
-                synced_providers.append((key, len(models_cleaned)))
-                total_models += len(models_cleaned)
+                existentes = local_data["builtin_models"].get(key, [])
+                for m in models_cleaned:
+                    if m not in existentes:
+                        existentes.append(m)
+                local_data["builtin_models"][key] = existentes
+                synced_counts[key] = len(existentes)
 
     # 2. Sincroniza removed_models do Metis
     if "removed_models" in global_data and isinstance(global_data["removed_models"], dict):
@@ -518,25 +548,17 @@ def sync_models():
             if key.lower() not in ["gemini", "groq", "nvidia", "g4f", "ollama", "openrouter"]:
                 if modelos:
                     local_data["builtin_models"][key] = list(modelos)
-                    synced_providers.append((key, len(modelos)))
-                    total_models += len(modelos)
+                    synced_counts[key] = len(modelos)
                 if modelo_atual:
                     env_var = PROVIDER_ENV_MAP.get(key.upper(), f"{_env_safe(key)}_MODEL")
                     set_active_env(env_var, modelo_atual)
             elif key.lower() == "openrouter":
                 curr_builtin = local_data["builtin_models"].get("OpenRouter", [])
-                updated = False
                 for m in modelos:
                     if m not in curr_builtin and m not in local_data.get("removed_models", {}).get("OpenRouter", []):
                         curr_builtin.append(m)
-                        total_models += 1
-                        updated = True
-                if updated:
-                    local_data["builtin_models"]["OpenRouter"] = curr_builtin
-                    for i, (pk, cnt) in enumerate(synced_providers):
-                        if pk == "OpenRouter":
-                            synced_providers[i] = (pk, len(curr_builtin))
-                            break
+                local_data["builtin_models"]["OpenRouter"] = curr_builtin
+                synced_counts["OpenRouter"] = len(curr_builtin)
 
             if api_key and api_key_env:
                 set_active_env(api_key_env, api_key)
@@ -570,12 +592,14 @@ def sync_models():
         if (not cur or cur not in valid) and valid:
             set_active_env(env_var, valid[0])
 
+    total_models = sum(synced_counts.values())
+
     save_local_data(local_data)
 
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("🔄 SINCRONIZAÇÃO COM METIS CONCLUÍDA!")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    for prov, count in synced_providers:
+    for prov, count in synced_counts.items():
         print(f"  • {prov}: {count} modelo(s) real(is) sincronizado(s)")
     print(f"  • Total de modelos reais: {total_models}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

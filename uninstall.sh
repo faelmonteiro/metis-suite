@@ -46,6 +46,7 @@ if [ -f "$BASHRC" ]; then
     echo -e "${YELLOW}🧹 Removendo integração do $BASHRC...${NC}"
     cp "$BASHRC" "${BASHRC}.metis_backup" 2>/dev/null || true
     sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$BASHRC"
+    sed -i '/# >>> METIS ZSH AUTO-LAUNCH >>>/,/# <<< METIS ZSH AUTO-LAUNCH <<</d' "$BASHRC"
     sed -i '/# --- \[ Metis AI Suite \] ---/d' "$BASHRC"
     sed -i '\|'"$INSTALL_DIR"'|d' "$BASHRC"
     echo -e "${GREEN}✅ Linhas do Metis removidas do $BASHRC.${NC}"

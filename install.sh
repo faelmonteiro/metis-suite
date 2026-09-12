@@ -31,6 +31,8 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 CLEANUP_INSTALL_TMP=0
 INSTALL_REPO_TMP=""
+KITTY_INSTALADO_AGORA=0
+RECUSOU_KITTY_E_ZSH=0
 
 cleanup_installer() {
     local ec=$?
@@ -169,13 +171,14 @@ mkdir -p "$FONTS_DIR"
 echo -e "\n${CYAN}📂 [2/6] Instalando arquivos em ${INSTALL_DIR}...${NC}"
 cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/zsh" "$INSTALL_DIR/"
+cp -r "$SCRIPT_DIR/bash" "$INSTALL_DIR/" 2>/dev/null || true
 cp -r "$SCRIPT_DIR/bin" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/assets" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/bash/loader.bash" "$INSTALL_DIR/zsh/screen_launcher.zsh" "$INSTALL_DIR/zsh/screen/preview_mouse.sh" 2>/dev/null || true
 echo -e "${GREEN}  ✅ Arquivos copiados com sucesso.${NC}"
 
 # 4. Configurar ambiente virtual Python isolado
@@ -432,22 +435,80 @@ configure_global_shortcut() {
         fi
     fi
 
-    # G. Terminal Kitty (Ctrl + Shift + E -> Explain Screen)
+    # G. Terminal Kitty (Experiência Visual Completa)
     local kitty_conf="$HOME/.config/kitty/kitty.conf"
+
+    if ! command -v kitty &>/dev/null && [ ! -f "$kitty_conf" ]; then
+        echo ""
+        echo -e "${GOLD}✨ Experiência Visual Completa (Terminal Kitty):${NC}"
+        echo -e "   O Kitty permite captura de tela 100% automática (sem mouse), digitação autônoma e ícones em alta definição."
+        read -t 15 -p "   Deseja instalar o Kitty e configurá-lo integrado com ZSH e Metis? (s/N) [padrão: Não]: " instalar_kitty || instalar_kitty="n"
+        case "$instalar_kitty" in
+            [sS][iI][mM]|[sS])
+                echo -e "  ${GRAY}Instalando terminal Kitty via gerenciador de pacotes...${NC}"
+                if command -v apt-get &>/dev/null; then
+                    sudo apt-get install -y -qq kitty 2>/dev/null || true
+                elif command -v dnf &>/dev/null; then
+                    sudo dnf install -y kitty 2>/dev/null || true
+                elif command -v pacman &>/dev/null; then
+                    sudo pacman -Sy --noconfirm kitty 2>/dev/null || true
+                elif command -v zypper &>/dev/null; then
+                    sudo zypper install -y kitty 2>/dev/null || true
+                elif command -v xbps-install &>/dev/null; then
+                    sudo xbps-install -Sy kitty 2>/dev/null || true
+                elif command -v apk &>/dev/null; then
+                    sudo apk add kitty 2>/dev/null || true
+                fi
+
+                if command -v kitty &>/dev/null; then
+                    echo -e "${GREEN}  ✅ Terminal Kitty instalado com sucesso!${NC}"
+                    KITTY_INSTALADO_AGORA=1
+                else
+                    echo -e "${YELLOW}  ⚠️ Não foi possível instalar o Kitty automaticamente. Continuando com o terminal atual.${NC}"
+                fi
+                ;;
+            *)
+                echo -e "${GRAY}  ℹ️  Continuando com seu terminal e shell padrão.${NC}"
+                RECUSOU_KITTY_E_ZSH=1
+                ;;
+        esac
+    fi
+
     if [ -f "$kitty_conf" ] || command -v kitty &>/dev/null; then
         mkdir -p "$HOME/.config/kitty"
         touch "$kitty_conf"
-        if ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
+        local zsh_path
+        zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
+
+        # Configura o shell do Kitty para abrir diretamente no ZSH
+        if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
+            echo "" >> "$kitty_conf"
+            echo "# Shell padrão do Kitty com Metis" >> "$kitty_conf"
+            echo "shell $zsh_path" >> "$kitty_conf"
+        fi
+
+        # Habilita cópia automática ao selecionar com o mouse no Kitty
+        if ! grep -Eq "^[[:space:]]*copy_on_select[[:space:]]" "$kitty_conf"; then
+            echo "" >> "$kitty_conf"
+            echo "# Copia automaticamente o texto selecionado com o mouse para a área de transferência" >> "$kitty_conf"
+            echo "copy_on_select yes" >> "$kitty_conf"
+        fi
+
+        # Desmarca a seleção no terminal quando a área de transferência for liberada
+        if ! grep -Eq "^[[:space:]]*clear_selection_on_clipboard_loss[[:space:]]" "$kitty_conf"; then
+            echo "clear_selection_on_clipboard_loss yes" >> "$kitty_conf"
+        fi
+
+        if ! grep -Fq "screen_launcher.zsh" "$kitty_conf" && ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
             echo "" >> "$kitty_conf"
             echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
             echo "allow_remote_control yes" >> "$kitty_conf"
             echo "listen_on unix:\${XDG_RUNTIME_DIR:-/tmp}/kitty_metis_\${UID}.sock" >> "$kitty_conf"
-            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"cat > \\\${XDG_RUNTIME_DIR:-/tmp}/qwen_tela.\\\$UID.txt && echo \\\"\\\$KITTY_WINDOW_ID\\\" > \\\${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_id.\\\$UID && echo \\\"\\\$KITTY_LISTEN_ON\\\" > \\\${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_listen.\\\$UID && kitty --class kitty-screen-assistant --config NONE -o confirm_os_window_close=0 -o \\\"map shift+enter send_text all \\\\x1b\\\\r\\\" -o \\\"map ctrl+enter send_text all \\\\x1b\\\\r\\\" zsh -c \\\"\\\$HOME/.local/share/metis/zsh/explain_screen.zsh\\\"\"" >> "$kitty_conf"
-            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do explain_screen integrado ao Kitty (~/.config/kitty/kitty.conf).${NC}"
+            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; else zsh \\\"\$HOME/.ZSH/ai/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
+            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] e seleção de mouse integrados ao Kitty (~/.config/kitty/kitty.conf).${NC}"
         else
-            sed -i "s|\$HOME/\.ZSH/ai/explain_screen\.zsh|\$HOME/\.local/share/metis/zsh/explain_screen\.zsh|g" "$kitty_conf" 2>/dev/null || true
-            sed -i "s|~/\.ZSH/ai/explain_screen\.zsh|\$HOME/\.local/share/metis/zsh/explain_screen\.zsh|g" "$kitty_conf" 2>/dev/null || true
-            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do Kitty atualizado para o Metis.${NC}"
+            sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; else zsh \\\"\$HOME/.ZSH/ai/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do Kitty atualizado para o Metis Screen Launcher.${NC}"
         fi
         config_done=1
     fi
@@ -477,37 +538,78 @@ else
     echo -e "${GRAY}  ℹ️  Integração já presente no ~/.zshrc${NC}"
 fi
 
-# B. Integração no ~/.bashrc (para funcionar mesmo no Bash padrão do Mint/Ubuntu)
+# B. Integração no ~/.bashrc (para funcionar no Bash padrão do Mint/Ubuntu/Debian)
 BASHRC="$HOME/.bashrc"
 if [ -f "$BASHRC" ]; then
-    if ! grep -Fq "METIS SUITE" "$BASHRC" && ! grep -Fq "$INSTALL_DIR/zsh/api_ask.py" "$BASHRC"; then
+    BASH_LOADER_LINE="[[ -f \"$INSTALL_DIR/bash/loader.bash\" ]] && source \"$INSTALL_DIR/bash/loader.bash\""
+    if ! grep -Fq "metis/bash/loader.bash" "$BASHRC"; then
+        # Limpa integrações antigas simples do Metis no .bashrc se existirem
+        sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$BASHRC" 2>/dev/null || true
         echo "" >> "$BASHRC"
         echo "# >>> METIS SUITE >>>" >> "$BASHRC"
-        echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$BASHRC"
-        echo "alias ia=\"$INSTALL_DIR/venv/bin/python $INSTALL_DIR/zsh/api_ask.py\"" >> "$BASHRC"
-        echo "alias ai=\"ia\"" >> "$BASHRC"
-        echo "alias ai-sync=\"$INSTALL_DIR/venv/bin/python $INSTALL_DIR/zsh/manage_models.py sync\"" >> "$BASHRC"
+        echo "$BASH_LOADER_LINE" >> "$BASHRC"
         echo "# <<< METIS SUITE <<<" >> "$BASHRC"
-        echo -e "${GREEN}  ✅ Comandos 'metis', 'ia' e 'ai' integrados ao ~/.bashrc${NC}"
+        echo -e "${GREEN}  ✅ Integração universal (Alt+E, Ctrl+G, aliases) adicionada ao ~/.bashrc${NC}"
+    else
+        echo -e "${GRAY}  ℹ️  Integração já presente no ~/.bashrc${NC}"
     fi
 fi
 
 # C. Checagem do Shell Padrão do Usuário
 CURRENT_SHELL="$(basename "$SHELL")"
 if [ "$CURRENT_SHELL" != "zsh" ] && command -v zsh &>/dev/null; then
-    echo ""
-    echo -e "${GOLD}💡 Dica de Shell:${NC} O seu shell padrão atual é o ${CYAN}${CURRENT_SHELL}${NC}."
-    echo -e "   Para aproveitar todos os atalhos visuais e autocompletar avançado no terminal, o ZSH é recomendado."
-    read -t 10 -p "   Deseja definir o ZSH como seu shell padrão agora? (s/N) [tempo limite 10s]: " trocar_shell || trocar_shell="n"
+    local zsh_bin
+    zsh_bin="$(which zsh 2>/dev/null || command -v zsh)"
+    local trocar_shell="n"
+
+    if [ "$KITTY_INSTALADO_AGORA" -eq 1 ]; then
+        echo ""
+        echo -e "${GREEN}⚡ Terminal Kitty integrado com ZSH! Vinculando ZSH como padrão...${NC}"
+        trocar_shell="s"
+    elif [ "$RECUSOU_KITTY_E_ZSH" -eq 1 ]; then
+        # O usuário já optou por manter o ambiente atual, não perguntamos de novo
+        trocar_shell="n"
+    else
+        echo ""
+        echo -e "${GOLD}💡 Dica de Shell:${NC} O seu shell padrão atual é o ${CYAN}${CURRENT_SHELL}${NC}."
+        echo -e "   O Metis agora funciona perfeitamente no ${CYAN}${CURRENT_SHELL}${NC} com os atalhos [Alt + E] e [Ctrl + G]."
+        echo -e "   (O ZSH é opcional, caso queira recursos adicionais como autocompletar inline com Ctrl+X Ctrl+P)."
+        read -t 15 -p "   Deseja que seus novos terminais abram automaticamente em ZSH? (s/N) [padrão: Não]: " trocar_shell || trocar_shell="n"
+    fi
+
     case "$trocar_shell" in
         [sS][iI][mM]|[sS])
-            if command -v chsh &>/dev/null; then
-                chsh -s "$(which zsh)" 2>/dev/null || true
-                echo -e "${GREEN}  ✅ Shell padrão alterado para ZSH! (Terá efeito no próximo login).${NC}"
+            # 1. Garante que o ZSH está registrado em /etc/shells
+            if [ -f "/etc/shells" ] && ! grep -Fxq "$zsh_bin" /etc/shells 2>/dev/null; then
+                sudo sh -c "echo '$zsh_bin' >> /etc/shells" 2>/dev/null || true
             fi
+
+            # 2. Registra a troca no sistema operacional
+            if command -v usermod &>/dev/null; then
+                sudo usermod -s "$zsh_bin" "$USER" 2>/dev/null || true
+            fi
+            if command -v chsh &>/dev/null; then
+                chsh -s "$zsh_bin" 2>/dev/null || true
+            fi
+
+            # 3. Transição Imediata: ativação automática ao abrir novo terminal
+            # Evita ter que reiniciar ou fazer logout da interface gráfica
+            if [ -f "$BASHRC" ]; then
+                if ! grep -Fq "METIS ZSH AUTO-LAUNCH" "$BASHRC"; then
+                    echo "" >> "$BASHRC"
+                    echo "# >>> METIS ZSH AUTO-LAUNCH >>>" >> "$BASHRC"
+                    echo "if [ -t 1 ] && [ -x \"$zsh_bin\" ] && [ -z \"\$METIS_NO_AUTO_ZSH\" ]; then" >> "$BASHRC"
+                    echo "    export SHELL=\"$zsh_bin\"" >> "$BASHRC"
+                    echo "    exec \"$zsh_bin\"" >> "$BASHRC"
+                    echo "fi" >> "$BASHRC"
+                    echo "# <<< METIS ZSH AUTO-LAUNCH <<<" >> "$BASHRC"
+                fi
+            fi
+
+            echo -e "${GREEN}  ✅ ZSH ativado com sucesso! Qualquer novo terminal abrirá direto no ZSH.${NC}"
             ;;
         *)
-            echo -e "${GRAY}  ℹ️  Mantendo $CURRENT_SHELL como padrão. Os comandos principais funcionam normalmente em ambos.${NC}"
+            echo -e "${GRAY}  ℹ️  Mantendo $CURRENT_SHELL como seu shell padrão. A integração foi configurada no ~/.bashrc com sucesso!${NC}"
             ;;
     esac
 fi
@@ -531,11 +633,13 @@ echo -e "${BORDER}╰───────────────────�
 echo -e "\n${GOLD_BRIGHT}${BOLD}╭─────────────────────────────────────────────────────────────────────────────────╮${NC}"
 echo -e "${GOLD_BRIGHT}${BOLD}│       🎉 INSTALAÇÃO DO METIS AI SUITE CONCLUÍDA COM SUCESSO!                    │${NC}"
 echo -e "${BORDER}├─────────────────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BORDER}│${NC}  ${GOLD}${BOLD}Comandos e Atalhos Prontos no Terminal ZSH:${NC}"
+echo -e "${BORDER}│${NC}  ${GOLD}${BOLD}Comandos e Atalhos Prontos no Terminal (ZSH & BASH):${NC}"
+echo -e "${BORDER}│${NC}    ${CYAN}[Alt + E]${NC}           Explain Screen (analisa texto selecionado com mouse ou erro)"
 echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + G]${NC}          Menu interativo FZF (Perguntas, notas e modelos)"
 echo -e "${BORDER}│${NC}    ${CYAN}[Alt + H]${NC}           Histórico de prompts de IA"
-echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + X Ctrl + P]${NC} Autocomplete inteligente no prompt"
+echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + X Ctrl + P]${NC} Autocomplete inteligente no prompt (ZSH)"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis]${NC}             Copiloto de diagnóstico e resolução de erros"
+echo -e "${BORDER}│${NC}    ${CYAN}[metis explain]${NC}     Executa o explain screen diretamente pelo terminal"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis update]${NC}      Atualiza o Metis para a versão mais recente"
 echo -e "${BORDER}│${NC}    ${CYAN}[Super + R]${NC}         Abre a interface visual do Metis de qualquer lugar"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis gui]${NC}         Comando para abrir a interface gráfica via terminal"
@@ -553,6 +657,8 @@ fi
 if [ -n "$ZSH_VERSION" ]; then
     echo -e "\n${CYAN_SOFT}✨ Recarregando a sessão ZSH para ativar os atalhos agora...${NC}\n"
     exec zsh
+elif [ -n "$BASH_VERSION" ]; then
+    echo -e "\n${CYAN_SOFT}✨ Instalação pronta! Para ativar os atalhos no Bash agora, execute: ${GOLD}source ~/.bashrc${NC}\n"
 else
-    echo -e "\n${CYAN_SOFT}💡 Abra um novo terminal ou inicie o zsh para começar.${NC}\n"
+    echo -e "\n${CYAN_SOFT}💡 Abra um novo terminal para começar a usar o Metis.${NC}\n"
 fi

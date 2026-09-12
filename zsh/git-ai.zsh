@@ -126,3 +126,4 @@ $diff_data"
 }
 
 alias gca="git_commit_ai"
+alias git-ai="git_commit_ai"

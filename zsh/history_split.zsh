@@ -254,3 +254,43 @@ alias iah='ai-history-widget'
 alias ai-history='ai-history-widget'
 alias repos='downloads-log-widget'
 alias downloads='downloads-log-widget'
+
+# 10. Rastreamento de execução e Exit Code ($?) para o assistente Metis / Screen
+autoload -Uz add-zsh-hook 2>/dev/null
+
+typeset -g _METIS_CMD_EXECUTING=0
+typeset -g _METIS_LAST_CMD=""
+
+_metis_track_preexec() {
+  _METIS_CMD_EXECUTING=1
+  _METIS_LAST_CMD="$1"
+  local win="${KITTY_WINDOW_ID:-$$}"
+  print -r -- "$1" > "/tmp/metis_cmd_${win}" 2>/dev/null
+}
+
+_metis_track_precmd() {
+  local exit_code=$?
+  # Ignora se o usuário apenas apertou Enter sem rodar comando
+  (( _METIS_CMD_EXECUTING == 0 )) && return 0
+  _METIS_CMD_EXECUTING=0
+
+  local win="${KITTY_WINDOW_ID:-$$}"
+  local cmd="$_METIS_LAST_CMD"
+  if [[ -z "$cmd" && -f "/tmp/metis_cmd_${win}" ]]; then
+    cmd="$(cat "/tmp/metis_cmd_${win}" 2>/dev/null)"
+  fi
+  [[ -z "$cmd" ]] && return 0
+
+  {
+    print -r -- "CMD: $cmd"
+    print -r -- "EXIT_CODE: $exit_code"
+    print -r -- "TIME: ${EPOCHSECONDS:-$(date +%s)}"
+    print -r -- "WIN: $win"
+  } > "/tmp/metis_status_${win}" 2>/dev/null
+
+  cp -f "/tmp/metis_status_${win}" "/tmp/metis_last_status" 2>/dev/null
+}
+
+add-zsh-hook preexec _metis_track_preexec
+add-zsh-hook precmd _metis_track_precmd
+

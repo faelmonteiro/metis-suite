@@ -91,13 +91,110 @@ extrair_linhas_e_query() {
   PARSED_QUERY="$clean_msg"
 }
 
-obter_conteudo_tela() {
-  local n_lines="${1:-$DEFAULT_SCREEN_LINES}"
+# Limpa a seleção do mouse (Primary buffer, arquivo temporário e seleção interna do Kitty)
+limpar_selecao_mouse() {
+  rm -f /tmp/qwen_selecao.txt 2>/dev/null
+  if command -v wl-copy >/dev/null 2>&1; then
+    wl-copy --clear --primary 2>/dev/null || true
+  elif command -v xsel >/dev/null 2>&1; then
+    xsel -c -p 2>/dev/null || true
+  elif command -v xclip >/dev/null 2>&1; then
+    xclip -i /dev/null -selection primary 2>/dev/null || true
+  fi
+
+  # Limpa o buffer de seleção interno do Kitty para evitar persistência zumbi
+  _obter_kitty_target
+  if [[ -n "$TARGET_KITTY_SOCK" ]] && command -v kitty >/dev/null 2>&1; then
+    if [[ -n "$TARGET_KITTY_WIN" ]]; then
+      kitty @ --to "$TARGET_KITTY_SOCK" action --match="id:$TARGET_KITTY_WIN" clear_selection 2>/dev/null || true
+    fi
+    kitty @ --to "$TARGET_KITTY_SOCK" action --match="all" clear_selection 2>/dev/null || true
+  fi
+}
+
+# Captura especificamente a seleção ativa do mouse (Primary selection no Wayland / X11 ou Kitty)
+obter_selecao_mouse() {
+  local sel=""
+
+  # 1. Wayland: Primary Selection em tempo real (seleção ativa do mouse)
+  if command -v wl-paste >/dev/null 2>&1; then
+    sel="$(wl-paste --primary --no-newline 2>/dev/null)"
+  fi
+
+  # 2. Se vazio, tenta obter diretamente do Kitty via Remote Control na janela de origem
+  if [[ -z "$sel" ]]; then
+    _obter_kitty_target
+    if command -v kitty >/dev/null 2>&1 && [[ -n "$TARGET_KITTY_SOCK" ]]; then
+      if [[ -n "$TARGET_KITTY_WIN" ]]; then
+        sel="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=selection --match="id:$TARGET_KITTY_WIN" 2>/dev/null)"
+      fi
+      [[ -z "$sel" ]] && sel="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=selection 2>/dev/null)"
+    fi
+  fi
+
+  # 3. X11 Primary Selection fallback
+  if [[ -z "$sel" ]] && command -v xclip >/dev/null 2>&1; then
+    sel="$(xclip -o -selection primary 2>/dev/null)"
+  elif [[ -z "$sel" ]] && command -v xsel >/dev/null 2>&1; then
+    sel="$(xsel -o -p 2>/dev/null)"
+  fi
+
+  # 4. Fallback imediato gravado pelo launcher (apenas se recente <= 3s)
+  if [[ -z "$sel" ]] && [[ -f "/tmp/qwen_selecao.txt" && -s "/tmp/qwen_selecao.txt" && ! -L "/tmp/qwen_selecao.txt" ]]; then
+    local now=$(date +%s)
+    local mtime=$(date -r "/tmp/qwen_selecao.txt" +%s 2>/dev/null || stat -c %Y "/tmp/qwen_selecao.txt" 2>/dev/null || echo 0)
+    if (( now - mtime <= 3 )); then
+      sel="$(cat "/tmp/qwen_selecao.txt" 2>/dev/null)"
+    else
+      rm -f /tmp/qwen_selecao.txt 2>/dev/null
+    fi
+  fi
+
+  local clean_sel="$(_trim "$sel")"
+  if [[ -n "$clean_sel" ]]; then
+    print -r -- "$clean_sel" > /tmp/qwen_selecao.txt 2>/dev/null
+    clean_screen_content "$clean_sel"
+  else
+    rm -f /tmp/qwen_selecao.txt 2>/dev/null
+    return 1
+  fi
+}
+
+# Captura especificamente o conteúdo da área de transferência (Clipboard)
+obter_clipboard() {
+  local clip=""
+  if command -v wl-paste >/dev/null 2>&1; then
+    clip="$(wl-paste --no-newline 2>/dev/null)"
+  elif command -v xclip >/dev/null 2>&1; then
+    clip="$(xclip -o -selection clipboard 2>/dev/null)"
+  elif command -v xsel >/dev/null 2>&1; then
+    clip="$(xsel -o -b 2>/dev/null)"
+  fi
+
+  local clean_clip="$(_trim "$clip")"
+  if [[ -n "$clean_clip" ]]; then
+    clean_screen_content "$clip"
+  fi
+}
+
+# Captura a tela e histórico recente do Kitty / terminal
+obter_tela_terminal() {
+  local n_lines="${1:-${DEFAULT_SCREEN_LINES:-30}}"
+  [[ "$n_lines" =~ ^[0-9]+$ ]] || n_lines=30
+  (( n_lines < 1 )) && n_lines=30
   local raw=""
 
-  if [[ -f "$FILE" && -s "$FILE" ]]; then
+  # 1. Tenta capturar do socket ativo do Kitty
+  _obter_kitty_target
+  if command -v kitty >/dev/null 2>&1 && [[ -n "$TARGET_KITTY_SOCK" ]]; then
+    raw="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=screen --match="id:$TARGET_KITTY_WIN" 2>/dev/null)"
+    [[ -z "$raw" ]] && raw="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=screen 2>/dev/null)"
+  fi
+
+  # 2. Arquivos gravados pelo atalho ou pipe do Kitty
+  if [[ -z "$raw" && -f "$FILE" && -s "$FILE" ]]; then
     raw="$(cat "$FILE" 2>/dev/null)"
-  elif [[ -f "/tmp/qwen_tela.txt" && -s "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; then
+  elif [[ -z "$raw" && -f "/tmp/qwen_tela.txt" && -s "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; then
     raw="$(cat "/tmp/qwen_tela.txt" 2>/dev/null)"
   fi
 
@@ -111,17 +208,83 @@ obter_conteudo_tela() {
   fi
 }
 
+obter_conteudo_tela() {
+  local n_lines="${1:-${DEFAULT_SCREEN_LINES:-30}}"
+  [[ "$n_lines" =~ ^[0-9]+$ ]] || n_lines=30
+  (( n_lines < 1 )) && n_lines=30
+
+  # Se o modo foi explicitamente definido como 'mouse'
+  if [[ "$MODO_CAPTURA" == "mouse" ]]; then
+    local sel="$(obter_selecao_mouse)"
+    if [[ -n "$sel" ]]; then
+      TIPO_FONTE_CAPTURA="mouse"
+      SCREEN_CONTENT="$sel"
+      print -r -- "$sel"
+      return 0
+    fi
+    # Fallback suave para saída do terminal quando mouse foi escolhido sem seleção prévia
+    local tela="$(obter_tela_terminal "$n_lines")"
+    if [[ -n "$tela" ]]; then
+      TIPO_FONTE_CAPTURA="tela"
+      SCREEN_CONTENT="$tela"
+      print -r -- "$tela"
+      return 0
+    fi
+  fi
+
+  # Se o modo foi explicitamente definido como 'tela'
+  if [[ "$MODO_CAPTURA" == "tela" ]]; then
+    local tela="$(obter_tela_terminal "$n_lines")"
+    if [[ -n "$tela" ]]; then
+      TIPO_FONTE_CAPTURA="tela"
+      SCREEN_CONTENT="$tela"
+      print -r -- "$tela"
+      return 0
+    fi
+  fi
+
+  # Modo Padrão / Automático:
+  # 1. Se houver seleção ativa no mouse, ela tem prioridade total!
+  local sel="$(obter_selecao_mouse)"
+  if [[ -n "$sel" ]]; then
+    TIPO_FONTE_CAPTURA="mouse"
+    SCREEN_CONTENT="$sel"
+    print -r -- "$sel"
+    return 0
+  fi
+
+  # 2. Caso contrário, captura as últimas linhas da tela do terminal
+  local tela="$(obter_tela_terminal "$n_lines")"
+  if [[ -n "$tela" ]]; then
+    TIPO_FONTE_CAPTURA="tela"
+    SCREEN_CONTENT="$tela"
+    print -r -- "$tela"
+    return 0
+  fi
+
+  # 3. Fallback: Clipboard regular
+  local clip="$(obter_clipboard)"
+  if [[ -n "$clip" ]]; then
+    TIPO_FONTE_CAPTURA="clipboard"
+    SCREEN_CONTENT="$clip"
+    print -r -- "$clip"
+    return 0
+  fi
+
+  TIPO_FONTE_CAPTURA="vazio"
+  SCREEN_CONTENT=""
+  return 1
+}
+
 _obter_kitty_target() {
   local listen_sock=""
 
-  local _listen_path="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_listen.$UID"
-  [[ ! -f "$_listen_path" && -f "/tmp/orig_kitty_listen" ]] && _listen_path="/tmp/orig_kitty_listen"
-  if [[ -f "$_listen_path" && ! -L "$_listen_path" ]]; then
-    listen_sock="$(_trim "$(cat "$_listen_path" 2>/dev/null)")"
+  if [[ -f "/tmp/orig_kitty_listen" && ! -L "/tmp/orig_kitty_listen" ]]; then
+    listen_sock="$(_trim "$(cat /tmp/orig_kitty_listen 2>/dev/null)")"
   fi
   [[ -z "$listen_sock" && -n "$KITTY_LISTEN_ON" ]] && listen_sock="$KITTY_LISTEN_ON"
 
-  # Se o socket salvo não responde mais (terminal foi fechado), busca o socket ativo mais recente
+  # Se o socket salvo não responde mais (terminal foi fechado), limpa
   if [[ -n "$listen_sock" ]] && command -v kitty >/dev/null 2>&1; then
     if ! kitty @ --to "$listen_sock" ls >/dev/null 2>&1; then
       listen_sock=""
@@ -129,22 +292,34 @@ _obter_kitty_target() {
   fi
 
   if [[ -z "$listen_sock" ]]; then
-    local -a sock_candidates
-    sock_candidates=(${XDG_RUNTIME_DIR:-/tmp}/kitty_metis_${UID}*(N) /tmp/mykitty*(N))
-    for s in "${sock_candidates[@]}"; do
-      [[ -S "$s" ]] || continue
-      if kitty @ --to "unix:$s" ls >/dev/null 2>&1; then
-        listen_sock="unix:$s"
-        break
+    # Se houver Hyprland ativo, tenta obter o PID da janela focada antes da abertura
+    if command -v hyprctl >/dev/null 2>&1; then
+      local active_pid="$(hyprctl activewindow -j 2>/dev/null | jq -r '.pid // empty' 2>/dev/null)"
+      if [[ -n "$active_pid" && -S "/tmp/mykitty-$active_pid" ]]; then
+        if kitty @ --to "unix:/tmp/mykitty-$active_pid" ls >/dev/null 2>&1; then
+          listen_sock="unix:/tmp/mykitty-$active_pid"
+        fi
       fi
-    done
+    fi
+
+    # Fallback: candidatos ordenados por modificação mais recente (evita sockets zumbis antigos)
+    if [[ -z "$listen_sock" ]]; then
+      local -a sock_candidates
+      sock_candidates=(${(f)"$(ls -1t /tmp/mykitty* 2>/dev/null)"})
+      for s in "${sock_candidates[@]}"; do
+        s="$(_trim "$s")"
+        [[ -S "$s" ]] || continue
+        if kitty @ --to "unix:$s" ls >/dev/null 2>&1; then
+          listen_sock="unix:$s"
+          break
+        fi
+      done
+    fi
   fi
 
   local target_win=""
-  local _id_path="${XDG_RUNTIME_DIR:-/tmp}/orig_kitty_id.$UID"
-  [[ ! -f "$_id_path" && -f "/tmp/orig_kitty_id" ]] && _id_path="/tmp/orig_kitty_id"
-  if [[ -f "$_id_path" && ! -L "$_id_path" ]]; then
-    target_win="$(_trim "$(cat "$_id_path" 2>/dev/null)")"
+  if [[ -f "/tmp/orig_kitty_id" && ! -L "/tmp/orig_kitty_id" ]]; then
+    target_win="$(_trim "$(cat /tmp/orig_kitty_id 2>/dev/null)")"
   fi
 
   if [[ -n "$listen_sock" ]] && command -v kitty >/dev/null 2>&1; then
@@ -157,7 +332,8 @@ _obter_kitty_target() {
 
     if (( win_exists == 0 )); then
       if command -v jq >/dev/null 2>&1; then
-        target_win="$(kitty @ --to "$listen_sock" ls 2>/dev/null | jq -r '.[0].tabs[0].windows[0].id // empty' 2>/dev/null)"
+        target_win="$(kitty @ --to "$listen_sock" ls 2>/dev/null | jq -r '.[0].tabs[] | select(.is_active == true) | .windows[] | select(.is_active == true) | .id' 2>/dev/null | head -n 1)"
+        [[ -z "$target_win" ]] && target_win="$(kitty @ --to "$listen_sock" ls 2>/dev/null | jq -r '.[0].tabs[0].windows[0].id // empty' 2>/dev/null)"
       fi
 
       if [[ -z "$target_win" ]]; then
@@ -173,37 +349,48 @@ _obter_kitty_target() {
 }
 
 recapturar_tela() {
-  local n_lines="${1:-$DEFAULT_SCREEN_LINES}"
-  local nova_tela=""
+  local n_lines="${1:-${DEFAULT_SCREEN_LINES:-30}}"
+  [[ "$n_lines" =~ ^[0-9]+$ ]] || n_lines=30
+  (( n_lines < 1 )) && n_lines=30
+  obter_tela_terminal "$n_lines"
+}
 
-  _obter_kitty_target
+# Obtém o comando e código de saída real ($?) rastreado pelo ZSH
+obter_status_ultimo_comando() {
+  local target_win="${1:-${TARGET_KITTY_WIN:-}}"
+  local status_file=""
 
-  if command -v kitty >/dev/null 2>&1 && [[ -n "$TARGET_KITTY_SOCK" ]]; then
-    nova_tela="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=screen --match="id:$TARGET_KITTY_WIN" 2>/dev/null)"
-
-    if [[ -z "$nova_tela" ]]; then
-      nova_tela="$(kitty @ --to "$TARGET_KITTY_SOCK" get-text --extent=screen 2>/dev/null)"
-    fi
+  if [[ -n "$target_win" && -f "/tmp/metis_status_${target_win}" ]]; then
+    status_file="/tmp/metis_status_${target_win}"
+  elif [[ -f "/tmp/metis_last_status" ]]; then
+    status_file="/tmp/metis_last_status"
   fi
 
-  if [[ -z "$nova_tela" && -f "$FILE" ]]; then
-    nova_tela="$(cat "$FILE" 2>/dev/null)"
-  elif [[ -z "$nova_tela" && -f "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; then
-    nova_tela="$(cat "/tmp/qwen_tela.txt" 2>/dev/null)"
-  fi
+  LAST_CMD_NAME=""
+  LAST_CMD_EXIT=""
+  LAST_CMD_TIME=""
 
-  if [[ -z "$nova_tela" ]]; then
-    _warn "Não foi possível capturar a tela do terminal original."
-    return 1
-  fi
-
-  local cleaned="$(clean_screen_content "$nova_tela")"
-  if [[ -n "$cleaned" ]]; then
-    local -a lines=("${(@f)cleaned}")
-    if (( ${#lines[@]} > n_lines )); then
-      lines=("${(@)lines[-$n_lines,-1]}")
-    fi
-    print -r -- "${(F)lines}"
+  if [[ -n "$status_file" && -r "$status_file" ]]; then
+    local val=""
+    while IFS= read -r line; do
+      case "$line" in
+        CMD:*)
+          val="${line#CMD:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          LAST_CMD_NAME="${val%"${val##*[![:space:]]}"}"
+          ;;
+        EXIT_CODE:*)
+          val="${line#EXIT_CODE:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          LAST_CMD_EXIT="${val%"${val##*[![:space:]]}"}"
+          ;;
+        TIME:*)
+          val="${line#TIME:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          LAST_CMD_TIME="${val%"${val##*[![:space:]]}"}"
+          ;;
+      esac
+    done < "$status_file"
   fi
 }
 
@@ -238,9 +425,17 @@ enviar_ao_kitty() {
     return 1
   fi
 
-  if ! command -v kitty >/dev/null 2>&1; then
-    _warn "Comando 'kitty' não encontrado."
-    return 1
+  # Resolve o terminal de origem (socket e id da janela) ANTES de checar
+  _obter_kitty_target
+
+  if ! command -v kitty >/dev/null 2>&1 || [[ -z "$TARGET_KITTY_SOCK" ]]; then
+    if _has_fn copiar_codigo; then
+      copiar_codigo "$code" "$num"
+    else
+      [[ -n "$code" ]] && print -r -- "$code" | (wl-copy 2>/dev/null || xclip -selection clipboard 2>/dev/null || true)
+    fi
+    printf '\033[36m💡 Comando copiado para a área de transferência! Cole com Ctrl+Shift+V no seu terminal.\033[0m\n'
+    return 0
   fi
 
   if [[ "$auto_enter" == 1 ]]; then
@@ -285,13 +480,6 @@ Deseja continuar mesmo assim?"; then
 
   code="${code%"${code##*[![:space:]]}"}"
 
-  _obter_kitty_target
-
-  if [[ -z "$TARGET_KITTY_SOCK" ]]; then
-    _warn "Nenhum socket do Kitty encontrado."
-    return 1
-  fi
-
   local sent=1
 
   if _should_type_effect "$code" "$auto_enter" && _python_ok "$PYTHON_BIN"; then
@@ -302,41 +490,43 @@ sock, win, cmd = sys.argv[1], sys.argv[2], sys.argv[3]
 auto_enter = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 speed = 0.012
 
+match_arg = [f"--match=id:{win}"] if win else []
+failed = False
+
 for ch in cmd:
-    subprocess.run(["kitty", "@", "--to", sock, "send-text", f"--match=id:{win}", ch], capture_output=True)
+    res = subprocess.run(["kitty", "@", "--to", sock, "send-text"] + match_arg + [ch], capture_output=True)
+    if res.returncode != 0:
+        res2 = subprocess.run(["kitty", "@", "--to", sock, "send-text", ch], capture_output=True)
+        if res2.returncode != 0:
+            failed = True
+            break
     time.sleep(speed)
 
-if auto_enter == 1:
+if not failed and auto_enter == 1:
     time.sleep(0.15)
-    subprocess.run(["kitty", "@", "--to", sock, "send-text", f"--match=id:{win}", "\r"], capture_output=True)
+    subprocess.run(["kitty", "@", "--to", sock, "send-text"] + match_arg + ["\r"], capture_output=True)
+
+sys.exit(1 if failed else 0)
 ' "$TARGET_KITTY_SOCK" "$TARGET_KITTY_WIN" "$code" "$auto_enter" 2>/dev/null
 
     sent=$?
+  fi
 
-    if (( sent != 0 )); then
-      if kitty @ --to "$TARGET_KITTY_SOCK" send-text --match="id:$TARGET_KITTY_WIN" "$code" 2>/dev/null ||
-         kitty @ --to "$TARGET_KITTY_SOCK" send-text "$code" 2>/dev/null; then
-        if [[ "$auto_enter" == 1 ]]; then
-          sleep 0.15
-          kitty @ --to "$TARGET_KITTY_SOCK" send-text --match="id:$TARGET_KITTY_WIN" $'\r' 2>/dev/null ||
-            kitty @ --to "$TARGET_KITTY_SOCK" send-text $'\r' 2>/dev/null
-        fi
-        sent=0
-      else
-        sent=1
-      fi
+  if (( sent != 0 )); then
+    if [[ -n "$TARGET_KITTY_WIN" ]] && kitty @ --to "$TARGET_KITTY_SOCK" send-text --match="id:$TARGET_KITTY_WIN" "$code" 2>/dev/null; then
+      sent=0
+    elif kitty @ --to "$TARGET_KITTY_SOCK" send-text "$code" 2>/dev/null; then
+      sent=0
     fi
-  else
-    if kitty @ --to "$TARGET_KITTY_SOCK" send-text --match="id:$TARGET_KITTY_WIN" "$code" 2>/dev/null ||
-       kitty @ --to "$TARGET_KITTY_SOCK" send-text "$code" 2>/dev/null; then
-      if [[ "$auto_enter" == 1 ]]; then
-        sleep 0.15
+
+    if (( sent == 0 )) && [[ "$auto_enter" == 1 ]]; then
+      sleep 0.15
+      if [[ -n "$TARGET_KITTY_WIN" ]]; then
         kitty @ --to "$TARGET_KITTY_SOCK" send-text --match="id:$TARGET_KITTY_WIN" $'\r' 2>/dev/null ||
           kitty @ --to "$TARGET_KITTY_SOCK" send-text $'\r' 2>/dev/null
+      else
+        kitty @ --to "$TARGET_KITTY_SOCK" send-text $'\r' 2>/dev/null
       fi
-      sent=0
-    else
-      sent=1
     fi
   fi
 

@@ -32,10 +32,23 @@ def clean_val(text):
     text = re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", text, flags=re.DOTALL)
     text = re.sub(r"<!\[CDATA\[", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\]\]>", "", text)
-    text = re.sub(r"</?(?:cmd|command|bash|sh|exec|code|script|tool_call)[^>]*>", "", text, flags=re.IGNORECASE)
+
+    # Extrai o valor caso venha encapsulado em <parameter...>...</parameter> ou <arg...>...</arg>
+    param_m = re.search(r"<parameter\b[^>]*>(.*?)(?:</parameter>|$)", text, flags=re.DOTALL | re.IGNORECASE)
+    if param_m:
+        text = param_m.group(1)
+    arg_m = re.search(r"<arg\b[^>]*>(.*?)(?:</arg>|$)", text, flags=re.DOTALL | re.IGNORECASE)
+    if arg_m:
+        text = arg_m.group(1)
+
+    # Remove quaisquer tags residuais de XML de ferramentas (ex: </parameter>, </function>, etc.)
+    text = re.sub(r"</?(?:parameter|param|function|invoke|arg|arguments|cmd|command|bash|sh|exec|code|script|tool_call|call)[^>]*>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"^\s*```(?:[a-zA-Z0-9_-]+)?\s*\n?", "", text.strip(), flags=re.IGNORECASE)
     text = re.sub(r"\n?\s*```\s*$", "", text.strip(), flags=re.IGNORECASE)
     text = html.unescape(text).strip()
+    # Remove qualquer fechamento de tag dangling no final (ex: </parameter>, </function>)
+    text = re.sub(r"\s*</[a-zA-Z0-9_-]+>\s*$", "", text, flags=re.DOTALL | re.IGNORECASE)
+
     if text.startswith("[") and text.endswith("]"):
         try:
             parsed = ast.literal_eval(text)
@@ -45,12 +58,14 @@ def clean_val(text):
             pass
     return text.strip()
 
-# XML tool_call
-m = re.search(r"<tool_call\b([^>]*)>(.*?)(?:</tool_call>|$)", raw, re.DOTALL | re.IGNORECASE)
+# XML tool_call ou function
+m = re.search(r"<(?:tool_call|function|invoke)\b([^>]*)>(.*?)(?:</(?:tool_call|function|invoke)>|$)", raw, re.DOTALL | re.IGNORECASE)
 if m:
     attrs = m.group(1) or ""
     content = m.group(2) or ""
     nm = re.search(r"\bname\s*=\s*(?:\"([^\"]+)\"|\x27([^\x27]+)\x27|([^\s>]+))", attrs, re.IGNORECASE)
+    if not nm:
+        nm = re.search(r"^=([a-zA-Z0-9_-]+)", attrs)
     name = (nm.group(1) or nm.group(2) or nm.group(3) if nm else "bash").lower()
     pm = re.search(r"\bpath\s*=\s*(?:\"([^\"]+)\"|\x27([^\x27]+)\x27|([^\s>]+))", attrs, re.IGNORECASE)
     path = pm.group(1) or pm.group(2) or pm.group(3) if pm else ""
@@ -144,6 +159,11 @@ sys.exit(1)
   content="${content//\]\]>/}"
   content="${content#\`\`\`*}"
   content="${content%\`\`\`*}"
+
+  # Remove tags residuais como </parameter>, </function>, etc.
+  if command -v sed >/dev/null 2>&1; then
+    content="$(print -r -- "$content" | sed -E 's#</?(parameter|param|function|invoke|arg|arguments|tool_call)[^>]*>##gi')"
+  fi
 
   TOOL_NAME="$name"
   TOOL_PATH="$(_trim "$path")"

@@ -28,7 +28,7 @@ executar_ferramenta() {
       local auto_read="${AI_AGENT_AUTO_READ:-1}"
 
       if [[ "$auto_read" == "1" ]] && _is_safe_read_cmd "$cmd"; then
-        printf '\033[36m🔍 [Agente Inspecionando]: \033[1;38;5;214m%s\033[0m\n' "$cmd" >&2
+        printf '\n\033[1;36m🔍 Inspecionando:\033[0m\n  \033[1;38;5;214m$ %s\033[0m\n' "$cmd" >&2
         local tmp_cmd_out=""
         tmp_cmd_out="$(mktemp)"
         if command -v timeout >/dev/null 2>&1; then
@@ -40,17 +40,18 @@ executar_ferramenta() {
         fi
         result="$(head -n 120 "$tmp_cmd_out" 2>/dev/null)"
         rm -f "$tmp_cmd_out" 2>/dev/null
+        printf '\033[32m✔ Inspeção concluída\033[0m\n' >&2
       else
-        if ! _confirmar_acao "A IA quer inserir no seu terminal original: \033[1;38;5;214m$cmd\033[0m"; then
+        if ! _confirmar_acao_formatada "$cmd" "Inserir comando no terminal"; then
           print -r -- "Ação negada pelo usuário para inserir o comando '$cmd'."
           return 0
         fi
 
-        printf '\033[36m⚡ [Agente inserindo no terminal original]: \033[1;38;5;214m%s\033[0m\n' "$cmd" >&2
-
         if enviar_ao_kitty "$cmd"; then
+          printf '\033[32m✔ Comando inserido no seu terminal (pronto para revisão)\033[0m\n' >&2
           result="Comando inserido no terminal original sem executar. Revise, execute manualmente e use /s para sincronizar após executar."
         else
+          printf '\033[31m✖ Erro ao inserir comando no terminal\033[0m\n' >&2
           result="Erro: não foi possível inserir o comando no terminal original."
           tool_exit_code=1
         fi
@@ -66,10 +67,10 @@ executar_ferramenta() {
 
       filepath="$(_trim "${filepath/#\~/$HOME}")"
 
-      printf '\033[36m🔍 [Agente Lendo Arquivo]: \033[1;37m%s\033[0m\n' "$filepath" >&2
+      printf '\n\033[1;36m📖 Lendo arquivo:\033[0m \033[1;37m%s\033[0m\n' "$filepath" >&2
 
       if _is_sensitive_path "$filepath"; then
-        if ! _confirmar_acao "A IA quer ler um arquivo potencialmente sensível: \033[1;37m$filepath\033[0m"; then
+        if ! _confirmar_acao_formatada "$filepath" "Leitura de arquivo potencialmente sensível"; then
           print -r -- "Ação negada pelo usuário para ler '$filepath'."
           return 0
         fi
@@ -77,9 +78,11 @@ executar_ferramenta() {
 
       if [[ -f "$filepath" ]]; then
         result="$(head -n 250 "$filepath" 2>&1)"
+        printf '\033[32m✔ Arquivo lido com sucesso\033[0m\n' >&2
       else
         result="Erro: Arquivo '$filepath' não encontrado."
         tool_exit_code=1
+        printf '\033[31m✖ Arquivo não encontrado\033[0m\n' >&2
       fi
       ;;
 
@@ -106,18 +109,15 @@ executar_ferramenta() {
         return "$tool_exit_code"
       fi
 
-      local acao_msg="criar o arquivo: \033[1;37m$filepath\033[0m"
+      local acao_msg="Criar novo arquivo"
+      [[ -f "$filepath" ]] && acao_msg="Modificar arquivo existente"
 
-      if [[ -f "$filepath" ]]; then
-        acao_msg="modificar o arquivo existente: \033[1;37m$filepath\033[0m"
-      fi
-
-      if ! _confirmar_acao "A IA quer $acao_msg"; then
+      if ! _confirmar_acao_formatada "$filepath" "$acao_msg"; then
         print -r -- "Ação negada pelo usuário para gravar no arquivo '$filepath'."
         return 0
       fi
 
-      printf '\033[36m💾 [Agente Gravando Arquivo]: \033[1;37m%s\033[0m\n' "$filepath" >&2
+      printf '\n\033[1;36m💾 Gravando arquivo:\033[0m \033[1;37m%s\033[0m\n' "$filepath" >&2
 
       mkdir -p "$dirpath" 2>/dev/null
 

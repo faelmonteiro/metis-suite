@@ -19,16 +19,62 @@ METIS_CONFIG_PATHS = [
 DEFAULT_MODELS_DATA = {
     "schema_version": 1,
     "builtin_models": {
-        "NVIDIA": [],
-        "Gemini": [],
-        "OpenRouter": [],
-        "Ollama": [],
-        "Groq": [],
-        "G4F": []
+        "NVIDIA": [
+            "meta/llama-3.2-11b-vision-instruct",
+            "meta/llama-3.2-90b-vision-instruct",
+            "deepseek-ai/deepseek-r1",
+            "meta/llama-3.1-70b-instruct"
+        ],
+        "Gemini": [
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash-lite-preview-02-05"
+        ],
+        "OpenRouter": [
+            "liquid/lfm-2.5-2.6b:free",
+            "inclusionai/ling-3.0-flash-fin:free",
+            "minimax/minimax-m3:free",
+            "poolside/laguna-s-2.1:free"
+        ],
+        "Ollama": [
+            "llama3.2-vision:11b",
+            "qwen3.5:9b",
+            "qwen3.5:4b",
+            "llama3.2:3b",
+            "qwen2.5-coder:7b"
+        ],
+        "Groq": [
+            "openai/gpt-oss-120b"
+        ],
+        "G4F": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "deepseek-r1",
+            "llama-3.3-70b",
+            "qwen-2.5-coder-32b"
+        ]
     },
-    "active_provider": "",
-    "active_model": ""
+    "active_provider": "nvidia",
+    "active_model": "meta/llama-3.2-11b-vision-instruct"
 }
+
+def _canonical_provider_name(name_or_id: str) -> str:
+    """Normaliza nomes/IDs de provedores conhecidos para seu padrão canônico."""
+    val = (name_or_id or "").strip().lower()
+    if "openrouter" in val:
+        return "OpenRouter"
+    if "gemini" in val:
+        return "Gemini"
+    if "groq" in val:
+        return "Groq"
+    if "nvidia" in val:
+        return "NVIDIA"
+    if "ollama" in val:
+        return "Ollama"
+    if "g4f" in val:
+        return "G4F"
+    return (name_or_id or "").strip()
 
 def get_config_path() -> Path:
     """Retorna o caminho canônico do config_models.json (~/.config/metis/config_models.json)."""
@@ -96,31 +142,88 @@ def save_models_config(data: dict):
             pass
 
     _CONFIG_CACHE = data
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    content = json.dumps(data, indent=2, ensure_ascii=False)
+    p.write_text(content, encoding="utf-8")
+
+    # Mantém réplicas existentes sincronizadas
+    replicas = [
+        Path.home() / ".local/share/metis/app/config_models.json",
+        Path.home() / "Metis" / "config_models.json",
+        Path(__file__).resolve().parent.parent / "config_models.json",
+    ]
+    for rep in replicas:
+        if rep != p and rep.exists() and rep.is_file():
+            try:
+                rep.write_text(content, encoding="utf-8")
+            except Exception:
+                pass
 
 def get_providers() -> List[str]:
-    """Retorna a lista de provedores/categorias disponíveis (incluindo servidores customizados)."""
+    """Retorna a lista de provedores/categorias disponíveis sem duplicações (incluindo servidores customizados)."""
     cfg = load_models_config(force_reload=True)
-    provs = list(cfg.get("builtin_models", {}).keys())
+    provs = []
+    seen_lower = set()
+
+    for p in cfg.get("builtin_models", {}).keys():
+        norm = _canonical_provider_name(p)
+        key = norm.lower()
+        if key not in seen_lower:
+            seen_lower.add(key)
+            provs.append(norm)
+
     for srv in cfg.get("custom_servers", []):
-        nome = srv.get("nome")
-        if nome and nome not in provs:
-            provs.append(nome)
+        nome = (srv.get("nome") or "").strip()
+        srv_id = (srv.get("id") or "").strip()
+        base_url = (srv.get("base_url") or "").strip().lower()
+
+        # Identifica se é OpenRouter ou outra IA nativa mapeada em servidores customizados
+        if "openrouter" in srv_id.lower() or "openrouter" in nome.lower() or "openrouter.ai" in base_url:
+            canonical = "OpenRouter"
+        else:
+            canonical = _canonical_provider_name(nome or srv_id)
+
+        if canonical and canonical.lower() not in seen_lower:
+            seen_lower.add(canonical.lower())
+            provs.append(canonical)
+
     return provs
 
 def get_models_for_provider(provider: str) -> List[str]:
-    """Retorna a lista de modelos de uma categoria específica."""
+    """Retorna a lista de modelos de uma categoria específica (mesclando builtin e custom_servers se aplicável)."""
     cfg = load_models_config(force_reload=True)
+    prov_canon = _canonical_provider_name(provider)
+    prov_lower = prov_canon.lower()
+
+    models = []
+    seen = set()
+
+    # 1. Procura em builtin_models
     builtin = cfg.get("builtin_models", {})
     for k, v in builtin.items():
-        if k.lower() == provider.lower():
-            return v
-    
+        if _canonical_provider_name(k).lower() == prov_lower:
+            for m in v:
+                if m not in seen:
+                    seen.add(m)
+                    models.append(m)
+
+    # 2. Procura em custom_servers (mescla para OpenRouter e outros servidores mapeados)
     for srv in cfg.get("custom_servers", []):
-        if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
-            return srv.get("modelos", [])
-            
-    return []
+        srv_nome = (srv.get("nome") or "").strip()
+        srv_id = (srv.get("id") or "").strip().lower()
+        srv_url = (srv.get("base_url") or "").strip().lower()
+        is_match = False
+        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
+            is_match = True
+        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
+            is_match = True
+
+        if is_match:
+            for m in srv.get("modelos", []):
+                if m not in seen:
+                    seen.add(m)
+                    models.append(m)
+
+    return models
 
 def add_model_to_provider(provider: str, model_id: str) -> bool:
     """Adiciona um novo modelo a uma categoria (builtin ou custom_servers)."""
@@ -131,11 +234,14 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
     if "builtin_models" not in cfg:
         cfg["builtin_models"] = {}
 
+    prov_canon = _canonical_provider_name(provider)
+    prov_lower = prov_canon.lower()
     added = False
+
     # 1. Verifica se existe em builtin_models
     matched_prov = None
     for k in cfg["builtin_models"].keys():
-        if k.lower() == provider.lower():
+        if _canonical_provider_name(k).lower() == prov_lower:
             matched_prov = k
             break
 
@@ -146,7 +252,16 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
 
     # 2. Verifica se é um servidor customizado (ou se OpenRouter está em ambos)
     for srv in cfg.get("custom_servers", []):
-        if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+        srv_nome = (srv.get("nome") or "").strip()
+        srv_id = (srv.get("id") or "").strip().lower()
+        srv_url = (srv.get("base_url") or "").strip().lower()
+        is_match = False
+        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
+            is_match = True
+        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
+            is_match = True
+
+        if is_match:
             if "modelos" not in srv:
                 srv["modelos"] = []
             if model_id not in srv["modelos"]:
@@ -155,7 +270,7 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
 
     # 3. Se não existe em nenhum lugar, cria em builtin_models
     if not matched_prov and not added:
-        cfg["builtin_models"][provider] = [model_id]
+        cfg["builtin_models"][prov_canon] = [model_id]
         added = True
 
     if added:
@@ -166,17 +281,28 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
 def remove_model_from_provider(provider: str, model_id: str) -> bool:
     """Remove um modelo de uma categoria (builtin ou custom_servers) e ajusta o modelo ativo se necessário."""
     cfg = load_models_config(force_reload=True)
+    prov_canon = _canonical_provider_name(provider)
+    prov_lower = prov_canon.lower()
     removed = False
 
     # 1. Tenta remover de builtin_models
     for k, mlist in cfg.get("builtin_models", {}).items():
-        if k.lower() == provider.lower() and model_id in mlist:
+        if _canonical_provider_name(k).lower() == prov_lower and model_id in mlist:
             mlist.remove(model_id)
             removed = True
 
     # 2. Tenta remover de custom_servers
     for srv in cfg.get("custom_servers", []):
-        if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+        srv_nome = (srv.get("nome") or "").strip()
+        srv_id = (srv.get("id") or "").strip().lower()
+        srv_url = (srv.get("base_url") or "").strip().lower()
+        is_match = False
+        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
+            is_match = True
+        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
+            is_match = True
+
+        if is_match:
             mlist = srv.get("modelos", [])
             if model_id in mlist:
                 mlist.remove(model_id)
@@ -206,26 +332,36 @@ def edit_model_in_provider(provider: str, old_model_id: str, new_model_id: str) 
     if not new_model_id:
         return False
     cfg = load_models_config(force_reload=True)
+    prov_canon = _canonical_provider_name(provider)
+    prov_lower = prov_canon.lower()
     edited = False
 
     # 1. Tenta editar em builtin_models
     for k, mlist in cfg.get("builtin_models", {}).items():
-        if k.lower() == provider.lower() and old_model_id in mlist:
+        if _canonical_provider_name(k).lower() == prov_lower and old_model_id in mlist:
             idx = mlist.index(old_model_id)
             mlist[idx] = new_model_id
             edited = True
             break
 
     # 2. Tenta editar em custom_servers
-    if not edited:
-        for srv in cfg.get("custom_servers", []):
-            if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
-                mlist = srv.get("modelos", [])
-                if old_model_id in mlist:
-                    idx = mlist.index(old_model_id)
-                    mlist[idx] = new_model_id
-                    edited = True
-                    break
+    for srv in cfg.get("custom_servers", []):
+        srv_nome = (srv.get("nome") or "").strip()
+        srv_id = (srv.get("id") or "").strip().lower()
+        srv_url = (srv.get("base_url") or "").strip().lower()
+        is_match = False
+        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
+            is_match = True
+        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
+            is_match = True
+
+        if is_match:
+            mlist = srv.get("modelos", [])
+            if old_model_id in mlist:
+                idx = mlist.index(old_model_id)
+                mlist[idx] = new_model_id
+                edited = True
+                break
 
     if edited:
         if cfg.get("active_model") == old_model_id:
@@ -281,35 +417,65 @@ def get_provider_icon(provider: str) -> str:
 def get_grouped_model_list() -> List[Dict]:
     """
     Retorna lista estruturada de provedores com seus respectivos modelos e metadados.
-    Ideal para construção de menus hierárquicos (Submenus de IAs por Provedor).
+    Garante deduplicação estrita de provedores (ex: OpenRouter nunca duplicado).
     """
     cfg = load_models_config(force_reload=True)
     grouped = []
-    
+    grouped_by_key = {}
+
     # 1. Provedores em builtin_models
     for prov_name, models_list in cfg.get("builtin_models", {}).items():
-        prov_key = prov_name.lower()
+        canon_name = _canonical_provider_name(prov_name)
+        prov_key = canon_name.lower()
         icon = get_provider_icon(prov_key)
-        grouped.append({
-            "provider": prov_name,
-            "key": prov_key,
-            "icon": icon,
-            "models": list(models_list)
-        })
         
+        if prov_key not in grouped_by_key:
+            grp = {
+                "provider": canon_name,
+                "key": prov_key,
+                "icon": icon,
+                "models": list(models_list)
+            }
+            grouped.append(grp)
+            grouped_by_key[prov_key] = grp
+        else:
+            cur_models = grouped_by_key[prov_key]["models"]
+            for m in models_list:
+                if m not in cur_models:
+                    cur_models.append(m)
+
     # 2. Modelos em custom_servers
     for srv in cfg.get("custom_servers", []):
-        srv_nome = srv.get("nome", "Custom")
-        srv_id = srv.get("id", srv_nome).lower()
-        icon = get_provider_icon(srv_id)
-        if not any(g["key"] == srv_id for g in grouped):
-            grouped.append({
-                "provider": srv_nome,
-                "key": srv_id,
+        srv_nome = (srv.get("nome") or "Custom").strip()
+        srv_id = (srv.get("id") or srv_nome).strip().lower()
+        srv_url = (srv.get("base_url") or "").strip().lower()
+
+        if "openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url:
+            canon_key = "openrouter"
+            canon_name = "OpenRouter"
+        else:
+            canon_name = _canonical_provider_name(srv_nome)
+            canon_key = canon_name.lower()
+
+        icon = get_provider_icon(canon_key)
+        srv_models = list(srv.get("modelos", []))
+
+        if canon_key in grouped_by_key:
+            # Já existe esse provedor (ex: OpenRouter builtin): mescla modelos sem duplicar o menu!
+            existing_models = grouped_by_key[canon_key]["models"]
+            for m in srv_models:
+                if m not in existing_models:
+                    existing_models.append(m)
+        else:
+            grp = {
+                "provider": canon_name,
+                "key": canon_key,
                 "icon": icon,
-                "models": list(srv.get("modelos", []))
-            })
-            
+                "models": srv_models
+            }
+            grouped.append(grp)
+            grouped_by_key[canon_key] = grp
+
     return grouped
 
 def get_flat_model_list() -> List[Tuple[str, str, str]]:

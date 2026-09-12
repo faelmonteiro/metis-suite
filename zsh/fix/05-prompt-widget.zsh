@@ -339,8 +339,7 @@ fix() {
   if [[ -n "$WIDGET" ]]; then
     zle inteligencia_prompt
   else
-    print "O comando fix é um widget ZLE. Use Ctrl+G no terminal." >&2
-    return 1
+    inteligencia_prompt
   fi
 }
 

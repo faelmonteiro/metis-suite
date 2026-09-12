@@ -37,6 +37,7 @@ fi
 
 alias screen-explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
 alias explain_screen="source \"$ZSH_AI_DIR/explain_screen.zsh\""
+alias explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
 
 # Widget interativo para acionar o explain_screen direto no ZSH
 _metis_explain_screen_widget() {
@@ -46,7 +47,11 @@ _metis_explain_screen_widget() {
 }
 zle -N _metis_explain_screen_widget 2>/dev/null || true
 
-# Mapeamentos de atalho Ctrl+Shift+E (suporta sequências CSI-u e Kitty/Xterm)
+# Mapeamentos universais: Alt+E (compatível com GNOME Terminal, Konsole, Alacritty, Kitty, Xfce, etc.)
+bindkey '^[e' _metis_explain_screen_widget 2>/dev/null || true
+bindkey '^[E' _metis_explain_screen_widget 2>/dev/null || true
+
+# Mapeamentos legados: Ctrl+Shift+E (suporta sequências CSI-u e Kitty/Xterm)
 bindkey '^[[101;6u' _metis_explain_screen_widget 2>/dev/null || true
 bindkey '^[[69;6u' _metis_explain_screen_widget 2>/dev/null || true
 bindkey '^[[27;6;101~' _metis_explain_screen_widget 2>/dev/null || true
