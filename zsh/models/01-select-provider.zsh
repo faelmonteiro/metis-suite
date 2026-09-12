@@ -121,8 +121,9 @@ _ai_menu_selecionar_modelo() {
 
       _ai_reload_all_envs
 
-      printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-      read -r _ </dev/tty 2>/dev/null || read -r _ || true
+      printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+      stty sane 2>/dev/null
+      read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
       continue
     else
       if [[ "$selected_line" != "$user_query" && -n "$selected_line" ]]; then

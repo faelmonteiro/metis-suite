@@ -42,6 +42,7 @@ _confirmar_acao() {
   printf '\n\033[33m⚠️  %b\033[0m\n' "$prompt_msg" >&2
   printf '\033[33mDeseja permitir? (s/N): \033[0m' >&2
 
+  stty sane 2>/dev/null
   if read -r ans </dev/tty; then
     case "${ans:l}" in
       s|sim|y|yes)
@@ -66,6 +67,7 @@ _confirmar_acao_formatada() {
   printf '  \033[1;37m$\033[0m \033[1;38;5;214m%s\033[0m\n' "$cmd" >&2
   printf '\033[1;33mPermitir execução no terminal? (s/N): \033[0m' >&2
 
+  stty sane 2>/dev/null
   if read -r ans </dev/tty; then
     case "${ans:l}" in
       s|sim|y|yes)

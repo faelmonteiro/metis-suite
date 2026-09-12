@@ -327,9 +327,9 @@ fi
 
 
 
-## 6.5 Configuração Automática dos Atalhos Globais (Super + R e Super + Z)
+### 6.5 Configuração Automática dos Atalhos Globais (Super + R e Ctrl + Alt + V)
 configure_global_shortcut() {
-    echo -e "\n${CYAN}⌨️  [5.5/6] Configuração de atalhos globais [Super + R] e [Super + Z]...${NC}"
+    echo -e "\n${CYAN}⌨️  [5.5/6] Configuração de atalhos globais [Super + R] e [Ctrl + Alt + V]...${NC}"
     local set_shortcuts="s"
     if [ -t 0 ]; then
         read -t 15 -p "   Deseja configurar os atalhos globais de teclado no sistema? (S/n) [tempo limite 15s]: " set_shortcuts || set_shortcuts="s"
@@ -349,35 +349,35 @@ configure_global_shortcut() {
     if [[ "$desktop" == *"gnome"* || "$desktop" == *"ubuntu"* || "$desktop" == *"pop"* ]] && command -v gsettings &>/dev/null; then
         local base_schema="org.gnome.settings-daemon.plugins.media-keys"
         local path_r="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/"
-        local path_z="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
+        local path_v="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
         local custom_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
         
-        # Super + R
+        # Super + R (Metis AI)
         gsettings set "${custom_schema}:${path_r}" name "Metis AI" 2>/dev/null || true
         gsettings set "${custom_schema}:${path_r}" command "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
         gsettings set "${custom_schema}:${path_r}" binding "<Super>r" 2>/dev/null || true
         
-        # Super + Z
-        gsettings set "${custom_schema}:${path_z}" name "ScreenAI" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_z}" command "$BIN_DIR/screenai" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_z}" binding "<Super>z" 2>/dev/null || true
+        # Ctrl + Alt + V (Metis Vision)
+        gsettings set "${custom_schema}:${path_v}" name "Metis Vision" 2>/dev/null || true
+        gsettings set "${custom_schema}:${path_v}" command "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+        gsettings set "${custom_schema}:${path_v}" binding "<Primary><Alt>v" 2>/dev/null || true
 
         # Anexa aos atalhos existentes sem sobrescrever os atalhos do usuário
         local current_list
         current_list=$(gsettings get "$base_schema" custom-keybindings 2>/dev/null || echo "@as []")
         if [[ "$current_list" == "@as []" || "$current_list" == "[]" || -z "$current_list" ]]; then
-            gsettings set "$base_schema" custom-keybindings "['$path_r', '$path_z']" 2>/dev/null || true
+            gsettings set "$base_schema" custom-keybindings "['$path_r', '$path_v']" 2>/dev/null || true
         else
             local updated_list="$current_list"
             if [[ "$updated_list" != *"$path_r"* ]]; then
                 updated_list="${updated_list%]}, '$path_r']"
             fi
-            if [[ "$updated_list" != *"$path_z"* ]]; then
-                updated_list="${updated_list%]}, '$path_z']"
+            if [[ "$updated_list" != *"$path_v"* ]]; then
+                updated_list="${updated_list%]}, '$path_v']"
             fi
             gsettings set "$base_schema" custom-keybindings "$updated_list" 2>/dev/null || true
         fi
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para GNOME/Ubuntu.${NC}"
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para GNOME/Ubuntu.${NC}"
         config_done=1
     fi
 
@@ -388,11 +388,11 @@ configure_global_shortcut() {
 
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/command "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/binding "['<Super>r']" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/binding "['<Super>r', '<Primary><Alt>m']" 2>/dev/null || true
 
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/command "'$BIN_DIR/screenai'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/binding "['<Super>z']" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/command "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/binding "['<Primary><Alt>v', '<Super>v', '<Super>z']" 2>/dev/null || true
 
         local cur_list
         cur_list="$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null || echo "[]")"
@@ -409,16 +409,18 @@ configure_global_shortcut() {
             fi
             dconf write /org/cinnamon/desktop/keybindings/custom-list "$upd_list" 2>/dev/null || true
         fi
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para Linux Mint (Cinnamon).${NC}"
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para Linux Mint (Cinnamon).${NC}"
         config_done=1
     fi
 
     # C. XFCE
     if [[ "$desktop" == *"xfce"* ]] && command -v xfconf-query &>/dev/null; then
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -n -t string -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null ||         xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -n -t string -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || \
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
         
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>z" -n -t string -s "$BIN_DIR/screenai" 2>/dev/null ||         xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>z" -s "$BIN_DIR/screenai" 2>/dev/null || true
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para XFCE.${NC}"
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para XFCE.${NC}"
         config_done=1
     fi
 
@@ -428,10 +430,10 @@ configure_global_shortcut() {
         dconf write /org/mate/desktop/keybindings/custom-metis/action "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
         dconf write /org/mate/desktop/keybindings/custom-metis/binding "'<Mod4>r'" 2>/dev/null || true
 
-        dconf write /org/mate/desktop/keybindings/custom-screenai/name "'ScreenAI'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-screenai/action "'$BIN_DIR/screenai'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-screenai/binding "'<Mod4>z'" 2>/dev/null || true
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para MATE.${NC}"
+        dconf write /org/mate/desktop/keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
+        dconf write /org/mate/desktop/keybindings/custom-screenai/action "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
+        dconf write /org/mate/desktop/keybindings/custom-screenai/binding "'<Control><Alt>v'" 2>/dev/null || true
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para MATE.${NC}"
         config_done=1
     fi
 
@@ -442,28 +444,28 @@ configure_global_shortcut() {
         command -v kwriteconfig5 &>/dev/null && kw="kwriteconfig5"
         if [ -n "$kw" ]; then
             $kw --file kglobalshortcutsrc --group "Metis AI" --key "gui" "$INSTALL_DIR/bin/metis gui,none,Metis AI" 2>/dev/null || true
-            $kw --file kglobalshortcutsrc --group "ScreenAI" --key "vision" "$BIN_DIR/screenai,none,ScreenAI" 2>/dev/null || true
-            echo -e "${GREEN}  ✅ Atalhos registrados para KDE Plasma.${NC}"
+            $kw --file kglobalshortcutsrc --group "Metis Vision" --key "vision" "$INSTALL_DIR/bin/metis vision,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
+            echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados para KDE Plasma.${NC}"
             config_done=1
         fi
     fi
 
     # F. Window Managers (Hyprland / Sway / i3)
     if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
-        if ! grep -Fq "metis gui" "$HOME/.config/hypr/hyprland.conf"; then
+        if ! grep -Fq "metis vision" "$HOME/.config/hypr/hyprland.conf"; then
             echo "" >> "$HOME/.config/hypr/hyprland.conf"
             echo "bind = \$mainMod, r, exec, [float; size 860 550; center; pin] $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/hypr/hyprland.conf"
-            echo "bind = \$mainMod, z, exec, [float; size 620 390; center; pin] $BIN_DIR/screenai --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
-            echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] adicionados ao ~/.config/hypr/hyprland.conf${NC}"
+            echo "bind = CTRL ALT, v, exec, [float; size 620 390; center; pin] $INSTALL_DIR/bin/metis vision --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
+            echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] adicionados ao ~/.config/hypr/hyprland.conf${NC}"
             config_done=1
         fi
     fi
 
     if [ -f "$HOME/.config/i3/config" ]; then
-        if ! grep -Fq "metis gui" "$HOME/.config/i3/config"; then
+        if ! grep -Fq "metis vision" "$HOME/.config/i3/config"; then
             echo "" >> "$HOME/.config/i3/config"
             echo "bindsym \$mod+r exec $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/i3/config"
-            echo "bindsym \$mod+z exec $BIN_DIR/screenai" >> "$HOME/.config/i3/config"
+            echo "bindsym Control+Mod1+v exec $INSTALL_DIR/bin/metis vision" >> "$HOME/.config/i3/config"
             echo -e "${GREEN}  ✅ Atalhos adicionados ao ~/.config/i3/config${NC}"
             config_done=1
         fi
@@ -674,7 +676,9 @@ echo -e "${BORDER}│${NC}    ${CYAN}[metis]${NC}             Copiloto de diagn�
 echo -e "${BORDER}│${NC}    ${CYAN}[metis explain]${NC}     Executa o explain screen diretamente pelo terminal"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis update]${NC}      Atualiza o Metis para a versão mais recente"
 echo -e "${BORDER}│${NC}    ${CYAN}[Super + R]${NC}         Abre a interface visual do Metis de qualquer lugar"
+echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + Alt + V]${NC}    Abre o Metis Vision (Análise visual de tela/OCR) de qualquer lugar"
 echo -e "${BORDER}│${NC}    ${CYAN}[metis gui]${NC}         Comando para abrir a interface gráfica via terminal"
+echo -e "${BORDER}│${NC}    ${CYAN}[metis vision]${NC}      Comando para abrir o assistente visual via terminal"
 echo -e "${BORDER}│${NC}    ${CYAN}[ia <pergunta>]${NC}     Consulta rápida com suporte a pipes"
 echo -e "${BORDER}│${NC}    ${CYAN}[gca]${NC}               Gerador automático de commits Git"
 echo -e "${BORDER}│${NC}"

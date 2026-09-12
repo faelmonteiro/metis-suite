@@ -223,8 +223,9 @@ gerenciar_modelos() {
         load_env_file "$HOME/Metis/.env"
         load_env_file "$HOME/.ZSH/ai/.env_local"
         load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
-        printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-        read -r _ </dev/tty 2>/dev/null || read -r _ || true
+        printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+        stty sane 2>/dev/null
+        read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
         ;;
       "🗑️"*|"8."*)
         remover_servidor_customizado

@@ -265,8 +265,9 @@ ${cy}Modelos Ativos:${cr}
                   "$py_b" "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py" sync
                 fi
                 _ai_fix_reload_envs
-                printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-                read -r _ </dev/tty || true
+                printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+                stty sane 2>/dev/null
+                read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
                 continue
               fi
 
@@ -299,8 +300,9 @@ ${cy}Modelos Ativos:${cr}
                 "$py_b" "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py" sync
               fi
               _ai_fix_reload_envs
-              printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-              read -r _ </dev/tty || true
+              printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+              stty sane 2>/dev/null
+              read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
               ;;
             "🗑️"*|"5."*)
               _ai_fix_remover_servidor_customizado

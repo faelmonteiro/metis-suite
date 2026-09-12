@@ -336,7 +336,7 @@ $mouse_snippet
 
         while IFS= read -r line_item; do
           [[ -n "$line_item" ]] && api_menu_lines+=("$line_item")
-        done < <("$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" api_menu 2>/dev/null)
+        done < <("$PYTHON_BIN" "$(_get_manage_models_script)" api_menu 2>/dev/null)
 
         for line_item in "${api_menu_lines[@]}"; do
           local display_text="${line_item%%|*}"
@@ -382,8 +382,9 @@ $mouse_snippet
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
           load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
-          printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-          read -r _ </dev/tty 2>/dev/null || read -r _ || true
+          printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+          stty sane 2>/dev/null
+          read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
           continue
         fi
 
@@ -432,8 +433,9 @@ $mouse_snippet
         clear
         _print_header
         exibir_ajuda
-        printf '\n\033[1;36mPressione ENTER para voltar ao menu...\033[0m'
-        read -r </dev/tty 2>/dev/null || read -r
+        printf '\n\033[1;36mPressione ENTER para voltar ao menu (ou aguarde 3s)...\033[0m'
+        stty sane 2>/dev/null
+        read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
         continue
         ;;
 

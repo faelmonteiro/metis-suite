@@ -42,8 +42,9 @@ _ai_fix_safe_note_name() {
 }
 
 _ai_fix_pause() {
-  printf 'Pressione Enter para voltar...'
-  read -r _ </dev/tty || true
+  printf 'Pressione Enter para voltar (ou aguarde 3s)...'
+  stty sane 2>/dev/null
+  read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
 }
 
 _ai_fix_metis_icon() {

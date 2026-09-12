@@ -93,17 +93,20 @@ fi
 if [[ "$desktop" == *"xfce"* ]] && command -v xfconf-query &>/dev/null; then
     xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -r 2>/dev/null || true
     xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>z" -r 2>/dev/null || true
+    xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -r 2>/dev/null || true
 fi
 
 if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
     sed -i '/Metis AI GUI Shortcut/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
     sed -i '/bind.*metis gui/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
     sed -i '/bind.*screenai/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
+    sed -i '/bind.*metis vision/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
 fi
 
 if [ -f "$HOME/.config/i3/config" ]; then
     sed -i '/bindsym.*metis gui/d' "$HOME/.config/i3/config" 2>/dev/null || true
     sed -i '/bindsym.*screenai/d' "$HOME/.config/i3/config" 2>/dev/null || true
+    sed -i '/bindsym.*metis vision/d' "$HOME/.config/i3/config" 2>/dev/null || true
 fi
 
 # 2. Remover arquivos da aplicação e venv
