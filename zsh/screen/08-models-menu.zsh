@@ -4,20 +4,23 @@
 # Menus interativos FZF para gestão de modelos, provedores e persistência.
 # =============================================================================
 
-source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/models_menu.zsh" 2>/dev/null || source ~/.ZSH/ai/models_menu.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/models_menu.zsh" 2>/dev/null || true
 
 _get_manage_models_script() {
-  local s="${MANAGE_MODELS_SCRIPT:-${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py}"
-  if [[ -f "$s" ]]; then
-    print -r -- "$s"
-  else
-    local _alt="${0:A:h:h}/manage_models.py"
-    if [[ -f "$_alt" ]]; then
-      print -r -- "$_alt"
-    else
-      print -r -- "$s"
+  local candidates=(
+    "${MANAGE_MODELS_SCRIPT:-}"
+    "${ZSH_AI_DIR:-}/manage_models.py"
+    "$HOME/.local/share/metis/zsh/manage_models.py"
+    "${METIS_ROOT:-}/zsh/manage_models.py"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    if [[ -n "$c" && -f "$c" ]]; then
+      print -r -- "$c"
+      return 0
     fi
-  fi
+  done
+  print -r -- "$HOME/.local/share/metis/zsh/manage_models.py"
 }
 
 digitar_novo_modelo_para_provedor() {

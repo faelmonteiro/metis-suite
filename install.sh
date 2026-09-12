@@ -530,20 +530,23 @@ configure_global_shortcut() {
             echo "copy_on_select yes" >> "$kitty_conf"
         fi
 
-        # Desmarca a seleção no terminal quando a área de transferência for liberada
-        if ! grep -Eq "^[[:space:]]*clear_selection_on_clipboard_loss[[:space:]]" "$kitty_conf"; then
-            echo "clear_selection_on_clipboard_loss yes" >> "$kitty_conf"
-        fi
+        # Higieniza configurações obsoletas ou inválidas no kitty.conf se existirem
+        sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
 
         if ! grep -Fq "screen_launcher.zsh" "$kitty_conf" && ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
             echo "" >> "$kitty_conf"
             echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
             echo "allow_remote_control yes" >> "$kitty_conf"
-            echo "listen_on unix:\${XDG_RUNTIME_DIR:-/tmp}/kitty_metis_\${UID}.sock" >> "$kitty_conf"
-            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; else zsh \\\"\$HOME/.ZSH/ai/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
+            echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
             echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] e seleção de mouse integrados ao Kitty (~/.config/kitty/kitty.conf).${NC}"
         else
-            sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; else zsh \\\"\$HOME/.ZSH/ai/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+            sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+            sed -i "s|.*\.ZSH/ai.*screen_launcher\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+            if ! grep -Eq "^[[:space:]]*listen_on[[:space:]]" "$kitty_conf"; then
+                echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+            fi
             echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do Kitty atualizado para o Metis Screen Launcher.${NC}"
         fi
         config_done=1

@@ -178,7 +178,7 @@ $mouse_snippet
 
     trap 'limpar_selecao_mouse 2>/dev/null; rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null' EXIT INT TERM
 
-    local preview_mouse_script="${SCREEN_MODULES_DIR:-$HOME/.ZSH/ai/screen}/preview_mouse.sh"
+    local preview_mouse_script="${SCREEN_MODULES_DIR:-$HOME/.local/share/metis/zsh/screen}/preview_mouse.sh"
     [[ -f "$preview_mouse_script" ]] || preview_mouse_script="$HOME/.local/share/metis/zsh/screen/preview_mouse.sh"
 
     local -x PREV_ACTIVE_MODEL="$active_model_display"

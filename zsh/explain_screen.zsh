@@ -5,7 +5,10 @@
 # chat contínuo, menus de modelos, modo /auto e integração com Kitty.
 # =============================================================================
 
-export SCREEN_MODULES_DIR="${0:A:h}/screen"
+export ZSH_AI_DIR="${0:A:h}"
+[[ ! -d "$ZSH_AI_DIR" || ! -f "$ZSH_AI_DIR/loader.zsh" ]] && ZSH_AI_DIR="$HOME/.local/share/metis/zsh"
+export METIS_ROOT="${ZSH_AI_DIR:h}"
+export SCREEN_MODULES_DIR="$ZSH_AI_DIR/screen"
 
 # Carregamento sequencial de todos os submódulos
 for mod in "$SCREEN_MODULES_DIR"/*.zsh(Nn); do

@@ -33,8 +33,17 @@ if [[ ! -s "$FILE" && -s "/tmp/qwen_tela.txt" && ! -L "/tmp/qwen_tela.txt" ]]; t
   FILE="/tmp/qwen_tela.txt"
 fi
 
-ZSH_AI_DIR="${ZSH_AI_DIR:-$HOME/.ZSH/ai}"
-METIS_ROOT="${METIS_ROOT:-$HOME/.local/share/metis}"
+if [[ -z "$ZSH_AI_DIR" || ! -d "$ZSH_AI_DIR" ]]; then
+  if [[ -d "$HOME/.local/share/metis/zsh" ]]; then
+    ZSH_AI_DIR="$HOME/.local/share/metis/zsh"
+  elif [[ -d "${0:A:h:h}" ]]; then
+    ZSH_AI_DIR="${0:A:h:h}"
+  else
+    ZSH_AI_DIR="$HOME/.local/share/metis/zsh"
+  fi
+fi
+export ZSH_AI_DIR
+export METIS_ROOT="${METIS_ROOT:-${ZSH_AI_DIR:h}}"
 
 if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
   if [[ -x "$HOME/Metis/.venv/bin/python" ]]; then
@@ -48,7 +57,7 @@ if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
   fi
 fi
 
-local _screen_parent="${ZSH_AI_DIR:-${0:A:h:h}}"
+local _screen_parent="${ZSH_AI_DIR}"
 
 G4F_SCRIPT="${G4F_SCRIPT:-$_screen_parent/g4f_ask.py}"
 API_SCRIPT="${API_SCRIPT:-$_screen_parent/api_ask.py}"
