@@ -7,27 +7,35 @@ from agente.services.base import BaseService
 from agente.ui.help import exibir_ajuda
 
 def obter_servico_padrao() -> BaseService:
-    prov = (getattr(config, "DEFAULT_PROVIDER", "") or "ollama").strip().lower()
+    from agente.providers_manager import obter_preferencia
+    prov_pref = (obter_preferencia("last_active_provider", "") or "").strip().lower()
+    prov_env = (getattr(config, "DEFAULT_PROVIDER", "") or "").strip().lower()
+    prov = prov_pref or prov_env or "ollama"
+    model_pref = (obter_preferencia("last_active_model", "") or "").strip()
+
     if prov == "gemini" and getattr(config, "GEMINI_API_KEY", ""):
         from agente.services.gemini_service import GeminiService
-        return GeminiService()
+        return GeminiService(model=model_pref or getattr(config, "GEMINI_MODEL", None))
     elif prov == "groq" and getattr(config, "GROQ_API_KEY", ""):
         from agente.services.groq_service import GroqService
-        return GroqService()
+        return GroqService(model=model_pref or getattr(config, "GROQ_MODEL", None))
     elif prov == "nvidia" and getattr(config, "NVIDIA_API_KEY", ""):
         from agente.services.nvidia_service import NvidiaService
-        return NvidiaService()
+        return NvidiaService(model=model_pref or getattr(config, "NVIDIA_MODEL", None))
     elif prov == "g4f":
         from agente.services.g4f_service import G4FService
         return G4FService()
     else:
         from agente.providers_manager import obter_servidores_customizados
         for s in obter_servidores_customizados():
-            if s.get("id") == prov or s.get("nome", "").lower() == prov:
+            if s.get("id") == prov or s.get("nome", "").lower() == prov or f"custom:{s.get('id')}" == prov:
                 from agente.services.custom_openai_service import CustomOpenAIService
-                return CustomOpenAIService(s)
+                s_copy = dict(s)
+                if model_pref:
+                    s_copy["modelo_atual"] = model_pref
+                return CustomOpenAIService(s_copy)
         from agente.services.ollama_service import OllamaService
-        return OllamaService()
+        return OllamaService(model=model_pref or getattr(config, "OLLAMA_MODEL", None))
 
 def main():
     from agente.completer import configurar_readline

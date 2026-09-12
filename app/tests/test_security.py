@@ -70,10 +70,27 @@ class TestSecurity(unittest.TestCase):
 
     def test_politica_comandos_simples_diagnostico(self):
         from agente.services.tools_defs import avaliar_politica_comando, PoliticaComando
-        for cmd in ["ls", "pwd", "whoami", "uname -a", "free -m", "df -h", "uptime"]:
+        for cmd in [
+            "ls", "pwd", "whoami", "uname -a", "free -m", "df -h", "uptime",
+            "curl -s https://ifconfig.me", "curl -s https://api.ipify.org",
+            "cat /etc/resolv.conf", "resolvectl status", "ip a", "ss -tuln", "dig google.com"
+        ]:
             politica, _, argv = avaliar_politica_comando(cmd)
             self.assertEqual(politica, PoliticaComando.SAFE, f"Comando '{cmd}' deveria ser SAFE")
             self.assertIsNotNone(argv)
+
+    def test_politica_comandos_rede_modificadores_exigem_confirmacao(self):
+        from agente.services.tools_defs import avaliar_politica_comando, PoliticaComando
+        modificadores = [
+            "curl -o /tmp/output.txt https://example.com",
+            "curl -O https://example.com/file.zip",
+            "curl -d 'param=val' https://example.com",
+            "curl -X POST https://example.com",
+            "wget https://example.com/file.tar.gz",
+        ]
+        for cmd in modificadores:
+            politica, motivo, _ = avaliar_politica_comando(cmd)
+            self.assertEqual(politica, PoliticaComando.CONFIRM, f"Comando '{cmd}' deveria exigir CONFIRM")
 
     def test_politica_comandos_compostos_exigem_confirmacao(self):
         from agente.services.tools_defs import avaliar_politica_comando, PoliticaComando

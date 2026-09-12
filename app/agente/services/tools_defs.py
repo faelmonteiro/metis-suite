@@ -4,7 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 from agente import config
-from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET
+from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET, GRAY
 from agente.utils import caminho_leitura_seguro
 
 try:
@@ -293,7 +293,10 @@ COMANDOS_DIAGNOSTICO = (
     "free", "df", "uptime", "uname", "top", "ps", "ip", "ping",
     "hyprctl", "wpctl", "brightnessctl", "nmcli", "bluetoothctl", "systemctl",
     "journalctl", "cat", "head", "tail", "ls", "grep", "which", "whereis", "whoami",
-    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id", "pwd"
+    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id", "pwd",
+    "curl", "wget", "dig", "host", "nslookup", "resolvectl", "systemd-resolve", "ifconfig",
+    "ss", "netstat", "route", "traceroute", "tracepath", "mtr", "echo", "printf",
+    "awk", "sed", "cut", "sort", "uniq", "wc"
 )
 
 SENSITIVE_TARGETS = (
@@ -302,11 +305,13 @@ SENSITIVE_TARGETS = (
     "/root", ".git-credentials", ".bash_history", ".zsh_history"
 )
 
-OPERADORES_SHELL_RAW = (";", "&&", "||", "|", "`", "$(", "${", ">", "<", "\n", "\r")
+OPERADORES_PERIGOSOS_SHELL = (">", "<", "`", "$(", "${", "\n", "\r")
+OPERADORES_ENCADEAMENTO = (";", "&&", "||", "|")
+OPERADORES_SHELL_RAW = OPERADORES_PERIGOSOS_SHELL + OPERADORES_ENCADEAMENTO
 
 class PoliticaComando:
-    SAFE = "SAFE"        # Diagnóstico estritamente somente-leitura, sem operadores shell. Pode executar auto com shell=False.
-    CONFIRM = "CONFIRM"  # Comandos de alteração, compostos, scripts ou que exigem shell. Exigem confirmação do usuário.
+    SAFE = "SAFE"        # Diagnóstico estritamente somente-leitura. Pode executar diretamente.
+    CONFIRM = "CONFIRM"  # Comandos de alteração, compostos desconhecidos ou scripts. Exigem confirmação do usuário.
     BLOCK = "BLOCK"      # Comandos destrutivos ou de alto risco. Bloqueados categoricamente.
 
 def normalizar_comando(comando) -> str:
@@ -343,6 +348,75 @@ def validar_comando_seguro(comando: str) -> tuple[bool, str]:
             return False, f"Comando bloqueado por segurança (padrão perigoso detectado: {pattern})"
     return True, ""
 
+def avaliar_politica_comando_simples(cmd_simples: str) -> tuple[str, str, list[str] | None]:
+    cmd_clean = cmd_simples.strip()
+    if not cmd_clean:
+        return PoliticaComando.CONFIRM, "Comando vazio", None
+
+    seguro, motivo = validar_comando_seguro(cmd_clean)
+    if not seguro:
+        return PoliticaComando.BLOCK, motivo, None
+
+    if cmd_clean.endswith("&") and not any(cmd_clean.startswith(a) for a in ["kate", "gedit", "xdg-open", "firefox", "chromium", "google-chrome", "code"]):
+        return PoliticaComando.CONFIRM, "Comando em segundo plano (&) requer confirmação", None
+
+    import shlex
+    try:
+        argv = shlex.split(cmd_clean)
+    except ValueError as e:
+        return PoliticaComando.CONFIRM, f"Parsing de argumentos shell inconclusivo: {e}", None
+
+    if not argv:
+        return PoliticaComando.CONFIRM, "Nenhum argumento executável identificado", None
+
+    raw_bin = argv[0].strip()
+    bin_name = os.path.basename(raw_bin).lower()
+
+    if bin_name not in COMANDOS_DIAGNOSTICO:
+        return PoliticaComando.CONFIRM, f"O utilitário '{bin_name}' requer confirmação para execução", argv
+
+    # Validações adicionais para ferramentas específicas
+    if bin_name == "find":
+        flags_find = {arg.lower() for arg in argv[1:]}
+        if any(f in flags_find for f in ["-exec", "-execdir", "-delete", "-ok", "-okdir"]):
+            return PoliticaComando.CONFIRM, "Comando find contém parâmetros potencialmente modificadores (-exec/-delete)", argv
+
+    if bin_name in {"cat", "head", "tail", "grep", "ls"}:
+        for arg in argv[1:]:
+            arg_l = arg.lower()
+            if any(s in arg_l for s in SENSITIVE_TARGETS):
+                return PoliticaComando.CONFIRM, "Acesso a arquivos de credenciais ou diretórios sensíveis do sistema", argv
+
+    if bin_name == "systemctl":
+        if len(argv) < 2 or argv[1].lower() not in {"status", "is-active", "is-enabled", "list-units", "list-unit-files"}:
+            return PoliticaComando.CONFIRM, "Operações de alteração em serviços do systemctl exigem confirmação", argv
+
+    if bin_name == "top" and "-b" not in argv:
+        return PoliticaComando.CONFIRM, "Comando top interativo pode travar sem a opção em lote (-b)", argv
+
+    if bin_name == "ping" and "-c" not in argv:
+        return PoliticaComando.CONFIRM, "Comando ping contínuo requer limite de contagem (-c)", argv
+
+    if bin_name == "curl":
+        flags_mod = {"-o", "-O", "--output", "-d", "--data", "--data-raw", "--data-ascii", "--data-binary", "-F", "--form", "-T", "--upload-file"}
+        for i, arg in enumerate(argv[1:]):
+            arg_l = arg.lower()
+            if arg_l in flags_mod or arg_l.startswith("-o") or arg_l.startswith("-O"):
+                return PoliticaComando.CONFIRM, "Comando curl salva arquivo local ou envia dados", argv
+            if arg in {"-X", "--request"} or arg_l in {"-x", "--request"}:
+                if i + 2 < len(argv) and argv[i + 2].upper() not in {"GET", "HEAD"}:
+                    return PoliticaComando.CONFIRM, "Comando curl com método HTTP não somente-leitura", argv
+            if arg.startswith("-X") and len(arg) > 2 and arg[2:].upper() not in {"GET", "HEAD"}:
+                return PoliticaComando.CONFIRM, "Comando curl com método HTTP não somente-leitura", argv
+
+    if bin_name == "wget":
+        has_stdout = any(arg in {"-O-", "-qO-"} or arg == "-" for arg in argv[1:])
+        has_post = any(arg.startswith("--post") for arg in argv[1:])
+        if has_post or not has_stdout:
+            return PoliticaComando.CONFIRM, "Comando wget salva arquivo local ou envia dados", argv
+
+    return PoliticaComando.SAFE, "Comando de diagnóstico somente leitura seguro", argv
+
 def avaliar_politica_comando(comando: str) -> tuple[str, str, list[str] | None]:
     """
     Avalia a política de segurança de um comando.
@@ -362,50 +436,8 @@ def avaliar_politica_comando(comando: str) -> tuple[str, str, list[str] | None]:
         if op in cmd_lower:
             return PoliticaComando.CONFIRM, f"Comando composto ou com operador de shell detectado ('{op}')", None
 
-    # 2. Se terminar com & para background (exceto se for tratado como GUI)
-    if cmd_clean.endswith("&") and not any(cmd_clean.startswith(a) for a in ["kate", "gedit", "xdg-open", "firefox", "chromium", "google-chrome", "code"]):
-        return PoliticaComando.CONFIRM, "Comando em segundo plano (&) requer confirmação", None
-
-    # 3. Parsing com shlex para decomposição estruturada
-    import shlex
-    try:
-        argv = shlex.split(cmd_clean)
-    except ValueError as e:
-        return PoliticaComando.CONFIRM, f"Parsing de argumentos shell inconclusivo: {e}", None
-
-    if not argv:
-        return PoliticaComando.CONFIRM, "Nenhum argumento executável identificado", None
-
-    # 4. Avalia o binário principal
-    raw_bin = argv[0].strip()
-    bin_name = os.path.basename(raw_bin).lower()
-
-    if bin_name not in COMANDOS_DIAGNOSTICO:
-        return PoliticaComando.CONFIRM, f"O utilitário '{bin_name}' requer confirmação para execução", argv
-
-    # 5. Validações adicionais para ferramentas com potenciais flags perigosas
-    if bin_name == "find":
-        flags_find = {arg.lower() for arg in argv[1:]}
-        if any(f in flags_find for f in ["-exec", "-execdir", "-delete", "-ok", "-okdir"]):
-            return PoliticaComando.CONFIRM, "Comando find contém parâmetros potencialmente modificadores (-exec/-delete)", argv
-
-    if bin_name in {"cat", "head", "tail", "grep", "ls"}:
-        for arg in argv[1:]:
-            arg_l = arg.lower()
-            if any(s in arg_l for s in SENSITIVE_TARGETS):
-                return PoliticaComando.CONFIRM, "Acesso a arquivos de credenciais ou diretórios sensíveis do sistema", argv
-
-    if bin_name == "systemctl":
-        if len(argv) < 2 or argv[1].lower() not in {"status", "is-active", "is-enabled", "list-units"}:
-            return PoliticaComando.CONFIRM, "Operações de alteração em serviços do systemctl exigem confirmação", argv
-
-    if bin_name == "top" and "-b" not in argv:
-        return PoliticaComando.CONFIRM, "Comando top interativo pode travar sem a opção em lote (-b)", argv
-
-    if bin_name == "ping" and "-c" not in argv:
-        return PoliticaComando.CONFIRM, "Comando ping contínuo requer limite de contagem (-c)", argv
-
-    return PoliticaComando.SAFE, "Comando de diagnóstico somente leitura seguro", argv
+    # 2. Comando simples
+    return avaliar_politica_comando_simples(cmd_clean)
 
 def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not config.ENABLE_COMMAND_TOOL:
@@ -468,11 +500,11 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
             )
             return f"Aplicativo/comando '{comando}' iniciado com sucesso no sistema!"
 
-        # Se for diagnóstico SAFE, executa estritamente com shell=False e argv parsed
+        # Se for diagnóstico SAFE, executa estritamente com shell=False se argv estiver disponível
         if politica == PoliticaComando.SAFE and argv:
             use_shell = False
             exec_args = argv
-        elif argv and not any(op in cmd_clean for op in OPERADORES_SHELL_RAW):
+        elif argv and not any(op in cmd_clean for op in OPERADORES_PERIGOSOS_SHELL + OPERADORES_ENCADEAMENTO):
             use_shell = False
             exec_args = argv
         else:
@@ -597,7 +629,7 @@ GEMINI_TOOLS_DECLARATION = [{
         },
         {
             "name": "executar_comando",
-            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use para consultar status do sistema (free, df, ps, uptime), gerenciar o desktop Hyprland (hyprctl), áudio (wpctl/pamixer), processos (kill), verificar logs (journalctl), rodar testes (pytest) ou iniciar programas e scripts.",
+            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use SEMPRE para consultar status do sistema (free, df, ps, uptime), rede e internet (obter IP público via 'curl -s https://ifconfig.me', DNS via 'cat /etc/resolv.conf' ou 'resolvectl status', interfaces via 'ip a', portas via 'ss -tuln'), gerenciar o desktop (hyprctl), áudio (wpctl), logs (journalctl) ou rodar testes.",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -719,7 +751,7 @@ OPENAI_TOOLS_DECLARATION = [
         "type": "function",
         "function": {
             "name": "executar_comando",
-            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use para consultar status do sistema (free, df, ps, uptime), gerenciar o desktop Hyprland (hyprctl), áudio (wpctl/pamixer), processos (kill), verificar logs (journalctl), rodar testes (pytest) ou iniciar programas e scripts.",
+            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use SEMPRE para consultar status do sistema (free, df, ps, uptime), rede e internet (obter IP público via 'curl -s https://ifconfig.me', DNS via 'cat /etc/resolv.conf' ou 'resolvectl status', interfaces via 'ip a', portas via 'ss -tuln'), gerenciar o desktop (hyprctl), áudio (wpctl), logs (journalctl) ou rodar testes.",
             "parameters": {
                 "type": "object",
                 "properties": {

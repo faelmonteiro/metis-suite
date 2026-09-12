@@ -123,8 +123,8 @@ else:
 
 HYPRLAND_ENABLED = os.getenv("HYPRLAND_INSTANCE_SIGNATURE", "") != ""
 
-_command_tool_raw = os.getenv("ENABLE_COMMAND_TOOL", "0").strip().lower()
-ENABLE_COMMAND_TOOL = _command_tool_raw in {"1", "true", "yes", "on"}
+_command_tool_raw = os.getenv("ENABLE_COMMAND_TOOL", "1").strip().lower()
+ENABLE_COMMAND_TOOL = _command_tool_raw not in {"0", "false", "no", "off"}
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").strip().upper()
 logging.basicConfig(

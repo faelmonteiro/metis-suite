@@ -70,6 +70,9 @@ def process_tool_calls_map(
         return False
     from agente.services.tool_executor import executar_tool
     has_executed = False
+    calls = []
+    responses = []
+
     for tc_idx in sorted(tool_calls_map.keys()):
         tc_data = tool_calls_map[tc_idx]
         name = tc_data.get("name")
@@ -88,18 +91,24 @@ def process_tool_calls_map(
             "name": name,
             "args": args
         }
-        mensagens.append({
+        calls.append({
             "role": "functionCall",
             "functionCall": func_call
         })
 
         result = executar_tool(name, args)
 
-        mensagens.append({
+        responses.append({
             "role": "functionResponse",
             "id": call_id,
             "name": name,
             "content": result
         })
         has_executed = True
+
+    for c in calls:
+        mensagens.append(c)
+    for r in responses:
+        mensagens.append(r)
+
     return has_executed
