@@ -647,7 +647,11 @@ $SCREEN_CONTENT
     LAST_SELECTED_CODE=""
 
     while true; do
-      printf '\033[90m[/e 1] Executar no terminal  •  [!cmd] Rodar comando  •  [/sh] Shell  •  [Ctrl+C / Esc / q] Sair\033[0m\n'
+      if [[ -n "$METIS_KITTY_POPUP" || -n "$KITTY_PID" || "$TERM" == *"kitty"* ]]; then
+        printf '\033[90m[/auto] Auto-Resolver  •  [/s] Sincronizar  •  [/e] Enviar  •  [/h] Ajuda\033[0m\n'
+      else
+        printf '\033[90m[/auto] Auto-Resolver  •  [/e 1] Executar  •  [/sh] Shell  •  [/h] Ajuda\033[0m\n'
+      fi
       printf '\033[32mDigite sua pergunta ou comando:\033[0m\n'
 
       USER_INPUT=""
