@@ -134,7 +134,7 @@ $mouse_snippet
 • \033[1;37mContexto:\033[0m $MODEL_SPEC_CONTEXT
 "
 
-    main_menu_items="$(printf '🖥️ 1. Enviar Saída do Terminal\n⚡ 2. Enviar Seleção do Mouse\n🤖 3. IA Local e Web\n✨ 4. API Externa\n📖 5. Ajuda & Atalhos\n')"
+    main_menu_items="$(printf '🖥️ 1. Enviar Saída do Terminal\n⚡ 2. Enviar Seleção do Mouse\n🤖 3. IA Local e Web\n✨ 4. API Externa\n📖 5. Ajuda & Atalhos\n🚪 0. Sair do Assistente\n')"
 
     _get_model_specs "2" "${OLLAMA_MODEL:-llama3.2:3b}"
     local o_lat="$MODEL_SPEC_LATENCY"
@@ -162,19 +162,19 @@ $mouse_snippet
 
     prev_help="\033[1;32m📖 GUIA COMPLETO & ATALHOS\033[0m
 ────────────────────────────
-• \033[1;37mCtrl + Shift + E\033[0m   Abre este assistente no Kitty
-• \033[1;37mEnter\033[0m              Confirma ação / Envia pergunta
-• \033[1;37mShift + Enter\033[0m      Insere nova linha na pergunta
+• \033[1;37mEsc / Ctrl + C\033[0m    Sai do assistente e volta ao terminal
+• \033[1;37mEnter (vazio)\033[0m    Sai do assistente (no chat)
+• \033[1;37mq / /sair\033[0m         Sai do assistente e volta ao terminal
+• \033[1;37mCtrl + Shift + E\033[0m   Abre este assistente no Kitty (ou Alt+E)
 • \033[1;37mTab\033[0m                Alterna painel lateral (on/off)
-• \033[1;37mCtrl + R\033[0m           Atualiza seleção do mouse
-• \033[1;37mEsc\033[0m                Sai ou cancela ação atual
+• \033[1;37mCtrl + R\033[0m           Atualiza seleção do mouse em tempo real
 
 \033[1;36mComandos no Prompt:\033[0m
 • \033[1;33m/auto\033[0m   Resolve erro de forma autônoma
 • \033[1;33m/s\033[0m      Recaptura terminal e sincroniza
-• \033[1;33m/e [n]\033[0m  Insere comando [n] no seu Kitty
+• \033[1;33m/e [n]\033[0m  Insere comando [n] no seu terminal
 • \033[1;33m1, 2..\033[0m  Copia comando [n] para área de transf.
-• \033[1;33m/m\033[0m      Volta a este menu inicial
+• \033[1;33m/m\033[0m      Volta ao menu principal
 • \033[1;33m/q\033[0m      Fecha o assistente
 "
 
@@ -251,6 +251,12 @@ $mouse_snippet
     [[ -n "$live_mouse" ]] && has_mouse_live=1
 
     case "$menu_principal" in
+      *"Sair"*|"🚪 0."*|"0."*|"0"|"q"|"/q"|"/sair"|"sair"|"exit"|"/exit")
+        limpar_selecao_mouse 2>/dev/null
+        rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
+        exit 0
+        ;;
+
       *"Seleção"*|"⚡ 2."*|"2."*)
         PROVIDER="$cur_prov"
         MODO_CAPTURA="mouse"
@@ -641,18 +647,20 @@ $SCREEN_CONTENT
     LAST_SELECTED_CODE=""
 
     while true; do
-      printf '\033[90m[/auto] Auto-Resolver  •  [/s] Sincronizar  •  [/e] Enviar  •  [/h] Ajuda\033[0m\n'
+      printf '\033[90m[Enter vazio / Ctrl+C / q] Sair do assistente  •  [/m] Menu  •  [/auto] Auto-Resolver  •  [/h] Ajuda\033[0m\n'
       printf '\033[32mDigite sua pergunta ou comando:\033[0m\n'
 
       USER_INPUT=""
 
       if ! vared -c -p '%B%F{blue} ❯ %f%b' USER_INPUT 2>/dev/null; then
-        printf '\n\033[33m⚠️ Voltando ao menu principal...\033[0m\n'
-        voltar_menu=1
-        break
+        limpar_selecao_mouse 2>/dev/null
+        rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
+        exit 0
       fi
 
       if [[ -z "$USER_INPUT" ]]; then
+        limpar_selecao_mouse 2>/dev/null
+        rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
         exit 0
       fi
 
@@ -696,7 +704,9 @@ $SCREEN_CONTENT
           break
           ;;
 
-        /sair|/q|/exit|/quit|exit|quit)
+        /sair|/q|/exit|/quit|exit|quit|sair|q)
+          limpar_selecao_mouse 2>/dev/null
+          rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
           exit 0
           ;;
 

@@ -180,6 +180,26 @@ REGRA IMPORTANTE:
     fi
 
     if _parse_tool_call "$resp"; then
+      local t_name="${(L)TOOL_NAME:-bash}"
+
+      # Se for uma ferramenta de leitura/escrita de arquivo ou listagem de pastas, executa diretamente
+      if [[ "$t_name" != "bash" && "$t_name" != "exec" && "$t_name" != "sh" && "$t_name" != "run_command" ]]; then
+        local tool_res=""
+        local tool_code=0
+        tool_res="$(executar_ferramenta "$TOOL_NAME" "$TOOL_PATH" "$TOOL_CONTENT")"
+        tool_code=$?
+
+        current_context="$current_context
+[Assistente]: $resp
+<tool_result>
+$tool_res
+</tool_result>
+[Sistema]: Ação finalizada com código $tool_code. Analise o resultado acima e responda com o relatório final ou continue se ainda faltarem passos:"
+        current_context="$(limitar_contexto "$current_context")"
+        (( step++ ))
+        continue
+      fi
+
       local cmd="$TOOL_CONTENT"
       [[ -z "$cmd" ]] && cmd="$TOOL_PATH"
       cmd="$(_trim "$cmd")"
@@ -229,73 +249,112 @@ Ação '$cmd' cancelada pelo usuário. Sugira outra abordagem ou finalize.
         fi
       fi
 
-      local win_target="${TARGET_KITTY_WIN:-}"
-      [[ -n "$win_target" ]] && rm -f "/tmp/metis_status_${win_target}" 2>/dev/null
-      rm -f "/tmp/metis_last_status" 2>/dev/null
+      _obter_kitty_target
+      local status_info=""
 
-      if ! AI_AUTO_CONFIRMED=1 enviar_ao_kitty "$cmd" "" 1; then
-        _auto_log "FALHA AO ENVIAR: $cmd"
+      # Se estiver no modo Kitty Popup com socket remoto válido, envia para a janela de origem
+      if [[ -n "$METIS_KITTY_POPUP" && -n "$TARGET_KITTY_SOCK" ]]; then
+        local win_target="${TARGET_KITTY_WIN:-}"
+        [[ -n "$win_target" ]] && rm -f "/tmp/metis_status_${win_target}" 2>/dev/null
+        rm -f "/tmp/metis_last_status" 2>/dev/null
 
-        current_context="$current_context
+        if ! AI_AUTO_CONFIRMED=1 enviar_ao_kitty "$cmd" "" 1; then
+          _auto_log "FALHA AO ENVIAR: $cmd"
+
+          current_context="$current_context
 [Assistente]: $resp
 <tool_result>
 Erro: não foi possível enviar o comando ao terminal original.
 </tool_result>"
 
-        (( step++ ))
-        continue
-      fi
+          (( step++ ))
+          continue
+        fi
 
-      _auto_log "EXECUTADO: $cmd"
+        _auto_log "EXECUTADO: $cmd"
 
-      local waited=0
-      local max_wait="${AI_AUTO_TIMEOUT:-12}"
-      local check_status_file="/tmp/metis_last_status"
-      [[ -n "$win_target" ]] && check_status_file="/tmp/metis_status_${win_target}"
+        local waited=0
+        local max_wait="${AI_AUTO_TIMEOUT:-12}"
+        local check_status_file="/tmp/metis_last_status"
+        [[ -n "$win_target" ]] && check_status_file="/tmp/metis_status_${win_target}"
 
-      # Aguarda dinamicamente o término do comando detectado pelo hook ZSH
-      while (( waited < max_wait * 10 )); do
+        while (( waited < max_wait * 10 )); do
+          if (( AUTO_CANCEL == 1 )); then
+            break
+          fi
+          if [[ -f "$check_status_file" ]]; then
+            sleep 0.15
+            break
+          fi
+          sleep 0.1
+          (( waited++ ))
+        done
+
+        if [[ ! -f "$check_status_file" ]]; then
+          sleep "${AI_AUTO_SLEEP:-1.5}"
+        fi
+
         if (( AUTO_CANCEL == 1 )); then
-          break
+          printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
+          trap ' ' INT
+          return 130
         fi
-        if [[ -f "$check_status_file" ]]; then
-          sleep 0.15 # Pequeno intervalo para o Kitty desenhar a saída no buffer
-          break
+
+        nova_tela="$(recapturar_tela "${DEFAULT_SCREEN_LINES:-30}")"
+
+        if [[ "$nova_tela" == *"$cmd"* ]]; then
+          nova_tela="${nova_tela#*"$cmd"}"
         fi
-        sleep 0.1
-        (( waited++ ))
-      done
 
-      # Fallback caso o hook não tenha disparado a tempo
-      if [[ ! -f "$check_status_file" ]]; then
-        sleep "${AI_AUTO_SLEEP:-1.5}"
-      fi
+        obter_status_ultimo_comando "$win_target"
 
-      if (( AUTO_CANCEL == 1 )); then
-        printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
-        trap ' ' INT
-        return 130
-      fi
-
-      nova_tela="$(recapturar_tela "${DEFAULT_SCREEN_LINES:-30}")"
-
-      if [[ "$nova_tela" == *"$cmd"* ]]; then
-        nova_tela="${nova_tela#*"$cmd"}"
-      fi
-
-      obter_status_ultimo_comando "$win_target"
-
-      local status_info=""
-      if [[ -n "$LAST_CMD_EXIT" ]]; then
-        if [[ "$LAST_CMD_EXIT" == "0" ]]; then
-          status_info="[Status de Retorno / Exit Code]: 0 (Sucesso / OK)"
-          printf '\033[32m✔ Executado no terminal (Sucesso)\033[0m\n'
+        if [[ -n "$LAST_CMD_EXIT" ]]; then
+          if [[ "$LAST_CMD_EXIT" == "0" ]]; then
+            status_info="[Status de Retorno / Exit Code]: 0 (Sucesso / OK)"
+            printf '\033[32m✔ Executado no terminal (Sucesso)\033[0m\n'
+          else
+            status_info="[Status de Retorno / Exit Code]: $LAST_CMD_EXIT (Erro / Falha)"
+            printf '\033[33m⚠ Executado no terminal (Exit: %s)\033[0m\n' "$LAST_CMD_EXIT"
+          fi
         else
-          status_info="[Status de Retorno / Exit Code]: $LAST_CMD_EXIT (Erro / Falha)"
-          printf '\033[33m⚠ Executado no terminal (Exit: %s)\033[0m\n' "$LAST_CMD_EXIT"
+          printf '\033[32m✔ Executado no terminal\033[0m\n'
         fi
       else
-        printf '\033[32m✔ Executado no terminal\033[0m\n'
+        # Modo Terminal Direto (execução inline no terminal atual)
+        printf '\n\033[1;33m▶ Executando:\033[0m \033[1;37m%s\033[0m\n' "$cmd"
+        local tmp_cmd_out=""
+        tmp_cmd_out="$(mktemp)"
+        local cmd_exit_code=0
+
+        if command -v timeout >/dev/null 2>&1; then
+          timeout 30 zsh -c "$cmd" >"$tmp_cmd_out" 2>&1
+          cmd_exit_code=$?
+        else
+          zsh -c "$cmd" >"$tmp_cmd_out" 2>&1
+          cmd_exit_code=$?
+        fi
+
+        local cmd_output="$(cat "$tmp_cmd_out" 2>/dev/null)"
+        rm -f "$tmp_cmd_out" 2>/dev/null
+
+        if [[ -n "$cmd_output" ]]; then
+          printf '%s\n' "$cmd_output" | head -n 30
+          local total_l=$(print -r -- "$cmd_output" | wc -l)
+          total_l="${total_l##* }"
+          (( total_l > 30 )) && printf '\033[90m[... +%d linhas de saída omitidas ...]\033[0m\n' "$(( total_l - 30 ))"
+        else
+          printf '\033[90m(Comando executado sem retorno de texto)\033[0m\n'
+        fi
+
+        if (( cmd_exit_code == 0 )); then
+          printf '\033[32m✔ Sucesso (Exit: 0)\033[0m\n'
+          status_info="[Status de Retorno / Exit Code]: 0 (Sucesso / OK)"
+        else
+          printf '\033[31m⚠ Falha na execução (Exit: %d)\033[0m\n' "$cmd_exit_code"
+          status_info="[Status de Retorno / Exit Code]: $cmd_exit_code (Erro / Falha)"
+        fi
+        nova_tela="$cmd_output"
+        _auto_log "EXECUTADO LOCAL: $cmd (Exit: $cmd_exit_code)"
       fi
 
       current_context="$current_context

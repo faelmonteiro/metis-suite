@@ -336,15 +336,16 @@ copiar_codigo() {
     return 1
   fi
 
-  if command -v wl-copy >/dev/null 2>&1; then
-    print -r -- "$code" | wl-copy
+  if [[ -n "$WAYLAND_DISPLAY" ]] && command -v wl-copy >/dev/null 2>&1; then
+    print -r -- "$code" | wl-copy 2>/dev/null
+  elif [[ -n "$DISPLAY" ]] && command -v xclip >/dev/null 2>&1; then
+    print -r -- "$code" | xclip -selection clipboard 2>/dev/null
+  elif [[ -n "$DISPLAY" ]] && command -v xsel >/dev/null 2>&1; then
+    print -r -- "$code" | xsel -b -i 2>/dev/null
+  elif command -v wl-copy >/dev/null 2>&1; then
+    print -r -- "$code" | wl-copy 2>/dev/null || true
   elif command -v xclip >/dev/null 2>&1; then
-    print -r -- "$code" | xclip -selection clipboard
-  elif command -v xsel >/dev/null 2>&1; then
-    print -r -- "$code" | xsel -b -i
-  else
-    _warn "Nenhum utilitário de clipboard encontrado (wl-copy, xclip ou xsel)."
-    return 1
+    print -r -- "$code" | xclip -selection clipboard 2>/dev/null || true
   fi
 
   if [[ -n "$num" ]]; then

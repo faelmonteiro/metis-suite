@@ -360,4 +360,28 @@ if [[ $- == *i* ]]; then
             return 127
         fi
     }
+
+    # 6. Rastreamento do último comando e Exit Code ($?) no Bash
+    _metis_bash_track_precmd() {
+        local last_exit="$?"
+        local last_cmd
+        last_cmd="$(history 1 2>/dev/null | sed -e 's/^[[:space:]]*[0-9]*[[:space:]]*//')"
+        if [[ -n "$last_cmd" && "$last_cmd" != "explain"* && "$last_cmd" != "fix"* && "$last_cmd" != "_metis_"* ]]; then
+            {
+                printf 'CMD: %s\n' "$last_cmd"
+                printf 'EXIT_CODE: %s\n' "$last_exit"
+                printf 'TIME: %s\n' "$(date +%s)"
+                printf 'WIN: %s\n' "$$"
+            } > "/tmp/metis_status_$$" 2>/dev/null
+            cp -f "/tmp/metis_status_$$" "/tmp/metis_last_status" 2>/dev/null
+        fi
+    }
+
+    if [[ "$PROMPT_COMMAND" != *"_metis_bash_track_precmd"* ]]; then
+        if [[ -n "$PROMPT_COMMAND" ]]; then
+            PROMPT_COMMAND="_metis_bash_track_precmd; $PROMPT_COMMAND"
+        else
+            PROMPT_COMMAND="_metis_bash_track_precmd"
+        fi
+    fi
 fi

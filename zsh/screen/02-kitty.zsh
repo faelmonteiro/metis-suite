@@ -441,7 +441,11 @@ enviar_ao_kitty() {
     if _has_fn copiar_codigo; then
       copiar_codigo "$code" "$num"
     else
-      [[ -n "$code" ]] && print -r -- "$code" | (wl-copy 2>/dev/null || xclip -selection clipboard 2>/dev/null || true)
+      if [[ -n "$WAYLAND_DISPLAY" ]] && command -v wl-copy >/dev/null 2>&1; then
+        print -r -- "$code" | wl-copy 2>/dev/null
+      elif [[ -n "$DISPLAY" ]] && command -v xclip >/dev/null 2>&1; then
+        print -r -- "$code" | xclip -selection clipboard 2>/dev/null
+      fi
     fi
     printf '\033[36m💡 Comando copiado para a área de transferência! Cole com Ctrl+Shift+V no seu terminal.\033[0m\n'
     return 0
