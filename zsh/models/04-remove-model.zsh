@@ -48,7 +48,7 @@ _ai_menu_remover_modelo_salvo() {
   fzf_entries+="$ACTION_VOLTAR"$'\n'
 
   to_remove="$(printf '%s' "$fzf_entries" |
-    fzf -m --height=40% --reverse --border \
+    fzf --no-mouse -m --height=40% --reverse --border \
       --header="🗑️ Selecione modelo(s) para REMOVER (TAB = Multi-seleção, ENTER = Confirmar):" \
       --prompt="> ")"
   rc=$?

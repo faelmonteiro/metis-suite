@@ -40,7 +40,8 @@ if [[ -z "$k_sock" ]]; then
   local -a s_list
   s_list=(/tmp/mykitty*(N-om))
   for s in "${s_list[@]}"; do
-    s="$(_trim "$s")"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
     [[ -S "$s" ]] || continue
     k_sock="unix:$s"
     k_pid="${s##*-}"
@@ -48,7 +49,7 @@ if [[ -z "$k_sock" ]]; then
   done
 fi
 
-# Se k_win não veio pelo ambiente, descobre a janela ativa naquele Kitty
+# Se k_sock não veio pelo ambiente, descobre a janela ativa naquele Kitty
 if [[ -n "$k_sock" && -z "$k_win" ]] && command -v kitty >/dev/null 2>&1; then
   if command -v jq >/dev/null 2>&1; then
     k_win="$(kitty @ --to "$k_sock" ls 2>/dev/null | jq -r '.[].tabs[].windows[] | select(.is_active == true) | .id' 2>/dev/null | head -n 1)"
@@ -61,7 +62,7 @@ fi
 
 # 3. Captura instantaneamente a seleção ativa no momento do disparo do atalho
 local sel=""
-if command -v wl-paste >/dev/null 2>&1; then
+if [[ -n "$WAYLAND_DISPLAY" ]] && command -v wl-paste >/dev/null 2>&1; then
   sel="$(wl-paste --primary --no-newline 2>/dev/null)"
 fi
 
@@ -72,18 +73,18 @@ if [[ -z "$sel" && -n "$k_sock" ]] && command -v kitty >/dev/null 2>&1; then
   [[ -z "$sel" ]] && sel="$(kitty @ --to "$k_sock" get-text --extent=selection 2>/dev/null)"
 fi
 
-if [[ -z "$sel" ]] && command -v xclip >/dev/null 2>&1; then
-  sel="$(xclip -o -selection primary 2>/dev/null)"
-elif [[ -z "$sel" ]] && command -v xsel >/dev/null 2>&1; then
-  sel="$(xsel -o -p 2>/dev/null)"
+if [[ -z "$sel" ]] && [[ -n "$DISPLAY" ]]; then
+  if command -v xclip >/dev/null 2>&1; then
+    sel="$(xclip -o -selection primary 2>/dev/null)"
+  elif command -v xsel >/dev/null 2>&1; then
+    sel="$(xsel -o -p 2>/dev/null)"
+  fi
 fi
 
 sel="$(printf '%s' "$sel" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
 if [[ -n "$sel" ]]; then
   print -r -- "$sel" > /tmp/qwen_selecao.txt
-else
-  rm -f /tmp/qwen_selecao.txt 2>/dev/null
 fi
 
 # 4. Determina qual script de assistente executar
@@ -103,6 +104,7 @@ fi
 exec kitty --class kitty-screen-assistant \
   --config NONE \
   -o confirm_os_window_close=0 \
+  -o copy_on_select=yes \
   -o "map shift+enter send_text all \x1b\r" \
   -o "map ctrl+enter send_text all \x1b\r" \
   env METIS_KITTY_POPUP=1 ZSH_AI_DIR="$ZSH_AI_DIR" METIS_ROOT="$METIS_ROOT" zsh -c "zsh \"$assistant_script\""

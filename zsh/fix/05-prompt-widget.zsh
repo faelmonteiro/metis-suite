@@ -79,7 +79,7 @@ ${cy}☁️ 3. APIs Externas:${cr}
 
       out_principal="$(
         printf '🚀 1. Executar Ação\n⚙️ 2. Configurações de IA\n' |
-        fzf --height=28% --reverse --border --ansi \
+        fzf --height=28% --reverse --border --ansi --no-mouse \
             --header="🏛️  Metis | Digite sua dúvida ou Escolha uma Opção (ESC = Sair):" \
             --prompt="> " \
             --query="$busca" \
@@ -128,7 +128,7 @@ ${cc}📚 Me Ensinar${cr}
           menu_acao=$'💻 1. Comando Direto\n📚 2. Me Ensinar\n↩️  0. Voltar\n'
 
           out="$(printf '%s' "$menu_acao" |
-            fzf --height=32% --reverse --border --ansi \
+            fzf --height=32% --reverse --border --ansi --no-mouse \
                 --header="🏛️  Metis | Confirme a dúvida e escolha a ação (Enter):" \
                 --prompt="> " \
                 --query="$busca" \
@@ -210,7 +210,7 @@ ${cy}Modelos Ativos:${cr}
             printf '🤖 1. IA Local (Ollama: %s)\n🌍 2. IA Web (G4F: %s)\n☁️ 3. API Externa (Gemini, Groq, NVIDIA, OpenRouter)\n🔄 4. Sincronizar com Metis\n🗑️  5. Remover Servidor Customizado\n↩️  0. Voltar\n' \
               "${OLLAMA_MODEL:-qwen2.5-coder:7b}" \
               "${G4F_MODEL:-gpt-4o}" |
-            fzf --height=36% --reverse --border --ansi \
+            fzf --height=36% --reverse --border --ansi --no-mouse \
                 --header="🏛️  Metis | Escolha a Categoria da IA:" \
                 --prompt="> " \
                 --preview='case "{}" in *Local*|*Ollama*) printf "%s\n" "$AI_FIX_PREV_CAT_LOCAL" ;; *Web*|*G4F*) printf "%s\n" "$AI_FIX_PREV_CAT_WEB" ;; *API*) printf "%s\n" "$AI_FIX_PREV_CAT_API" ;; *Sincronizar*) printf "Sincroniza todos os modelos e configurações adicionados no Metis para o seu terminal.\n" ;; *Remover*) printf "Remove um servidor customizado cadastrado.\n" ;; *) printf "Voltar\n" ;; esac' \

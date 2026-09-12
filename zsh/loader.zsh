@@ -15,6 +15,11 @@ if [[ -d "$HOME/.local/bin" ]]; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# Desativa captura de mouse pelo fzf para manter a seleção nativa com mouse do terminal livre
+if [[ "${FZF_DEFAULT_OPTS:-}" != *"--no-mouse"* ]]; then
+    export FZF_DEFAULT_OPTS="--no-mouse ${FZF_DEFAULT_OPTS:-}"
+fi
+
 # Carrega os módulos da suíte ZSH
 [[ -f "$ZSH_AI_DIR/ia_client.zsh" ]] && source "$ZSH_AI_DIR/ia_client.zsh"
 [[ -f "$ZSH_AI_DIR/fix.zsh" ]] && source "$ZSH_AI_DIR/fix.zsh"

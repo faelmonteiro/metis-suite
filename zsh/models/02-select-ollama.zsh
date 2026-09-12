@@ -66,7 +66,7 @@ _ai_menu_selecionar_modelo_ollama() {
     typeset -gx AI_FIX_PREV_OLLAMA="$prev_ol"
 
     out="$(printf '%s' "$fzf_entries" |
-      fzf --height=45% --reverse --border \
+      fzf --no-mouse --height=45% --reverse --border \
         --header="🤖 Modelos Ollama (ENTER = Ativar / Digite o nome do modelo):" \
         --prompt="> " \
         --preview='printf "%b\n" "$AI_FIX_PREV_OLLAMA"' \

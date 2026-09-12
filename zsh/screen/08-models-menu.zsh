@@ -56,7 +56,7 @@ menu_provedor_ollama() {
 
     menu_ol_acao="$(
       printf '🤖 1. Iniciar análise (Ativo: %s)\n📋 2. Gerenciar Modelos (Escolher / Digitar)\n↩️  0. Voltar\n' "$cur_ollama" |
-      fzf --height=25% --reverse --border \
+      fzf --height=25% --reverse --border --no-mouse \
           --header="🤖 Ollama Local (ENTER = Confirmar / ESC = Voltar):" \
           --prompt="> "
     )"
@@ -107,7 +107,7 @@ menu_provedor_api() {
 
     menu_acao="$(
       printf '%s 1. Iniciar análise (Ativo: %s)\n📋 2. Gerenciar Modelos (Escolher / Digitar / Remover)\n↩️  0. Voltar\n' "$icon" "$cur_model" |
-      fzf --height=25% --reverse --border \
+      fzf --height=25% --reverse --border --no-mouse \
           --header="⚙️  Configuração de $prov_name (ENTER = Confirmar / ESC = Voltar):" \
           --prompt="> "
     )"
@@ -155,7 +155,7 @@ gerenciar_modelos() {
         "${OPENROUTER_MODEL:-minimax/minimax-m3:free}" \
         "${OLLAMA_MODEL:-llama3.2:3b}" \
         "${G4F_MODEL:-gpt-4o}" |
-      fzf --height=40% --reverse --border \
+      fzf --height=40% --reverse --border --no-mouse \
           --header="⚙️  GERENCIAR MODELOS - Escolha o Provedor (ESC = Voltar):" \
           --prompt="> "
     )"

@@ -78,6 +78,9 @@ AI_AUTO_SLEEP="${AI_AUTO_SLEEP:-2}"
 AI_AUTO_LOG_DIR="${AI_AUTO_LOG_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/metis/logs}"
 AI_AUTO_ALLOW_MULTILINE="${AI_AUTO_ALLOW_MULTILINE:-0}"
 
+# Garante que o FZF não sequestre eventos do mouse no terminal (permite seleção nativa livre)
+export FZF_DEFAULT_OPTS="--no-mouse ${FZF_DEFAULT_OPTS:-}"
+
 # -----------------------------------------------------------------------------
 # Helpers Básicos
 # -----------------------------------------------------------------------------

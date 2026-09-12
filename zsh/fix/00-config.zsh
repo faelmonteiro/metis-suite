@@ -6,6 +6,10 @@
 
 unalias fix 2>/dev/null || true
 
+if [[ "${FZF_DEFAULT_OPTS:-}" != *"--no-mouse"* ]]; then
+  export FZF_DEFAULT_OPTS="--no-mouse ${FZF_DEFAULT_OPTS:-}"
+fi
+
 _ai_fix_trim() {
   local s="${1:-}"
   s="${s#"${s%%[![:space:]]*}"}"

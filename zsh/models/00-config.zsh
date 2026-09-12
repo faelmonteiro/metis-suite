@@ -6,6 +6,10 @@
 
 source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || true
 
+if [[ "${FZF_DEFAULT_OPTS:-}" != *"--no-mouse"* ]]; then
+  export FZF_DEFAULT_OPTS="--no-mouse ${FZF_DEFAULT_OPTS:-}"
+fi
+
 _ai_menu_resolve_provider() {
   local prov="$1"
   local backend_name="$prov"

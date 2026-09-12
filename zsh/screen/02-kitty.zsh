@@ -91,37 +91,28 @@ extrair_linhas_e_query() {
   PARSED_QUERY="$clean_msg"
 }
 
-# Limpa a seleção do mouse (Primary buffer, arquivo temporário e seleção interna do Kitty)
+# Limpa arquivos temporários de seleção do assistente (sem destruir a seleção nativa do usuário)
 limpar_selecao_mouse() {
   rm -f /tmp/qwen_selecao.txt 2>/dev/null
-  if command -v wl-copy >/dev/null 2>&1; then
-    wl-copy --clear --primary 2>/dev/null || true
-  elif command -v xsel >/dev/null 2>&1; then
-    xsel -c -p 2>/dev/null || true
-  elif command -v xclip >/dev/null 2>&1; then
-    xclip -i /dev/null -selection primary 2>/dev/null || true
-  fi
-
-  # Limpa o buffer de seleção interno do Kitty para evitar persistência zumbi
-  _obter_kitty_target
-  if [[ -n "$TARGET_KITTY_SOCK" ]] && command -v kitty >/dev/null 2>&1; then
-    if [[ -n "$TARGET_KITTY_WIN" ]]; then
-      kitty @ --to "$TARGET_KITTY_SOCK" action --match="id:$TARGET_KITTY_WIN" clear_selection 2>/dev/null || true
-    fi
-    kitty @ --to "$TARGET_KITTY_SOCK" action --match="all" clear_selection 2>/dev/null || true
-  fi
 }
 
 # Captura especificamente a seleção ativa do mouse (Primary selection no Wayland / X11 ou Kitty)
 obter_selecao_mouse() {
   local sel=""
 
-  # 1. Wayland: Primary Selection em tempo real (seleção ativa do mouse)
-  if command -v wl-paste >/dev/null 2>&1; then
+  # 1. Wayland: Primary Selection em tempo real (apenas se sessão Wayland ativa)
+  if [[ -n "$WAYLAND_DISPLAY" ]] && command -v wl-paste >/dev/null 2>&1; then
     sel="$(wl-paste --primary --no-newline 2>/dev/null)"
   fi
 
-  # 2. Se vazio, tenta obter diretamente do Kitty via Remote Control na janela de origem
+  # 2. X11 Primary Selection (seleção direta do mouse no GNOME Terminal, Mint, Kitty, etc.)
+  if [[ -z "$sel" ]] && command -v xclip >/dev/null 2>&1; then
+    sel="$(xclip -o -selection primary 2>/dev/null)"
+  elif [[ -z "$sel" ]] && command -v xsel >/dev/null 2>&1; then
+    sel="$(xsel -o -p 2>/dev/null)"
+  fi
+
+  # 3. Kitty Remote Control na janela de origem
   if [[ -z "$sel" ]]; then
     _obter_kitty_target
     if command -v kitty >/dev/null 2>&1 && [[ -n "$TARGET_KITTY_SOCK" ]]; then
@@ -132,21 +123,12 @@ obter_selecao_mouse() {
     fi
   fi
 
-  # 3. X11 Primary Selection fallback
-  if [[ -z "$sel" ]] && command -v xclip >/dev/null 2>&1; then
-    sel="$(xclip -o -selection primary 2>/dev/null)"
-  elif [[ -z "$sel" ]] && command -v xsel >/dev/null 2>&1; then
-    sel="$(xsel -o -p 2>/dev/null)"
-  fi
-
-  # 4. Fallback imediato gravado pelo launcher (apenas se recente <= 3s)
+  # 4. Fallback gravado pelo launcher ou preview
   if [[ -z "$sel" ]] && [[ -f "/tmp/qwen_selecao.txt" && -s "/tmp/qwen_selecao.txt" && ! -L "/tmp/qwen_selecao.txt" ]]; then
     local now=$(date +%s)
     local mtime=$(date -r "/tmp/qwen_selecao.txt" +%s 2>/dev/null || stat -c %Y "/tmp/qwen_selecao.txt" 2>/dev/null || echo 0)
-    if (( now - mtime <= 3 )); then
+    if (( now - mtime <= 300 )); then
       sel="$(cat "/tmp/qwen_selecao.txt" 2>/dev/null)"
-    else
-      rm -f /tmp/qwen_selecao.txt 2>/dev/null
     fi
   fi
 
@@ -155,7 +137,6 @@ obter_selecao_mouse() {
     print -r -- "$clean_sel" > /tmp/qwen_selecao.txt 2>/dev/null
     clean_screen_content "$clean_sel"
   else
-    rm -f /tmp/qwen_selecao.txt 2>/dev/null
     return 1
   fi
 }

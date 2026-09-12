@@ -152,7 +152,7 @@ _ai_fix_exec_me_ensinar() {
 
         local chat_fzf_out="$(
           printf '%s' "$chat_entries" |
-          fzf --height=30% --reverse --border --ansi \
+          fzf --no-mouse --height=30% --reverse --border --ansi \
               --header="🏛️  Metis | Escolha uma ação (ENTER = Confirmar / ESC = Voltar):" \
               --prompt="Ação > "
         )"

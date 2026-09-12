@@ -207,6 +207,7 @@ $mouse_snippet
     out_principal="$(
       printf '%s\n' "$main_menu_items" |
       fzf --height=40% --reverse \
+          --no-mouse \
           --border=rounded \
           --pointer='▌' \
           --ansi \
@@ -244,15 +245,20 @@ $mouse_snippet
 
     final_query="$busca_principal"
 
-    case "$menu_principal" in
-      *"Saída"*|*"Terminal"*|*"Tela Inteira"*|"🖥️ 1."*|"🖥️  1."*|"1."*)
-        PROVIDER="$cur_prov"
-        MODO_CAPTURA="tela"
-        ;;
+    # Atualiza a detecção de mouse no momento da confirmação (após o usuário selecionar na tela)
+    local live_mouse="$(obter_selecao_mouse)"
+    local has_mouse_live=0
+    [[ -n "$live_mouse" ]] && has_mouse_live=1
 
+    case "$menu_principal" in
       *"Seleção"*|"⚡ 2."*|"2."*)
         PROVIDER="$cur_prov"
-        if (( has_mouse )); then
+        MODO_CAPTURA="mouse"
+        ;;
+
+      *"Saída"*|*"Terminal"*|*"Tela Inteira"*|"🖥️ 1."*|"🖥️  1."*|"1."*)
+        PROVIDER="$cur_prov"
+        if (( has_mouse_live )) && [[ -n "$busca_principal" ]]; then
           MODO_CAPTURA="mouse"
         else
           MODO_CAPTURA="tela"
@@ -265,7 +271,7 @@ $mouse_snippet
           _print_header
         fi
 
-        if (( has_mouse )); then
+        if (( has_mouse_live )); then
           MODO_CAPTURA="mouse"
         else
           MODO_CAPTURA="tela"
@@ -276,6 +282,7 @@ $mouse_snippet
             "${G4F_MODEL:-gpt-4o}" \
             "${OLLAMA_MODEL:-llama3.2:3b}" |
           fzf --height=28% --reverse \
+              --no-mouse \
               --border=rounded \
               --pointer='▌' \
               --color="$fzf_color_theme" \
@@ -330,7 +337,7 @@ $mouse_snippet
           _print_header
         fi
 
-        if (( has_mouse )); then
+        if (( has_mouse_live )); then
           MODO_CAPTURA="mouse"
         else
           MODO_CAPTURA="tela"
@@ -354,6 +361,7 @@ $mouse_snippet
         modelo_out="$(
           printf '%s' "$fzf_api_entries" |
           fzf --height=34% --reverse \
+              --no-mouse \
               --border=rounded \
               --pointer='▌' \
               --color="$fzf_color_theme" \

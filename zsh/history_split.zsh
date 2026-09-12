@@ -215,7 +215,7 @@ ai-history-widget() {
 
   local selected
   if command -v fzf >/dev/null 2>&1; then
-    selected=$(tac "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts [Alt+H] > " --header="Selecione um prompt:")
+    selected=$(tac "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --no-mouse --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts [Alt+H] > " --header="Selecione um prompt:")
   else
     selected=$(tail -n 20 "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//')
   fi
@@ -234,7 +234,7 @@ downloads-log-widget() {
   fi
 
   if command -v fzf >/dev/null 2>&1; then
-    local selected=$(grep -v '^#' "${DOWNLOADS_LOG}" | grep -v '^[[:space:]]*$' | tac | fzf --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione para colar no terminal:")
+    local selected=$(grep -v '^#' "${DOWNLOADS_LOG}" | grep -v '^[[:space:]]*$' | tac | fzf --no-mouse --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione para colar no terminal:")
     if [[ -n "$selected" ]]; then
       local cmd_to_paste=$(echo "$selected" | sed 's/^\[[^]]*\] //')
       print -z "$cmd_to_paste"

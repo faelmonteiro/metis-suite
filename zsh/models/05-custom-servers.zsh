@@ -44,7 +44,7 @@ _ai_menu_remover_servidor_customizado() {
   fzf_srv_entries+="$ACTION_VOLTAR"$'\n'
 
   to_remove="$(printf '%s' "$fzf_srv_entries" |
-    fzf -m --height=38% --reverse --border \
+    fzf --no-mouse -m --height=38% --reverse --border \
       --header="🗑️ Selecione SERVIDOR(ES) para REMOVER (TAB = Multi-seleção, ENTER = Confirmar):" \
       --prompt="> ")"
   rc=$?

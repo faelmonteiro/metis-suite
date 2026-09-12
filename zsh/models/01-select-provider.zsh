@@ -79,7 +79,7 @@ _ai_menu_selecionar_modelo() {
     typeset -gx AI_FIX_PREV_LISTA="$prev_lista"
 
     out="$(printf '%s' "$fzf_entries" |
-      fzf --height=45% --reverse --border \
+      fzf --no-mouse --height=45% --reverse --border \
         --header="⚙️ Modelos $state_name (ENTER = Ativar / Digite um novo modelo):" \
         --prompt="> " \
         --preview='printf "%b\n" "$AI_FIX_PREV_LISTA"' \
