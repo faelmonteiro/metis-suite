@@ -27,6 +27,9 @@ elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
 elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
     shift
+    if [ "$1" = "screen" ] || [ "$1" = "explain" ] || [ "$1" = "tela" ]; then
+        shift
+    fi
     if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]; then
         exec zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
     else

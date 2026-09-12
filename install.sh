@@ -593,62 +593,18 @@ if [ -f "$BASHRC" ]; then
     echo -e "${GREEN}  ✅ Integração universal (Alt+E, Ctrl+G, comandos IA) adicionada ao ~/.bashrc${NC}"
 fi
 
-# C. Checagem do Shell Padrão do Usuário
+# C. Isolamento de Shell: Kitty utiliza ZSH; demais terminais permanecem 100% livres no Bash
+# Remove qualquer bloco residual de auto-launch do ZSH no ~/.bashrc
+if [ -f "$BASHRC" ]; then
+    sed -i '/# >>> METIS ZSH AUTO-LAUNCH >>>/,/# <<< METIS ZSH AUTO-LAUNCH <<</d' "$BASHRC" 2>/dev/null || true
+fi
+
 CURRENT_SHELL="$(basename "$SHELL")"
-if [ "$CURRENT_SHELL" != "zsh" ] && command -v zsh &>/dev/null; then
-    zsh_bin="$(which zsh 2>/dev/null || command -v zsh)"
-    trocar_shell="n"
-
-    if [ "$KITTY_INSTALADO_AGORA" -eq 1 ]; then
-        echo ""
-        echo -e "${GREEN}⚡ Terminal Kitty integrado com ZSH! Vinculando ZSH como padrão...${NC}"
-        trocar_shell="s"
-    elif [ "$RECUSOU_KITTY_E_ZSH" -eq 1 ]; then
-        # O usuário já optou por manter o ambiente atual, não perguntamos de novo
-        trocar_shell="n"
-    else
-        echo ""
-        echo -e "${GOLD}💡 Dica de Shell:${NC} O seu shell padrão atual é o ${CYAN}${CURRENT_SHELL}${NC}."
-        echo -e "   O Metis agora funciona perfeitamente no ${CYAN}${CURRENT_SHELL}${NC} com os atalhos [Alt + E] e [Ctrl + G]."
-        echo -e "   (O ZSH é opcional, caso queira recursos adicionais como autocompletar inline com Ctrl+X Ctrl+P)."
-        read -t 15 -p "   Deseja que seus novos terminais abram automaticamente em ZSH? (s/N) [padrão: Não]: " trocar_shell || trocar_shell="n"
-    fi
-
-    case "$trocar_shell" in
-        [sS][iI][mM]|[sS])
-            # 1. Garante que o ZSH está registrado em /etc/shells
-            if [ -f "/etc/shells" ] && ! grep -Fxq "$zsh_bin" /etc/shells 2>/dev/null; then
-                sudo sh -c "echo '$zsh_bin' >> /etc/shells" 2>/dev/null || true
-            fi
-
-            # 2. Registra a troca no sistema operacional
-            if command -v usermod &>/dev/null; then
-                sudo usermod -s "$zsh_bin" "$USER" 2>/dev/null || true
-            fi
-            if command -v chsh &>/dev/null; then
-                chsh -s "$zsh_bin" 2>/dev/null || true
-            fi
-
-            # 3. Transição Imediata: ativação automática ao abrir novo terminal
-            # Evita ter que reiniciar ou fazer logout da interface gráfica
-            if [ -f "$BASHRC" ]; then
-                if ! grep -Fq "METIS ZSH AUTO-LAUNCH" "$BASHRC"; then
-                    echo "" >> "$BASHRC"
-                    echo "# >>> METIS ZSH AUTO-LAUNCH >>>" >> "$BASHRC"
-                    echo "if [ -t 1 ] && [ -x \"$zsh_bin\" ] && [ -z \"\$METIS_NO_AUTO_ZSH\" ]; then" >> "$BASHRC"
-                    echo "    export SHELL=\"$zsh_bin\"" >> "$BASHRC"
-                    echo "    exec \"$zsh_bin\"" >> "$BASHRC"
-                    echo "fi" >> "$BASHRC"
-                    echo "# <<< METIS ZSH AUTO-LAUNCH <<<" >> "$BASHRC"
-                fi
-            fi
-
-            echo -e "${GREEN}  ✅ ZSH ativado com sucesso! Qualquer novo terminal abrirá direto no ZSH.${NC}"
-            ;;
-        *)
-            echo -e "${GRAY}  ℹ️  Mantendo $CURRENT_SHELL como seu shell padrão. A integração foi configurada no ~/.bashrc com sucesso!${NC}"
-            ;;
-    esac
+if [ -f "$kitty_conf" ] || command -v kitty &>/dev/null; then
+    echo -e "${GREEN}  ✅ O ZSH foi vinculado exclusivamente ao terminal Kitty (~/.config/kitty/kitty.conf).${NC}"
+    echo -e "${GRAY}  ℹ️  Seus outros terminais permanecem 100% livres no seu shell padrão (${CURRENT_SHELL}).${NC}"
+else
+    echo -e "${GRAY}  ℹ️  Mantendo ${CURRENT_SHELL} como seu shell padrão. A integração foi configurada no ~/.bashrc com sucesso!${NC}"
 fi
 
 # Verificação de status de serviços

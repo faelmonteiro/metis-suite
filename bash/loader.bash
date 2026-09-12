@@ -117,20 +117,65 @@ downloads-log() {
 alias repos="downloads-log"
 alias downloads="downloads-log"
 
-# Aliases para Explain Screen
-alias explain-screen="metis explain"
-alias screen-explain="metis explain"
-alias explain="metis explain"
+# Habilita expansão de aliases no Bash
+shopt -s expand_aliases 2>/dev/null || true
+
+# Função universal do Metis CLI (caso o PATH ainda não tenha sido recarregado)
+if ! command -v metis >/dev/null 2>&1; then
+    metis() {
+        if [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
+            "$METIS_INSTALL_DIR/bin/metis" "$@"
+        else
+            echo "❌ Metis não encontrado em $METIS_INSTALL_DIR/bin/metis" >&2
+            return 1
+        fi
+    }
+fi
+
+# Assistente Explain Screen (Terminal Copilot & Screen AI)
+explain() {
+    if [ "$1" = "screen" ] || [ "$1" = "tela" ]; then
+        shift
+    fi
+    if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]]; then
+        zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
+    elif command -v metis >/dev/null 2>&1; then
+        metis explain "$@"
+    elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
+        "$METIS_INSTALL_DIR/bin/metis" explain "$@"
+    else
+        echo "⚠️  O ZSH é necessário para executar o assistente explain_screen." >&2
+        return 1
+    fi
+}
+explain_screen() {
+    explain "$@"
+}
+
+alias explain-screen="explain"
+alias screen-explain="explain"
+alias screen="explain"
+alias explain_screen="explain_screen"
+
+# Menu Interativo Fix
+fix() {
+    if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then
+        zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt"
+    elif command -v metis >/dev/null 2>&1; then
+        metis fix "$@"
+    elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
+        "$METIS_INSTALL_DIR/bin/metis" fix "$@"
+    else
+        echo "⚠️  O ZSH é necessário para executar o menu fix." >&2
+        return 1
+    fi
+}
 
 # 4. Funções interativas para atalhos do Bash (GNU Readline)
 if [[ $- == *i* ]]; then
     # Atalho Alt + E: Explain Screen (captura seleção ativa do mouse ou clipboard)
     _metis_bash_explain_screen() {
-        if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]]; then
-            zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh"
-        elif command -v metis >/dev/null 2>&1; then
-            metis explain
-        fi
+        explain
     }
 
     # Atalho Ctrl + G: Fix / Menu Interativo FZF com inserção no prompt do Bash
