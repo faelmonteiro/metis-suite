@@ -106,6 +106,19 @@ render_metis_header
 install_system_deps() {
     echo -e "\n${CYAN}🔍 [1/6] Detectando distribuição e instalando dependências (Terminal + Drivers Gráficos Qt)...${NC}"
 
+    # Pré-verificação: se as dependências essenciais já estão instaladas, evita invocar sudo
+    local deps_ok=1
+    for c in python3 curl git jq xclip fc-cache zsh fzf; do
+        if ! command -v "$c" &>/dev/null; then
+            deps_ok=0
+            break
+        fi
+    done
+    if [ $deps_ok -eq 1 ] && python3 -c "import venv" &>/dev/null; then
+        echo -e "${GREEN}  ✅ Todas as dependências essenciais do sistema já estão presentes.${NC}"
+        return 0
+    fi
+
     if command -v apt-get &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição baseada em Debian/Ubuntu/Linux Mint detectada (APT).${NC}"
         echo -e "  ${GRAY}Instalando ferramentas essenciais de terminal e Python...${NC}"
@@ -227,6 +240,7 @@ fi
 
 # 6. Criar atalhos executáveis, fontes personalizadas e Desktop Entry
 echo -e "\n${CYAN}🚀 [5/6] Registrando lançadores, fontes e ícones no sistema...${NC}"
+chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" 2>/dev/null || true
 ln -sf "$INSTALL_DIR/bin/metis" "$BIN_DIR/metis"
 ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/metis-vision"
 ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/screenai" 
@@ -301,11 +315,14 @@ fi
 
 if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
     cp "$APPS_DIR/metis.desktop" "$DESKTOP_DIR/metis.desktop"
-    chmod +x "$DESKTOP_DIR/metis.desktop"
+    [ -f "$APPS_DIR/metis-vision.desktop" ] && cp "$APPS_DIR/metis-vision.desktop" "$DESKTOP_DIR/metis-vision.desktop"
+    chmod +x "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+    [ -f "$DESKTOP_DIR/metis-vision.desktop" ] && chmod +x "$DESKTOP_DIR/metis-vision.desktop" 2>/dev/null || true
     if command -v gio &>/dev/null; then
         gio set "$DESKTOP_DIR/metis.desktop" metadata::trusted true 2>/dev/null || true
+        [ -f "$DESKTOP_DIR/metis-vision.desktop" ] && gio set "$DESKTOP_DIR/metis-vision.desktop" metadata::trusted true 2>/dev/null || true
     fi
-    echo -e "${GREEN}  ✅ Ícone oficial do Metis criado na Área de Trabalho ($DESKTOP_DIR).${NC}"
+    echo -e "${GREEN}  ✅ Ícones oficiais do Metis criados na Área de Trabalho ($DESKTOP_DIR).${NC}"
 fi
 
 
@@ -366,15 +383,32 @@ configure_global_shortcut() {
 
     # B. Cinnamon / Linux Mint
     if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] && command -v dconf &>/dev/null; then
+        # Limpa entrada legada com caminho incorreto se existir
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
+
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/command "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
         dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/binding "['<Super>r']" 2>/dev/null || true
 
-        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/name "'ScreenAI'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/command "'$BIN_DIR/screenai'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-screenai/binding "['<Super>z']" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/command "'$BIN_DIR/screenai'" 2>/dev/null || true
+        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/binding "['<Super>z']" 2>/dev/null || true
 
-        dconf write /org/cinnamon/desktop/keybindings/custom-list "['custom-metis', 'custom-screenai']" 2>/dev/null || true
+        local cur_list
+        cur_list="$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null || echo "[]")"
+        [[ -z "$cur_list" ]] && cur_list="[]"
+        if [[ "$cur_list" == "[]" || "$cur_list" == "@as []" ]]; then
+            dconf write /org/cinnamon/desktop/keybindings/custom-list "['custom-metis', 'custom-screenai']" 2>/dev/null || true
+        else
+            local upd_list="$cur_list"
+            if [[ "$upd_list" != *"custom-metis"* ]]; then
+                upd_list="${upd_list%]}, 'custom-metis']"
+            fi
+            if [[ "$upd_list" != *"custom-screenai"* ]]; then
+                upd_list="${upd_list%]}, 'custom-screenai']"
+            fi
+            dconf write /org/cinnamon/desktop/keybindings/custom-list "$upd_list" 2>/dev/null || true
+        fi
         echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Super + Z] configurados para Linux Mint (Cinnamon).${NC}"
         config_done=1
     fi
@@ -541,26 +575,24 @@ fi
 # B. Integração no ~/.bashrc (para funcionar no Bash padrão do Mint/Ubuntu/Debian)
 BASHRC="$HOME/.bashrc"
 if [ -f "$BASHRC" ]; then
+    # Limpa linhas antigas soltas de PATH e blocos anteriores do Metis
+    sed -i '/export PATH=".*\.local\/bin:\$PATH"/d' "$BASHRC" 2>/dev/null || true
+    sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$BASHRC" 2>/dev/null || true
+    sed -i '/# --- \[ Metis AI Suite \] ---/,/alias ai-sync=/d' "$BASHRC" 2>/dev/null || true
+
     BASH_LOADER_LINE="[[ -f \"$INSTALL_DIR/bash/loader.bash\" ]] && source \"$INSTALL_DIR/bash/loader.bash\""
-    if ! grep -Fq "metis/bash/loader.bash" "$BASHRC"; then
-        # Limpa integrações antigas simples do Metis no .bashrc se existirem
-        sed -i '/# >>> METIS SUITE >>>/,/# <<< METIS SUITE <<</d' "$BASHRC" 2>/dev/null || true
-        echo "" >> "$BASHRC"
-        echo "# >>> METIS SUITE >>>" >> "$BASHRC"
-        echo "$BASH_LOADER_LINE" >> "$BASHRC"
-        echo "# <<< METIS SUITE <<<" >> "$BASHRC"
-        echo -e "${GREEN}  ✅ Integração universal (Alt+E, Ctrl+G, aliases) adicionada ao ~/.bashrc${NC}"
-    else
-        echo -e "${GRAY}  ℹ️  Integração já presente no ~/.bashrc${NC}"
-    fi
+    echo "" >> "$BASHRC"
+    echo "# >>> METIS SUITE >>>" >> "$BASHRC"
+    echo "$BASH_LOADER_LINE" >> "$BASHRC"
+    echo "# <<< METIS SUITE <<<" >> "$BASHRC"
+    echo -e "${GREEN}  ✅ Integração universal (Alt+E, Ctrl+G, comandos IA) adicionada ao ~/.bashrc${NC}"
 fi
 
 # C. Checagem do Shell Padrão do Usuário
 CURRENT_SHELL="$(basename "$SHELL")"
 if [ "$CURRENT_SHELL" != "zsh" ] && command -v zsh &>/dev/null; then
-    local zsh_bin
     zsh_bin="$(which zsh 2>/dev/null || command -v zsh)"
-    local trocar_shell="n"
+    trocar_shell="n"
 
     if [ "$KITTY_INSTALADO_AGORA" -eq 1 ]; then
         echo ""

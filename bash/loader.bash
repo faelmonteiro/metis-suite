@@ -43,7 +43,8 @@ ia() {
     if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then
         zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; ia "$@"' _ "$METIS_INSTALL_DIR" "$@"
     else
-        "$METIS_INSTALL_DIR/venv/bin/python" "$METIS_INSTALL_DIR/zsh/api_ask.py" "$@"
+        local prov="${DEFAULT_PROVIDER:-groq}"
+        "$METIS_INSTALL_DIR/venv/bin/python" "$METIS_INSTALL_DIR/zsh/api_ask.py" "$prov" "$@"
     fi
 }
 alias ai="ia"
@@ -177,4 +178,122 @@ if [[ $- == *i* ]]; then
     bind -x '"\C-G": _metis_bash_fix_prompt' 2>/dev/null || true
     bind -x '"\eh": _metis_bash_ai_history' 2>/dev/null || true
     bind -x '"\eH": _metis_bash_ai_history' 2>/dev/null || true
+
+    # 5. Interceptador inteligente de comandos desconhecidos / linguagem natural
+    command_not_found_handle() {
+        [[ $- != *i* ]] && return 127
+        [[ -t 0 && -t 1 ]] || {
+            printf "%s: comando não encontrado\n" "$1" >&2
+            return 127
+        }
+
+        local full_cmd="$*"
+        [[ -z "$full_cmd" ]] && return 127
+
+        [[ "$full_cmd" =~ ^[/~] ]] && {
+            printf "%s: comando não encontrado\n" "$1" >&2
+            return 127
+        }
+        [[ "$full_cmd" =~ ^\./ ]] && {
+            printf "%s: comando não encontrado\n" "$1" >&2
+            return 127
+        }
+        [[ "$full_cmd" =~ ^\.\./ ]] && {
+            printf "%s: comando não encontrado\n" "$1" >&2
+            return 127
+        }
+
+        if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then
+            printf '\n\033[33m⚡ Analisando comando/pedido:\033[0m \033[1;37m%s\033[0m\n' "$full_cmd"
+            printf '🤖 \033[38;2;250;208;148m[Metis]:\033[0m \033[34mConsultando IA...\033[0m\n'
+
+            local result
+            result="$(zsh -c '
+                source "'"$METIS_INSTALL_DIR"'/zsh/loader.zsh" 2>/dev/null
+                ai_fix_command "$@"
+            ' _ "$full_cmd" 2>/dev/null)"
+
+            if [[ -z "$result" ]]; then
+                if [ -x /usr/lib/command-not-found ]; then
+                    /usr/lib/command-not-found -- "$1"
+                    return $?
+                fi
+                printf "%s: comando não encontrado\n" "$1" >&2
+                return 127
+            fi
+
+            local -a options=()
+            local line
+            local num_re='^[0-9]+[.)][[:space:]]*(.*)$'
+            while IFS= read -r line || [[ -n "$line" ]]; do
+                line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^`//' -e 's/`$//' -e 's/^\$ //' -e 's/^# //')"
+                [[ -z "$line" ]] && continue
+                if [[ "$line" =~ $num_re ]]; then
+                    local opt_cmd="${BASH_REMATCH[1]}"
+                    opt_cmd="$(echo "$opt_cmd" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^`//' -e 's/`$//')"
+                    [[ -n "$opt_cmd" ]] && options+=("$opt_cmd")
+                else
+                    options+=("$line")
+                fi
+            done <<< "$result"
+
+            local total=${#options[@]}
+            if (( total == 0 )); then
+                if [ -x /usr/lib/command-not-found ]; then
+                    /usr/lib/command-not-found -- "$1"
+                    return $?
+                fi
+                printf "%s: comando não encontrado\n" "$1" >&2
+                return 127
+            fi
+
+            printf '\n'
+            if (( total == 1 )); then
+                local single_cmd="${options[0]}"
+                printf '\033[38;5;214m  ➤ %s\033[0m\n\n' "$single_cmd"
+
+                local choice=""
+                read -r -p "Executar este comando agora? (S/n) [S=executa, n=histórico]: " choice </dev/tty || return 127
+                choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]' | xargs)"
+                history -s "$single_cmd" 2>/dev/null || true
+
+                if [[ -z "$choice" || "$choice" == "s" || "$choice" == "sim" || "$choice" == "y" || "$choice" == "yes" ]]; then
+                    printf '\033[32m▶ Executando:\033[0m %s\n' "$single_cmd"
+                    eval "$single_cmd"
+                    return $?
+                else
+                    printf '\033[36mℹ️  Comando salvo no histórico! Pressione ↑ (Seta para cima) para editar no terminal.\033[0m\n'
+                    return 0
+                fi
+            fi
+
+            local i
+            for (( i = 0; i < total; i++ )); do
+                printf '\033[38;5;42m  [%d]\033[0m \033[38;5;214m%s\033[0m\n' "$((i+1))" "${options[i]}"
+            done
+            printf '\n'
+
+            local opt=""
+            read -r -p "Escolha o número (1-$total) para executar, ou Enter para cancelar: " opt </dev/tty || return 127
+            opt="$(echo "$opt" | xargs)"
+
+            if [[ "$opt" =~ ^[0-9]+$ ]] && (( opt >= 1 && opt <= total )); then
+                local chosen="${options[opt-1]}"
+                history -s "$chosen" 2>/dev/null || true
+                printf '\033[32m▶ Executando:\033[0m %s\n' "$chosen"
+                eval "$chosen"
+                return $?
+            fi
+
+            printf '\033[31mCancelado.\033[0m\n'
+            return 127
+        else
+            if [ -x /usr/lib/command-not-found ]; then
+                /usr/lib/command-not-found -- "$1"
+                return $?
+            fi
+            printf "%s: comando não encontrado\n" "$1" >&2
+            return 127
+        fi
+    }
 fi

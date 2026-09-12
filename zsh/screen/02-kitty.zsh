@@ -277,6 +277,12 @@ obter_conteudo_tela() {
 }
 
 _obter_kitty_target() {
+  command -v kitty >/dev/null 2>&1 || {
+    TARGET_KITTY_SOCK=""
+    TARGET_KITTY_WIN=""
+    return 1
+  }
+
   local listen_sock=""
 
   if [[ -f "/tmp/orig_kitty_listen" && ! -L "/tmp/orig_kitty_listen" ]]; then
@@ -305,15 +311,17 @@ _obter_kitty_target() {
     # Fallback: candidatos ordenados por modificação mais recente (evita sockets zumbis antigos)
     if [[ -z "$listen_sock" ]]; then
       local -a sock_candidates
-      sock_candidates=(${(f)"$(ls -1t /tmp/mykitty* 2>/dev/null)"})
-      for s in "${sock_candidates[@]}"; do
-        s="$(_trim "$s")"
-        [[ -S "$s" ]] || continue
-        if kitty @ --to "unix:$s" ls >/dev/null 2>&1; then
-          listen_sock="unix:$s"
-          break
-        fi
-      done
+      sock_candidates=(/tmp/mykitty*(N-om))
+      if (( ${#sock_candidates[@]} > 0 )); then
+        for s in "${sock_candidates[@]}"; do
+          s="$(_trim "$s")"
+          [[ -S "$s" ]] || continue
+          if kitty @ --to "unix:$s" ls >/dev/null 2>&1; then
+            listen_sock="unix:$s"
+            break
+          fi
+        done
+      fi
     fi
   fi
 

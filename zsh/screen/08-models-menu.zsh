@@ -222,8 +222,9 @@ gerenciar_modelos() {
         "$PYTHON_BIN" "$(_get_manage_models_script)" sync
         load_env_file "$HOME/Metis/.env"
         load_env_file "$HOME/.ZSH/ai/.env_local"
+        load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
         printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-        read -r
+        read -r _ </dev/tty 2>/dev/null || read -r _ || true
         ;;
       "🗑️"*|"8."*)
         remover_servidor_customizado

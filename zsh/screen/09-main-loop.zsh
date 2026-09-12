@@ -194,6 +194,14 @@ $mouse_snippet
 
     local fzf_nav_footer=$'\n↑/↓ navegar  •  Enter confirmar  •  Esc sair  •  Ctrl+R atualiza seleção\nTab alterna painel'
 
+    local -a fzf_footer_args=()
+    local fzf_header_text=$'💬 Digite sua dúvida ou Enter:\n\n'
+    if fzf --help 2>&1 | grep -q -- '--footer'; then
+      fzf_footer_args=(--footer="$fzf_nav_footer")
+    else
+      fzf_header_text=$'💬 Digite sua dúvida ou Enter [↑/↓ navegar • Enter confirma • Esc sair • Tab painel]:\n\n'
+    fi
+
     out_principal="$(
       printf '%s\n' "$main_menu_items" |
       fzf --height=40% --reverse \
@@ -201,7 +209,7 @@ $mouse_snippet
           --pointer='▌' \
           --ansi \
           --color="$fzf_color_theme" \
-          --header=$'💬 Digite sua dúvida ou Enter:\n\n' \
+          --header="$fzf_header_text" \
           --prompt="> " \
           --query="$busca_principal" \
           --disabled \
@@ -212,7 +220,7 @@ $mouse_snippet
           --bind 'tab:toggle-preview' \
           --bind 'focus:refresh-preview' \
           --bind 'ctrl-r:refresh-preview' \
-          --footer="$fzf_nav_footer"
+          "${fzf_footer_args[@]}"
     )"
     rc=$?
 
@@ -370,11 +378,12 @@ $mouse_snippet
         if [[ "$modelo_fzf" == *"Sincronizar com Metis"* ]]; then
           clear
           _print_header
-          "$PYTHON_BIN" "$HOME/.ZSH/ai/manage_models.py" sync
+          "$PYTHON_BIN" "$(_get_manage_models_script)" sync
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
+          load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
           printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-          read -r
+          read -r _ </dev/tty 2>/dev/null || read -r _ || true
           continue
         fi
 

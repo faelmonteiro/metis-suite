@@ -49,6 +49,7 @@ if [ -f "$BASHRC" ]; then
     sed -i '/# >>> METIS ZSH AUTO-LAUNCH >>>/,/# <<< METIS ZSH AUTO-LAUNCH <<</d' "$BASHRC"
     sed -i '/# --- \[ Metis AI Suite \] ---/d' "$BASHRC"
     sed -i '\|'"$INSTALL_DIR"'|d' "$BASHRC"
+    sed -i '/export PATH=".*\.local\/bin:\$PATH"/d' "$BASHRC" 2>/dev/null || true
     echo -e "${GREEN}✅ Linhas do Metis removidas do $BASHRC.${NC}"
 fi
 
@@ -81,6 +82,7 @@ fi
 if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] && command -v dconf &>/dev/null; then
     dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null || true
     dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null || true
+    dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
     list=$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null || echo "")
     if [[ "$list" == *"custom-metis"* || "$list" == *"custom-screenai"* ]]; then
         new_l=$(echo "$list" | sed "s/'custom-metis', //; s/, 'custom-metis'//; s/'custom-metis'//; s/'custom-screenai', //; s/, 'custom-screenai'//; s/'custom-screenai'//")

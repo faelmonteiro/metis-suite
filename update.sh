@@ -59,6 +59,7 @@ if [ -d "$INSTALL_DIR" ]; then
 
     cp -r "$SOURCE_DIR/app" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/zsh" "$INSTALL_DIR/"
+    cp -r "$SOURCE_DIR/bash" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/bin" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/assets" "$INSTALL_DIR/"
     cp "$SOURCE_DIR/requirements.txt" "$INSTALL_DIR/"
@@ -127,9 +128,15 @@ if [ -d "$INSTALL_DIR" ]; then
     DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "")"
     [ -z "$DESKTOP_DIR" ] && [ -d "$HOME/Desktop" ] && DESKTOP_DIR="$HOME/Desktop"
     [ -z "$DESKTOP_DIR" ] && [ -d "$HOME/Área de trabalho" ] && DESKTOP_DIR="$HOME/Área de trabalho"
-    if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ] && [ -f "$APPS_DIR/metis.desktop" ]; then
-        cp "$APPS_DIR/metis.desktop" "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
-        chmod +x "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+    if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
+        if [ -f "$APPS_DIR/metis.desktop" ]; then
+            cp "$APPS_DIR/metis.desktop" "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+            chmod +x "$DESKTOP_DIR/metis.desktop" 2>/dev/null || true
+        fi
+        if [ -f "$APPS_DIR/metis-vision.desktop" ]; then
+            cp "$APPS_DIR/metis-vision.desktop" "$DESKTOP_DIR/metis-vision.desktop" 2>/dev/null || true
+            chmod +x "$DESKTOP_DIR/metis-vision.desktop" 2>/dev/null || true
+        fi
     fi
 
     # Atualiza fontes se existirem

@@ -122,7 +122,7 @@ _ai_menu_selecionar_modelo() {
       _ai_reload_all_envs
 
       printf '\n\033[36mPressione ENTER para continuar...\033[0m'
-      read -r _ </dev/tty || true
+      read -r _ </dev/tty 2>/dev/null || read -r _ || true
       continue
     else
       if [[ "$selected_line" != "$user_query" && -n "$selected_line" ]]; then

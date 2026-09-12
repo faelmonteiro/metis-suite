@@ -38,7 +38,7 @@ fi
 # Fallback: socket do Kitty mais recente modificado no sistema
 if [[ -z "$k_sock" ]]; then
   local -a s_list
-  s_list=(${(f)"$(ls -1t /tmp/mykitty* 2>/dev/null)"})
+  s_list=(/tmp/mykitty*(N-om))
   for s in "${s_list[@]}"; do
     s="$(_trim "$s")"
     [[ -S "$s" ]] || continue
