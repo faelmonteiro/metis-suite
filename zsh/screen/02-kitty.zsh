@@ -2,7 +2,14 @@
 # =============================================================================
 # screen/02-kitty.zsh
 # Captura de tela, manipulação de buffer, integração Kitty e envio com digitação.
-# =============================================================================
+if (( ! $+functions[_trim] )); then
+  _trim() {
+    local s="${1:-}"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    print -r -- "$s"
+  }
+fi
 
 clean_screen_content() {
   local raw="$1"
