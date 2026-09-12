@@ -198,6 +198,19 @@ obter_tela_terminal() {
     raw="$(cat "/tmp/qwen_tela.txt" 2>/dev/null)"
   fi
 
+  # 3. Fallback para terminal padrão: histórico recente de comandos
+  if [[ -z "$raw" ]]; then
+    local hist_src=""
+    if [[ -f "$HOME/.bash_history" && -s "$HOME/.bash_history" ]]; then
+      hist_src="$(tail -n "$n_lines" "$HOME/.bash_history" 2>/dev/null)"
+    elif [[ -f "$HOME/.zsh_history" && -s "$HOME/.zsh_history" ]]; then
+      hist_src="$(tail -n "$n_lines" "$HOME/.zsh_history" 2>/dev/null | sed -E 's/^: [0-9]+:[0-9]+;//')"
+    fi
+    if [[ -n "$hist_src" ]]; then
+      raw="[Comandos recentes executados no terminal]:"$'\n'"$hist_src"
+    fi
+  fi
+
   local cleaned="$(clean_screen_content "$raw")"
   if [[ -n "$cleaned" ]]; then
     local -a lines=("${(@f)cleaned}")

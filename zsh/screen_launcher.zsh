@@ -105,4 +105,4 @@ exec kitty --class kitty-screen-assistant \
   -o confirm_os_window_close=0 \
   -o "map shift+enter send_text all \x1b\r" \
   -o "map ctrl+enter send_text all \x1b\r" \
-  env ZSH_AI_DIR="$ZSH_AI_DIR" METIS_ROOT="$METIS_ROOT" zsh -c "zsh \"$assistant_script\""
+  env METIS_KITTY_POPUP=1 ZSH_AI_DIR="$ZSH_AI_DIR" METIS_ROOT="$METIS_ROOT" zsh -c "zsh \"$assistant_script\""

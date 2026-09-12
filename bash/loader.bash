@@ -175,7 +175,21 @@ fix() {
 if [[ $- == *i* ]]; then
     # Atalho Alt + E: Explain Screen (captura seleção ativa do mouse ou clipboard)
     _metis_bash_explain_screen() {
+        local cmd_file="${XDG_RUNTIME_DIR:-/tmp}/metis_bash_cmd.$UID"
+        rm -f "$cmd_file" 2>/dev/null
         explain
+        if [[ -f "$cmd_file" ]]; then
+            local cmd
+            cmd="$(cat "$cmd_file" 2>/dev/null)"
+            rm -f "$cmd_file" 2>/dev/null
+            if [[ -n "$cmd" ]]; then
+                if [[ -n "$READLINE_LINE" && "$READLINE_LINE" != *[[:space:]] ]]; then
+                    READLINE_LINE+=' '
+                fi
+                READLINE_LINE+="$cmd"
+                READLINE_POINT=${#READLINE_LINE}
+            fi
+        fi
     }
 
     # Atalho Ctrl + G: Fix / Menu Interativo FZF com inserção no prompt do Bash

@@ -43,8 +43,10 @@ menu_provedor_ollama() {
   local cur_ollama="" FZF_DEFAULT_OPTS="" menu_ol_acao=""
 
   while true; do
-    clear
-    _print_header
+    if [[ -n "$METIS_KITTY_POPUP" ]]; then
+      clear
+      _print_header
+    fi
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
@@ -84,8 +86,10 @@ menu_provedor_api() {
   local cur_model="" FZF_DEFAULT_OPTS="" menu_acao=""
 
   while true; do
-    clear
-    _print_header
+    if [[ -n "$METIS_KITTY_POPUP" ]]; then
+      clear
+      _print_header
+    fi
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
@@ -134,8 +138,10 @@ gerenciar_modelos() {
   local FZF_DEFAULT_OPTS="" escolha=""
 
   while true; do
-    clear
-    _print_header
+    if [[ -n "$METIS_KITTY_POPUP" ]]; then
+      clear
+      _print_header
+    fi
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
@@ -220,15 +226,21 @@ gerenciar_modelos() {
         fi
         ;;
       "🔄 7."*)
-        clear
-        _print_header
+        if [[ -n "$METIS_KITTY_POPUP" ]]; then
+          clear
+          _print_header
+        else
+          printf '\n'
+        fi
         "$PYTHON_BIN" "$(_get_manage_models_script)" sync
         load_env_file "$HOME/Metis/.env"
         load_env_file "$HOME/.ZSH/ai/.env_local"
         load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
-        printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+        printf '\n\033[32m✅ Sincronização concluída com sucesso!\033[0m\n'
+        printf '\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m\n'
         stty sane 2>/dev/null
-        read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
+        read -t 3 -r _ </dev/tty 2>/dev/null || true
+        return 0
         ;;
       "🗑️"*|"8."*)
         remover_servidor_customizado

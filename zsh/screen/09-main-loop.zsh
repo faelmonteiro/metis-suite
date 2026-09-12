@@ -70,8 +70,10 @@ main() {
   local custom_lines="${DEFAULT_SCREEN_LINES:-30}" custom_msg="" custom_screen=""
 
   while true; do
-    clear
-    _print_header
+    if [[ -n "$METIS_KITTY_POPUP" ]]; then
+      clear
+      _print_header
+    fi
 
     load_env_file "$HOME/Metis/.env"
     load_env_file "$HOME/.ZSH/ai/.env_local"
@@ -258,8 +260,10 @@ $mouse_snippet
         ;;
 
       *"Local"*|"🤖 2."*|"🤖 3."*)
-        clear
-        _print_header
+        if [[ -n "$METIS_KITTY_POPUP" ]]; then
+          clear
+          _print_header
+        fi
 
         if (( has_mouse )); then
           MODO_CAPTURA="mouse"
@@ -321,8 +325,10 @@ $mouse_snippet
         ;;
 
       *"API Externa"*|"✨ 3."*|"✨ 4."*|"3."*|"4."*)
-        clear
-        _print_header
+        if [[ -n "$METIS_KITTY_POPUP" ]]; then
+          clear
+          _print_header
+        fi
 
         if (( has_mouse )); then
           MODO_CAPTURA="mouse"
@@ -376,16 +382,21 @@ $mouse_snippet
         fi
 
         if [[ "$modelo_fzf" == *"Sincronizar com Metis"* ]]; then
-          clear
-          _print_header
+          if [[ -n "$METIS_KITTY_POPUP" ]]; then
+            clear
+            _print_header
+          else
+            printf '\n'
+          fi
           "$PYTHON_BIN" "$(_get_manage_models_script)" sync
           load_env_file "$HOME/Metis/.env"
           load_env_file "$HOME/.ZSH/ai/.env_local"
           load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
-          printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+          printf '\n\033[32m✅ Sincronização concluída com sucesso!\033[0m\n'
+          printf '\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m\n'
           stty sane 2>/dev/null
-          read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
-          continue
+          read -t 3 -r _ </dev/tty 2>/dev/null || true
+          exit 0
         fi
 
         local chosen_prov_id=""
@@ -430,12 +441,16 @@ $mouse_snippet
         ;;
 
       *"Ajuda"*|*"Help"*|*"Atalhos"*|"📖 5."*|"5."*)
-        clear
-        _print_header
+        if [[ -n "$METIS_KITTY_POPUP" ]]; then
+          clear
+          _print_header
+        else
+          printf '\n'
+        fi
         exibir_ajuda
         printf '\n\033[1;36mPressione ENTER para voltar ao menu (ou aguarde 3s)...\033[0m'
         stty sane 2>/dev/null
-        read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
+        read -t 3 -r _ </dev/tty 2>/dev/null || true
         continue
         ;;
 
@@ -453,8 +468,13 @@ $mouse_snippet
 
     obter_conteudo_tela "$active_lines" >/dev/null 2>&1
 
-    clear
-    _print_header
+    if [[ -n "$METIS_KITTY_POPUP" ]]; then
+      clear
+      _print_header
+    else
+      printf '\n'
+      _print_header
+    fi
 
     local is_auto_cmd=0
     [[ "$final_query" =~ ^/(auto|resolver|fix|corrigir) ]] && is_auto_cmd=1
@@ -675,8 +695,12 @@ $SCREEN_CONTENT
         /modelos|/modelos\ *|/models|/models\ *|/config_model|/config_model\ *|/mod|/mod\ *|/provedor|/provedor\ *|/provider|/provider\ *|/modelo|/modelo\ *|/ia|/ia\ *)
           local mod_arg="$(print -r -- "$USER_INPUT" | sed -E 's#^/(modelos|models|config_model|mod|provedor|provider|modelo|ia)[[:space:]]*##')"
           trocar_modelo_sessao "$mod_arg"
-          clear
-          _print_header
+          if [[ -n "$METIS_KITTY_POPUP" ]]; then
+            clear
+            _print_header
+          else
+            printf '\n'
+          fi
           renderizar "$LAST_RESPONSE"
           exibir_blocos
           printf '%s\n' "─────────────────────────────────────────"

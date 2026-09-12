@@ -353,6 +353,9 @@ copiar_codigo() {
     printf '\033[32m✅ Código copiado para a área de transferência!\033[0m\n'
   fi
 
+  local cmd_file="${XDG_RUNTIME_DIR:-/tmp}/metis_bash_cmd.$UID"
+  print -r -- "$code" > "$cmd_file" 2>/dev/null || true
+
   return 0
 }
 

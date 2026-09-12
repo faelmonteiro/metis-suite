@@ -42,7 +42,17 @@ alias explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
 # Widget interativo para acionar o explain_screen direto no ZSH
 _metis_explain_screen_widget() {
     zle -I
+    local cmd_file="${XDG_RUNTIME_DIR:-/tmp}/metis_bash_cmd.$UID"
+    rm -f "$cmd_file" 2>/dev/null
     source "$ZSH_AI_DIR/explain_screen.zsh"
+    if [[ -f "$cmd_file" ]]; then
+        local cmd="$(cat "$cmd_file" 2>/dev/null)"
+        rm -f "$cmd_file" 2>/dev/null
+        if [[ -n "$cmd" ]]; then
+            BUFFER="$cmd"
+            CURSOR=${#BUFFER}
+        fi
+    fi
     zle reset-prompt 2>/dev/null || true
 }
 zle -N _metis_explain_screen_widget 2>/dev/null || true

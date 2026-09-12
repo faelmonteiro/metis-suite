@@ -202,6 +202,18 @@ _warn() {
   printf '\033[33m%s\033[0m\n' "$1" >&2
 }
 
+_screen_clear() {
+  if [[ -n "$METIS_KITTY_POPUP" ]]; then
+    clear
+  fi
+}
+
+_screen_header() {
+  if [[ -n "$METIS_KITTY_POPUP" ]]; then
+    _print_header
+  fi
+}
+
 _print_header() {
   local icon="🏛️ "
   local icon_file="${METIS_ROOT:-$HOME/.local/share/metis}/assets/icons/metis_emoji_32x32.png"

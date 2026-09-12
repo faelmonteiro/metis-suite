@@ -294,15 +294,17 @@ ${cy}Modelos Ativos:${cr}
               _ai_fix_lista_selecao_e_digitacao "$chosen_prov_id"
               ;;
             "🔄 4."*)
-              clear
+              printf '\n'
               local py_b="$(_ai_fix_get_python)"
               if [[ -n "$py_b" ]]; then
                 "$py_b" "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py" sync
               fi
               _ai_fix_reload_envs
-              printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
+              printf '\n\033[32m✅ Sincronização concluída com sucesso!\033[0m\n'
+              printf '\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m\n'
               stty sane 2>/dev/null
-              read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
+              read -t 3 -r _ </dev/tty 2>/dev/null || true
+              return 0
               ;;
             "🗑️"*|"5."*)
               _ai_fix_remover_servidor_customizado
