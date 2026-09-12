@@ -12,6 +12,11 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     export PATH="$BIN_DIR:$PATH"
 fi
 
+# Desativa captura de mouse pelo fzf para permitir seleção livre com o mouse no terminal
+if [[ "${FZF_DEFAULT_OPTS:-}" != *"--no-mouse"* ]]; then
+    export FZF_DEFAULT_OPTS="--no-mouse ${FZF_DEFAULT_OPTS:-}"
+fi
+
 # 2. Registro no Histórico Dedicado de IA (~/.zsh_ai_history)
 _metis_record_ai_history() {
     local cmd="$*"
@@ -87,7 +92,7 @@ iah() {
     fi
     if command -v fzf >/dev/null 2>&1; then
         local selected
-        selected="$(tac "$hist_file" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts > " --header="Selecione um prompt:")"
+        selected="$(tac "$hist_file" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --no-mouse --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts > " --header="Selecione um prompt:")"
         if [[ -n "$selected" ]]; then
             echo "$selected"
         fi
@@ -106,7 +111,7 @@ downloads-log() {
     fi
     if command -v fzf >/dev/null 2>&1; then
         local selected
-        selected="$(grep -v '^#' "$log_file" | grep -v '^[[:space:]]*$' | tac | fzf --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione:")"
+        selected="$(grep -v '^#' "$log_file" | grep -v '^[[:space:]]*$' | tac | fzf --no-mouse --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione:")"
         if [[ -n "$selected" ]]; then
             echo "$selected" | sed 's/^\[[^]]*\] //'
         fi
