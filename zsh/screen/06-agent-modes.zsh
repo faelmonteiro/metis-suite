@@ -157,7 +157,7 @@ REGRA IMPORTANTE:
   while (( step <= max_steps )); do
     if (( AUTO_CANCEL == 1 )); then
       printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
-      trap ' ' INT
+      trap '_metis_exit_handler' INT TERM 2>/dev/null || trap - INT TERM
       return 130
     fi
 
@@ -168,7 +168,7 @@ REGRA IMPORTANTE:
 
     if (( ia_status == 130 )) || [[ "$resp" == *"KeyboardInterrupt"* || "$resp" == *"Interrupted"* ]]; then
       printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
-      trap ' ' INT
+      trap '_metis_exit_handler' INT TERM 2>/dev/null || trap - INT TERM
       return 130
     fi
 
@@ -296,7 +296,7 @@ Erro: não foi possível enviar o comando ao terminal original.
 
         if (( AUTO_CANCEL == 1 )); then
           printf '\n\033[33m⚠️ Auto-resolução cancelada pelo usuário (Ctrl+C).\033[0m\n'
-          trap ' ' INT
+          trap '_metis_exit_handler' INT TERM 2>/dev/null || trap - INT TERM
           return 130
         fi
 
@@ -388,7 +388,7 @@ ${nova_tela:-(Sem saída de texto adicional)}
 
       printf '%s\n' "─────────────────────────────────────────"
 
-      trap ' ' INT
+      trap '_metis_exit_handler' INT TERM 2>/dev/null || trap - INT TERM
       return 0
     fi
   done
@@ -423,6 +423,6 @@ ${nova_tela:-(Sem saída de texto adicional)}
     printf '%s\n' "─────────────────────────────────────────"
   fi
 
-  trap ' ' INT
+  trap '_metis_exit_handler' INT TERM 2>/dev/null || trap - INT TERM
   return 0
 }

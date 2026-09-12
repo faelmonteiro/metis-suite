@@ -21,9 +21,23 @@ bindkey '^[[3~' delete-char 2>/dev/null || true
 bindkey '^?' backward-delete-char 2>/dev/null || true
 bindkey '^H' backward-delete-char 2>/dev/null || true
 
-# Evita que Ctrl+C feche a janela do assistente de forma abrupta.
-# O modo /auto usa AUTO_CANCEL para permitir cancelamento controlado.
-trap ' ' INT
+_metis_exit_handler() {
+  if (( ${+functions[limpar_selecao_mouse]} )); then
+    limpar_selecao_mouse 2>/dev/null
+  fi
+  rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
+  exit 0
+}
+
+trap '_metis_exit_handler' INT TERM
+
+KEYTIMEOUT=15
+_metis_escape_widget() {
+  BUFFER=""
+  zle send-break
+}
+zle -N _metis_escape_widget 2>/dev/null || true
+bindkey "^[" _metis_escape_widget 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
 # Variáveis de Ambiente e Arquivos de Estado

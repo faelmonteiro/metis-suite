@@ -18,7 +18,8 @@ for mod in "$SCREEN_MODULES_DIR"/*.zsh(Nn); do
 done
 
 # Garante limpeza de seleção e temporários ao fechar o programa
-trap 'limpar_selecao_mouse 2>/dev/null; rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null' EXIT INT TERM
+trap 'limpar_selecao_mouse 2>/dev/null; rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null' EXIT
+trap '_metis_exit_handler 2>/dev/null || exit 0' INT TERM
 
 # Execução do loop principal
 main "$@"

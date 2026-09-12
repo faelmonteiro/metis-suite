@@ -647,21 +647,17 @@ $SCREEN_CONTENT
     LAST_SELECTED_CODE=""
 
     while true; do
-      printf '\033[90m[Enter vazio / Ctrl+C / q] Sair do assistente  •  [/m] Menu  •  [/auto] Auto-Resolver  •  [/h] Ajuda\033[0m\n'
+      printf '\033[90m[/e 1] Executar no terminal  •  [!cmd] Rodar comando  •  [/sh] Shell  •  [Ctrl+C / Esc / q] Sair\033[0m\n'
       printf '\033[32mDigite sua pergunta ou comando:\033[0m\n'
 
       USER_INPUT=""
 
       if ! vared -c -p '%B%F{blue} ❯ %f%b' USER_INPUT 2>/dev/null; then
-        limpar_selecao_mouse 2>/dev/null
-        rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
-        exit 0
+        _metis_exit_handler
       fi
 
       if [[ -z "$USER_INPUT" ]]; then
-        limpar_selecao_mouse 2>/dev/null
-        rm -f /tmp/orig_kitty_id /tmp/orig_kitty_listen /tmp/orig_kitty_pid 2>/dev/null
-        exit 0
+        _metis_exit_handler
       fi
 
       CLEAN_INPUT="$(_trim "$USER_INPUT")"
@@ -981,22 +977,92 @@ $LATEST_SCREEN${sync_status_ctx}
           continue
           ;;
 
-        /exec|/exec\ *|/e|/e\ *)
-          target_idx="$(print -r -- "$CLEAN_INPUT" | grep -oE '[0-9]+' | head -n 1)"
+        /sh|/bash|/terminal)
+          printf '\n\033[1;36m🐚 Abrindo shell interativo no terminal...\033[0m\n'
+          printf '\033[90m(Execute os comandos que desejar e digite \033[1;33mexit\033[90m para retornar ao Metis)\033[0m\n\n'
+          "${SHELL:-/bin/bash}"
+          printf '\n\033[32m↩️  De volta ao assistente Metis!\033[0m\n'
+          printf '\033[90m(Dica: Use /s para sincronizar a tela do que você acabou de rodar, ou continue a conversa)\033[0m\n\n'
+          continue
+          ;;
+
+        \!*)
+          local direct_run="${USER_INPUT#\!}"
+          direct_run="$(_trim "$direct_run")"
+          if [[ -n "$direct_run" ]]; then
+            printf '\n\033[1;36m▶ Executando no terminal:\033[0m\n  \033[1;38;5;214m$ %s\033[0m\n' "$direct_run"
+            printf '%s\n' "──────────────────────────────────────────────────────────"
+            local tmp_run_out="$(mktemp)"
+            local run_code=0
+            eval "$direct_run" 2>&1 | tee "$tmp_run_out"
+            run_code=${pipestatus[1]}
+            printf '%s\n' "──────────────────────────────────────────────────────────"
+            if (( run_code == 0 )); then
+              printf '\033[32m✔ Concluído com sucesso (Exit: 0)\033[0m\n\n'
+            else
+              printf '\033[31m✖ Finalizado com erro (Exit: %d)\033[0m\n\n' "$run_code"
+            fi
+            local run_text="$(cat "$tmp_run_out" 2>/dev/null)"
+            rm -f "$tmp_run_out" 2>/dev/null
+            CONTEXT="$(limitar_contexto "$CONTEXT
+[Comando executado no terminal]: $direct_run
+[Código de saída]: $run_code
+[Saída no terminal]:
+${run_text:-(Sem saída)}")"
+          fi
+          continue
+          ;;
+
+        /exec|/exec\ *|/e|/e\ *|/run|/run\ *|/r|/r\ *)
+          local cmd_arg="$(print -r -- "$USER_INPUT" | sed -E 's#^/(exec|e|run|r)[[:space:]]*##')"
+          cmd_arg="$(_trim "$cmd_arg")"
+          target_idx=""
           code_to_send=""
+
+          if [[ "$cmd_arg" =~ ^[0-9]+$ ]]; then
+            target_idx=$((10#$cmd_arg))
+          else
+            target_idx="$(print -r -- "$CLEAN_INPUT" | grep -oE '[0-9]+' | head -n 1)"
+          fi
 
           if [[ -n "$target_idx" && "$target_idx" -ge 1 && "$target_idx" -le ${#CURRENT_CODE_BLOCKS[@]} ]]; then
             code_to_send="${CURRENT_CODE_BLOCKS[$target_idx]}"
-            LAST_SELECTED_CODE="$code_to_send"
-            enviar_ao_kitty "$code_to_send" "$target_idx"
+          elif [[ -n "$cmd_arg" && "$cmd_arg" != <-> ]]; then
+            code_to_send="$cmd_arg"
           elif [[ -n "$LAST_SELECTED_CODE" ]]; then
-            enviar_ao_kitty "$LAST_SELECTED_CODE"
+            code_to_send="$LAST_SELECTED_CODE"
           else
             code_to_send="$(selecionar_bloco_codigo)"
+          fi
 
-            if [[ -n "$code_to_send" ]]; then
-              LAST_SELECTED_CODE="$code_to_send"
-              enviar_ao_kitty "$code_to_send"
+          if [[ -n "$code_to_send" ]]; then
+            LAST_SELECTED_CODE="$code_to_send"
+            _obter_kitty_target
+
+            if [[ -n "$METIS_KITTY_POPUP" && -n "$TARGET_KITTY_SOCK" ]]; then
+              enviar_ao_kitty "$code_to_send" "$target_idx" 1
+              printf '\033[32m🚀 Comando enviado para o terminal Kitty!\033[0m\n'
+            else
+              printf '\n\033[1;36m▶ Executando no terminal:\033[0m\n  \033[1;38;5;214m$ %s\033[0m\n' "$code_to_send"
+              printf '%s\n' "──────────────────────────────────────────────────────────"
+              local tmp_e_out="$(mktemp)"
+              local e_code=0
+              eval "$code_to_send" 2>&1 | tee "$tmp_e_out"
+              e_code=${pipestatus[1]}
+              printf '%s\n' "──────────────────────────────────────────────────────────"
+              if (( e_code == 0 )); then
+                printf '\033[32m✔ Concluído com sucesso (Exit: 0)\033[0m\n\n'
+              else
+                printf '\033[31m✖ Finalizado com erro (Exit: %d)\033[0m\n\n' "$e_code"
+              fi
+              local e_text="$(cat "$tmp_e_out" 2>/dev/null)"
+              rm -f "$tmp_e_out" 2>/dev/null
+              CONTEXT="$(limitar_contexto "$CONTEXT
+[Comando executado no terminal]: $code_to_send
+[Código de saída]: $e_code
+[Saída no terminal]:
+${e_text:-(Sem saída)}")"
+              copiar_codigo "$code_to_send" "" >/dev/null 2>&1 || true
             fi
           fi
 
