@@ -29,6 +29,8 @@ _is_sensitive_path() {
      "$rp" == "$HOME"/.gnupg/* || \
      "$rp" == "$HOME"/.aws/* || \
      "$rp" == "$HOME"/.config/claude/* || \
+     "$rp" == "$HOME"/.config/metis/.env* || \
+     "$rp" == "$HOME"/.local/share/metis/.env* || \
      "$rp" == "$HOME"/.ZSH/ai/.env* || \
      "$rp" == "$HOME"/Metis/.env* ]] && return 0
 

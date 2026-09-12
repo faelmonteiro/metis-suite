@@ -4,7 +4,7 @@
 # Inicialização, helpers básicos e validação de dependências do menu de modelos.
 # =============================================================================
 
-source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || source ~/.ZSH/ai/ia_client.zsh 2>/dev/null || true
+source "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/ia_client.zsh" 2>/dev/null || true
 
 _ai_menu_resolve_provider() {
   local prov="$1"
