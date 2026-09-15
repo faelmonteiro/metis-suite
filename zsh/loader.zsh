@@ -62,12 +62,15 @@ _metis_explain_screen_widget() {
 }
 zle -N _metis_explain_screen_widget 2>/dev/null || true
 
-# Mapeamentos universais: Alt+E (compatível com GNOME Terminal, Konsole, Alacritty, Kitty, Xfce, etc.)
-bindkey '^[e' _metis_explain_screen_widget 2>/dev/null || true
-bindkey '^[E' _metis_explain_screen_widget 2>/dev/null || true
+# Mapeamentos universais: Alt+E apenas para terminais padrão do sistema (GNOME Terminal, Mint Terminal, etc.)
+# No terminal Kitty, o Alt+E é desativado para manter o Kitty com seu pipeline nativo [Ctrl + Shift + E]
+if [[ -z "$KITTY_PID" && -z "$KITTY_WINDOW_ID" && "$TERM" != *"kitty"* ]]; then
+    bindkey '^[e' _metis_explain_screen_widget 2>/dev/null || true
+    bindkey '^[E' _metis_explain_screen_widget 2>/dev/null || true
 
-# Mapeamentos legados: Ctrl+Shift+E (suporta sequências CSI-u e Kitty/Xterm)
-bindkey '^[[101;6u' _metis_explain_screen_widget 2>/dev/null || true
-bindkey '^[[69;6u' _metis_explain_screen_widget 2>/dev/null || true
-bindkey '^[[27;6;101~' _metis_explain_screen_widget 2>/dev/null || true
-bindkey '^[[27;6;69~' _metis_explain_screen_widget 2>/dev/null || true
+    # Mapeamentos legados: Ctrl+Shift+E (suporta sequências CSI-u e Xterm em terminais comuns)
+    bindkey '^[[101;6u' _metis_explain_screen_widget 2>/dev/null || true
+    bindkey '^[[69;6u' _metis_explain_screen_widget 2>/dev/null || true
+    bindkey '^[[27;6;101~' _metis_explain_screen_widget 2>/dev/null || true
+    bindkey '^[[27;6;69~' _metis_explain_screen_widget 2>/dev/null || true
+fi

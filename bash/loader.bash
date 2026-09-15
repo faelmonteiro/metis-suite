@@ -236,8 +236,11 @@ if [[ $- == *i* ]]; then
     }
 
     # Registro de atalhos no Readline
-    bind -x '"\ee": _metis_bash_explain_screen' 2>/dev/null || true
-    bind -x '"\eE": _metis_bash_explain_screen' 2>/dev/null || true
+    # Alt+E exclusivo para terminais comuns do sistema (desativado no Kitty)
+    if [[ -z "$KITTY_PID" && -z "$KITTY_WINDOW_ID" && "$TERM" != *"kitty"* ]]; then
+        bind -x '"\ee": _metis_bash_explain_screen' 2>/dev/null || true
+        bind -x '"\eE": _metis_bash_explain_screen' 2>/dev/null || true
+    fi
     bind -x '"\C-g": _metis_bash_fix_prompt' 2>/dev/null || true
     bind -x '"\C-G": _metis_bash_fix_prompt' 2>/dev/null || true
     bind -x '"\eh": _metis_bash_ai_history' 2>/dev/null || true

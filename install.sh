@@ -352,7 +352,25 @@ configure_global_shortcut() {
             ;;
     esac
 
+    # Garante acesso ao bus da sessão do usuário mesmo via SSH
+    if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && [ -S "/run/user/$UID/bus" ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID/bus"
+    fi
+
     local desktop="${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}"
+    if [ -z "$desktop" ]; then
+        if pgrep -x "cinnamon" &>/dev/null || pgrep -f "cinnamon-session" &>/dev/null || [ -d "/usr/share/cinnamon" ]; then
+            desktop="cinnamon"
+        elif pgrep -x "gnome-shell" &>/dev/null || [ -d "/usr/share/gnome-shell" ]; then
+            desktop="gnome"
+        elif pgrep -x "xfce4-session" &>/dev/null; then
+            desktop="xfce"
+        elif pgrep -x "mate-session" &>/dev/null; then
+            desktop="mate"
+        elif pgrep -x "plasmashell" &>/dev/null; then
+            desktop="kde"
+        fi
+    fi
     desktop="$(echo "$desktop" | tr '[:upper:]' '[:lower:]')"
     local config_done=0
 
@@ -393,34 +411,99 @@ configure_global_shortcut() {
     fi
 
     # B. Cinnamon / Linux Mint
-    if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] && command -v dconf &>/dev/null; then
-        # Limpa entrada legada com caminho incorreto se existir
+    if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] || { command -v cinnamon &>/dev/null && command -v dconf &>/dev/null; }; then
+        # Limpa entradas legadas inválidas que o daemon do Cinnamon ignora
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null || true
         dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null || true
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null || true
 
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/command "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/binding "['<Super>r', '<Primary><Alt>m']" 2>/dev/null || true
+        # O Cinnamon exige estritamente slots sequenciais (custom0, custom1, ...) registrados em custom-list
+        INSTALL_DIR="$INSTALL_DIR" python3 -c "
+import os, sys, re, subprocess
 
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/command "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
-        dconf write /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/binding "['<Primary><Alt>v', '<Super>v', '<Super>z']" 2>/dev/null || true
+def run_c(cmd):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
 
-        local cur_list
-        cur_list="$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null || echo "[]")"
-        [[ -z "$cur_list" ]] && cur_list="[]"
-        if [[ "$cur_list" == "[]" || "$cur_list" == "@as []" ]]; then
-            dconf write /org/cinnamon/desktop/keybindings/custom-list "['custom-metis', 'custom-screenai']" 2>/dev/null || true
-        else
-            local upd_list="$cur_list"
-            if [[ "$upd_list" != *"custom-metis"* ]]; then
-                upd_list="${upd_list%]}, 'custom-metis']"
-            fi
-            if [[ "$upd_list" != *"custom-screenai"* ]]; then
-                upd_list="${upd_list%]}, 'custom-screenai']"
-            fi
-            dconf write /org/cinnamon/desktop/keybindings/custom-list "$upd_list" 2>/dev/null || true
+install_dir = os.environ.get('INSTALL_DIR', os.path.expanduser('~/.local/share/metis'))
+cmd_gui = f'{install_dir}/bin/metis gui'
+cmd_vis = f'{install_dir}/bin/metis vision'
+
+cur_raw = run_c('gsettings get org.cinnamon.desktop.keybindings custom-list 2>/dev/null')
+if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
+    cur_raw = run_c('dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null') or '[]'
+
+items = re.findall(r'[\'\"]([^\'\"]+)[\'\"]', cur_raw)
+valid_slots = [s for s in items if re.match(r'^custom\d+$', s)]
+
+slot_gui = None
+slot_vis = None
+
+for s in valid_slots:
+    c = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/command 2>/dev/null').strip(\"'\\\"\")
+    n = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis gui' in c or n == 'Metis AI':
+        slot_gui = s
+    elif 'metis vision' in c or 'screenai' in c or n == 'Metis Vision':
+        slot_vis = s
+
+def alloc_slot():
+    idx = 0
+    while f'custom{idx}' in valid_slots or f'custom{idx}' == slot_gui or f'custom{idx}' == slot_vis:
+        idx += 1
+    new_s = f'custom{idx}'
+    valid_slots.append(new_s)
+    return new_s
+
+if not slot_gui:
+    slot_gui = alloc_slot()
+if not slot_vis:
+    slot_vis = alloc_slot()
+
+if slot_gui not in valid_slots:
+    valid_slots.append(slot_gui)
+if slot_vis not in valid_slots:
+    valid_slots.append(slot_vis)
+
+# 1. Metis AI (Super + R)
+path_gui = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_gui}/'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} name 'Metis AI' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} command '{cmd_gui}' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}name \\\"'Metis AI'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}command \\\"'{cmd_gui}'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
+
+# 2. Metis Vision (Ctrl + Alt + V e Super + V)
+path_vis = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_vis}/'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} name 'Metis Vision' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} command '{cmd_vis}' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}name \\\"'Metis Vision'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}command \\\"'{cmd_vis}'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
+
+# 3. Registra os slots no custom-list do Cinnamon
+final_list = '[' + ', '.join([f\"'{s}'\" for s in sorted(list(set(valid_slots)), key=lambda x: int(x.replace('custom', '')))]) + ']'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings custom-list \\\"{final_list}\\\" 2>/dev/null\")
+run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_list}\\\" 2>/dev/null\")
+" 2>/dev/null || true
+
+        # Fallback para GNOME media-keys caso o Cinnamon compartilhe daemons no Linux Mint
+        if command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.gnome.settings-daemon.plugins.media-keys"; then
+            local base_schema="org.gnome.settings-daemon.plugins.media-keys"
+            local path_r="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/"
+            local path_v="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
+            local custom_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
+            gsettings set "${custom_schema}:${path_r}" name "Metis AI" 2>/dev/null || true
+            gsettings set "${custom_schema}:${path_r}" command "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
+            gsettings set "${custom_schema}:${path_r}" binding "<Super>r" 2>/dev/null || true
+            gsettings set "${custom_schema}:${path_v}" name "Metis Vision" 2>/dev/null || true
+            gsettings set "${custom_schema}:${path_v}" command "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+            gsettings set "${custom_schema}:${path_v}" binding "<Primary><Alt>v" 2>/dev/null || true
         fi
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para Linux Mint (Cinnamon).${NC}"
+
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados com sucesso no Linux Mint (Cinnamon).${NC}"
         config_done=1
     fi
 
@@ -530,8 +613,10 @@ configure_global_shortcut() {
         # Configura o shell do Kitty para abrir diretamente no ZSH
         if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
             echo "" >> "$kitty_conf"
-            echo "# Shell padrão do Kitty com Metis" >> "$kitty_conf"
+            echo "# Shell padrão do Kitty com Metis (apenas no Kitty; terminais comuns usam Bash)" >> "$kitty_conf"
             echo "shell $zsh_path" >> "$kitty_conf"
+        else
+            sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
         fi
 
         # Habilita cópia automática ao selecionar com o mouse no Kitty
@@ -608,9 +693,24 @@ fi
 # Remove qualquer bloco residual de auto-launch do ZSH no ~/.bashrc
 if [ -f "$BASHRC" ]; then
     sed -i '/# >>> METIS ZSH AUTO-LAUNCH >>>/,/# <<< METIS ZSH AUTO-LAUNCH <<</d' "$BASHRC" 2>/dev/null || true
+    sed -i '/^[[:space:]]*exec[[:space:]]\+zsh/d' "$BASHRC" 2>/dev/null || true
+    sed -i '/^[[:space:]]*\[\[.*exec zsh.*\]\]/d' "$BASHRC" 2>/dev/null || true
 fi
 
-CURRENT_SHELL="$(basename "$SHELL")"
+# Se o shell de login do usuário foi previamente configurado para ZSH no sistema,
+# restaura o Bash como shell padrão do usuário no sistema. Dessa forma, todos os terminais padrão
+# (GNOME Terminal, Mint Terminal, etc.) permanecem 100% no Bash, enquanto o Kitty usa o ZSH
+# exclusivamente via diretiva 'shell' no ~/.config/kitty/kitty.conf.
+CURRENT_LOGIN_SHELL="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || echo "$SHELL")"
+if [[ "$CURRENT_LOGIN_SHELL" == *"zsh"* ]]; then
+    BASH_SYS_PATH="$(which bash 2>/dev/null || command -v bash || echo "/bin/bash")"
+    if [ -x "$BASH_SYS_PATH" ]; then
+        chsh -s "$BASH_SYS_PATH" "$USER" 2>/dev/null || sudo chsh -s "$BASH_SYS_PATH" "$USER" 2>/dev/null || true
+        echo -e "${GREEN}  ✅ Shell padrão do sistema restaurado para o Bash (${BASH_SYS_PATH}).${NC}"
+    fi
+fi
+
+CURRENT_SHELL="$(basename "${CURRENT_LOGIN_SHELL:-$SHELL}")"
 if [ -f "$kitty_conf" ] || command -v kitty &>/dev/null; then
     echo -e "${GREEN}  ✅ O ZSH foi vinculado exclusivamente ao terminal Kitty (~/.config/kitty/kitty.conf).${NC}"
     echo -e "${GRAY}  ℹ️  Seus outros terminais permanecem 100% livres no seu shell padrão (${CURRENT_SHELL}).${NC}"

@@ -164,6 +164,100 @@ if [ -d "$INSTALL_DIR" ]; then
         "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet 2>/dev/null || true
         "$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || true
     fi
+
+    # Garante acesso ao bus da sessão do usuário mesmo via SSH
+    if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && [ -S "/run/user/$UID/bus" ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID/bus"
+    fi
+
+    # Atualiza atalhos globais de teclado no Cinnamon / Linux Mint se presente
+    if command -v dconf &>/dev/null; then
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null || true
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null || true
+        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null || true
+
+        INSTALL_DIR="$INSTALL_DIR" python3 -c "
+import os, sys, re, subprocess
+
+def run_c(cmd):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
+
+install_dir = os.environ.get('INSTALL_DIR', os.path.expanduser('~/.local/share/metis'))
+cmd_gui = f'{install_dir}/bin/metis gui'
+cmd_vis = f'{install_dir}/bin/metis vision'
+
+cur_raw = run_c('gsettings get org.cinnamon.desktop.keybindings custom-list 2>/dev/null')
+if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
+    cur_raw = run_c('dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null') or '[]'
+
+items = re.findall(r'[\'\"]([^\'\"]+)[\'\"]', cur_raw)
+valid_slots = [s for s in items if re.match(r'^custom\d+$', s)]
+
+slot_gui = None
+slot_vis = None
+
+for s in valid_slots:
+    c = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/command 2>/dev/null').strip(\"'\\\"\")
+    n = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis gui' in c or n == 'Metis AI':
+        slot_gui = s
+    elif 'metis vision' in c or 'screenai' in c or n == 'Metis Vision':
+        slot_vis = s
+
+def alloc_slot():
+    idx = 0
+    while f'custom{idx}' in valid_slots or f'custom{idx}' == slot_gui or f'custom{idx}' == slot_vis:
+        idx += 1
+    new_s = f'custom{idx}'
+    valid_slots.append(new_s)
+    return new_s
+
+if not slot_gui:
+    slot_gui = alloc_slot()
+if not slot_vis:
+    slot_vis = alloc_slot()
+
+if slot_gui not in valid_slots:
+    valid_slots.append(slot_gui)
+if slot_vis not in valid_slots:
+    valid_slots.append(slot_vis)
+
+path_gui = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_gui}/'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} name 'Metis AI' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} command '{cmd_gui}' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}name \\\"'Metis AI'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}command \\\"'{cmd_gui}'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_gui}binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
+
+path_vis = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_vis}/'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} name 'Metis Vision' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} command '{cmd_vis}' 2>/dev/null\")
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}name \\\"'Metis Vision'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}command \\\"'{cmd_vis}'\\\" 2>/dev/null\")
+run_c(f\"dconf write {path_vis}binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
+
+final_list = '[' + ', '.join([f\"'{s}'\" for s in sorted(list(set(valid_slots)), key=lambda x: int(x.replace('custom', '')))]) + ']'
+run_c(f\"gsettings set org.cinnamon.desktop.keybindings custom-list \\\"{final_list}\\\" 2>/dev/null\")
+run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_list}\\\" 2>/dev/null\")
+" 2>/dev/null || true
+    fi
+
+    # Garante que kitty.conf use ZSH se kitty existir
+    local kitty_conf="$HOME/.config/kitty/kitty.conf"
+    if [ -f "$kitty_conf" ]; then
+        local zsh_path
+        zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
+        if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
+            echo "" >> "$kitty_conf"
+            echo "# Shell padrão do Kitty com Metis (apenas no Kitty; terminais comuns usam Bash)" >> "$kitty_conf"
+            echo "shell $zsh_path" >> "$kitty_conf"
+        else
+            sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
+        fi
+    fi
 else
     echo -e "${RED}❌ Instalação do Metis não encontrada em $INSTALL_DIR.${NC}"
     echo "Por favor, instale o Metis executando: bash install.sh"
