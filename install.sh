@@ -374,44 +374,87 @@ configure_global_shortcut() {
     desktop="$(echo "$desktop" | tr '[:upper:]' '[:lower:]')"
     local config_done=0
 
-    # A. GNOME / Ubuntu / Pop!_OS / Fedora
-    if [[ "$desktop" == *"gnome"* || "$desktop" == *"ubuntu"* || "$desktop" == *"pop"* ]] && command -v gsettings &>/dev/null; then
-        local base_schema="org.gnome.settings-daemon.plugins.media-keys"
-        local path_r="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/"
-        local path_v="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
-        local custom_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
-        
-        # Super + R (Metis AI)
-        gsettings set "${custom_schema}:${path_r}" name "Metis AI" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_r}" command "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_r}" binding "<Super>r" 2>/dev/null || true
-        
-        # Ctrl + Alt + V (Metis Vision)
-        gsettings set "${custom_schema}:${path_v}" name "Metis Vision" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_v}" command "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
-        gsettings set "${custom_schema}:${path_v}" binding "<Primary><Alt>v" 2>/dev/null || true
+    # A. GNOME / Ubuntu / Pop!_OS / Fedora / Debian / Arch GNOME
+    if [[ "$desktop" == *"gnome"* || "$desktop" == *"ubuntu"* || "$desktop" == *"pop"* ]] || { command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.gnome.settings-daemon.plugins.media-keys"; }; then
+        INSTALL_DIR="$INSTALL_DIR" python3 -c "
+import os, sys, re, subprocess
 
-        # Anexa aos atalhos existentes sem sobrescrever os atalhos do usuário
-        local current_list
-        current_list=$(gsettings get "$base_schema" custom-keybindings 2>/dev/null || echo "@as []")
-        if [[ "$current_list" == "@as []" || "$current_list" == "[]" || -z "$current_list" ]]; then
-            gsettings set "$base_schema" custom-keybindings "['$path_r', '$path_v']" 2>/dev/null || true
-        else
-            local updated_list="$current_list"
-            if [[ "$updated_list" != *"$path_r"* ]]; then
-                updated_list="${updated_list%]}, '$path_r']"
-            fi
-            if [[ "$updated_list" != *"$path_v"* ]]; then
-                updated_list="${updated_list%]}, '$path_v']"
-            fi
-            gsettings set "$base_schema" custom-keybindings "$updated_list" 2>/dev/null || true
-        fi
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para GNOME/Ubuntu.${NC}"
+def run_cmd(cmd):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
+
+install_dir = os.environ.get('INSTALL_DIR', os.path.expanduser('~/.local/share/metis'))
+cmd_gui = f'{install_dir}/bin/metis gui'
+cmd_vis = f'{install_dir}/bin/metis vision'
+base_schema = 'org.gnome.settings-daemon.plugins.media-keys'
+custom_schema = 'org.gnome.settings-daemon.plugins.media-keys.custom-keybinding'
+base_path = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/'
+
+cur_raw = run_cmd(f'gsettings get {base_schema} custom-keybindings 2>/dev/null')
+if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
+    cur_raw = run_cmd(f'dconf read {base_path} 2>/dev/null') or '[]'
+
+items = re.findall(r'/custom-keybindings/(custom\d+)/', cur_raw)
+valid_slots = list(dict.fromkeys(items))
+
+slot_gui = None
+slot_vis = None
+
+for s in valid_slots:
+    p = f'{base_path}{s}/'
+    c = run_cmd(f'dconf read {p}command 2>/dev/null').strip(\"'\\\"\")
+    n = run_cmd(f'dconf read {p}name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis gui' in c or n == 'Metis AI':
+        slot_gui = s
+    elif 'metis vision' in c or 'screenai' in c or n == 'Metis Vision':
+        slot_vis = s
+
+def alloc_slot():
+    idx = 0
+    while f'custom{idx}' in valid_slots or f'custom{idx}' == slot_gui or f'custom{idx}' == slot_vis:
+        idx += 1
+    new_s = f'custom{idx}'
+    valid_slots.append(new_s)
+    return new_s
+
+if not slot_gui:
+    slot_gui = alloc_slot()
+if not slot_vis:
+    slot_vis = alloc_slot()
+
+if slot_gui not in valid_slots:
+    valid_slots.append(slot_gui)
+if slot_vis not in valid_slots:
+    valid_slots.append(slot_vis)
+
+# 1. Metis AI (Super + R)
+path_gui = f'{base_path}{slot_gui}/'
+run_cmd(f\"gsettings set {custom_schema}:{path_gui} name 'Metis AI' 2>/dev/null\")
+run_cmd(f\"gsettings set {custom_schema}:{path_gui} command '{cmd_gui}' 2>/dev/null\")
+run_cmd(f\"gsettings set {custom_schema}:{path_gui} binding '<Super>r' 2>/dev/null\")
+run_cmd(f\"dconf write {path_gui}name \\\"'Metis AI'\\\" 2>/dev/null\")
+run_cmd(f\"dconf write {path_gui}command \\\"'{cmd_gui}'\\\" 2>/dev/null\")
+run_cmd(f\"dconf write {path_gui}binding \\\"'<Super>r'\\\" 2>/dev/null\")
+
+# 2. Metis Vision (Ctrl + Alt + V)
+path_vis = f'{base_path}{slot_vis}/'
+run_cmd(f\"gsettings set {custom_schema}:{path_vis} name 'Metis Vision' 2>/dev/null\")
+run_cmd(f\"gsettings set {custom_schema}:{path_vis} command '{cmd_vis}' 2>/dev/null\")
+run_cmd(f\"gsettings set {custom_schema}:{path_vis} binding '<Primary><Alt>v' 2>/dev/null\")
+run_cmd(f\"dconf write {path_vis}name \\\"'Metis Vision'\\\" 2>/dev/null\")
+run_cmd(f\"dconf write {path_vis}command \\\"'{cmd_vis}'\\\" 2>/dev/null\")
+run_cmd(f\"dconf write {path_vis}binding \\\"'<Primary><Alt>v'\\\" 2>/dev/null\")
+
+# 3. Master list
+final_list = '[' + ', '.join([f\"'{base_path}{s}/'\" for s in sorted(list(set(valid_slots)), key=lambda x: int(x.replace('custom', '')))]) + ']'
+run_cmd(f\"gsettings set {base_schema} custom-keybindings \\\"{final_list}\\\" 2>/dev/null\")
+run_cmd(f\"dconf write /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings \\\"{final_list}\\\" 2>/dev/null\")
+" 2>/dev/null || true
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para GNOME/Ubuntu/Fedora.${NC}"
         config_done=1
     fi
 
-    # B. Cinnamon / Linux Mint
-    if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] || { command -v cinnamon &>/dev/null && command -v dconf &>/dev/null; }; then
+    # B. Cinnamon (Linux Mint, Arch Cinnamon, Fedora Cinnamon, Debian Cinnamon)
+    if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] || { command -v cinnamon &>/dev/null && command -v dconf &>/dev/null; } || { command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.cinnamon.desktop.keybindings"; }; then
         # Limpa entradas legadas inválidas que o daemon do Cinnamon ignora
         dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null || true
         dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
@@ -489,59 +532,91 @@ run_c(f\"gsettings set org.cinnamon.desktop.keybindings custom-list \\\"{final_l
 run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_list}\\\" 2>/dev/null\")
 " 2>/dev/null || true
 
-        # Fallback para GNOME media-keys caso o Cinnamon compartilhe daemons no Linux Mint
-        if command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.gnome.settings-daemon.plugins.media-keys"; then
-            local base_schema="org.gnome.settings-daemon.plugins.media-keys"
-            local path_r="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/"
-            local path_v="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
-            local custom_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
-            gsettings set "${custom_schema}:${path_r}" name "Metis AI" 2>/dev/null || true
-            gsettings set "${custom_schema}:${path_r}" command "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
-            gsettings set "${custom_schema}:${path_r}" binding "<Super>r" 2>/dev/null || true
-            gsettings set "${custom_schema}:${path_v}" name "Metis Vision" 2>/dev/null || true
-            gsettings set "${custom_schema}:${path_v}" command "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
-            gsettings set "${custom_schema}:${path_v}" binding "<Primary><Alt>v" 2>/dev/null || true
-        fi
-
-        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados com sucesso no Linux Mint (Cinnamon).${NC}"
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados com sucesso no Cinnamon.${NC}"
         config_done=1
     fi
 
-    # C. XFCE
-    if [[ "$desktop" == *"xfce"* ]] && command -v xfconf-query &>/dev/null; then
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -n -t string -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || \
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
+    # C. KDE Plasma 5 & 6 (Kubuntu, Fedora KDE, openSUSE, Arch KDE, Manjaro)
+    local kg_file="$HOME/.config/kglobalshortcutsrc"
+    if [[ "$desktop" == *"kde"* ]] || command -v kwriteconfig6 &>/dev/null || command -v kwriteconfig5 &>/dev/null || [ -f "$kg_file" ]; then
+        mkdir -p "$HOME/.config"
+        touch "$kg_file"
+        local kw=""
+        command -v kwriteconfig6 &>/dev/null && kw="kwriteconfig6"
+        [ -z "$kw" ] && command -v kwriteconfig5 &>/dev/null && kw="kwriteconfig5"
+
+        if [ -n "$kw" ]; then
+            $kw --file kglobalshortcutsrc --group "metis.desktop" --key "_launch" "Meta+R,Meta+R,Metis AI" 2>/dev/null || true
+            $kw --file kglobalshortcutsrc --group "metis-vision.desktop" --key "_launch" "Ctrl+Alt+V,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
+            $kw --file kglobalshortcutsrc --group "Metis AI" --key "gui" "$INSTALL_DIR/bin/metis gui,none,Metis AI" 2>/dev/null || true
+            $kw --file kglobalshortcutsrc --group "Metis Vision" --key "vision" "$INSTALL_DIR/bin/metis vision,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
+        fi
+
+        # Garante escrita direta no kglobalshortcutsrc caso kwriteconfig não esteja no PATH
+        python3 -c "
+import configparser, os
+p = os.path.expanduser('~/.config/kglobalshortcutsrc')
+cfg = configparser.ConfigParser(interpolation=None)
+if os.path.exists(p):
+    try:
+        cfg.read(p, encoding='utf-8')
+    except Exception:
+        pass
+if not cfg.has_section('metis.desktop'):
+    cfg.add_section('metis.desktop')
+cfg.set('metis.desktop', '_launch', 'Meta+R,Meta+R,Metis AI')
+
+if not cfg.has_section('metis-vision.desktop'):
+    cfg.add_section('metis-vision.desktop')
+cfg.set('metis-vision.desktop', '_launch', 'Ctrl+Alt+V,Ctrl+Alt+V,Metis Vision')
+
+try:
+    with open(p, 'w', encoding='utf-8') as f:
+        cfg.write(f)
+except Exception:
+    pass
+" 2>/dev/null || true
+
+        # Recarrega o daemon de atalhos do KDE Plasma via D-Bus
+        qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig 2>/dev/null || true
+        qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+        echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados para KDE Plasma.${NC}"
+        config_done=1
+    fi
+
+    # D. XFCE (Xubuntu, Manjaro XFCE, Debian XFCE, Mint XFCE, Fedora XFCE, Arch)
+    if [[ "$desktop" == *"xfce"* ]] || command -v xfconf-query &>/dev/null; then
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || \
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -n -t string -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
         
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
+        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
         echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para XFCE.${NC}"
         config_done=1
     fi
 
-    # D. MATE Desktop
-    if [[ "$desktop" == *"mate"* ]] && command -v dconf &>/dev/null; then
-        dconf write /org/mate/desktop/keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-metis/action "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-metis/binding "'<Mod4>r'" 2>/dev/null || true
+    # E. MATE Desktop (Ubuntu MATE, Mint MATE, Debian MATE, Fedora MATE, Arch)
+    if [[ "$desktop" == *"mate"* ]] || command -v mate-session &>/dev/null; then
+        if command -v gsettings &>/dev/null; then
+            gsettings set org.mate.Marco.global-keybindings run-command-1 '<Mod4>r' 2>/dev/null || true
+            gsettings set org.mate.Marco.keybinding-commands command-1 "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
+            gsettings set org.mate.Marco.global-keybindings run-command-2 '<Control><Alt>v' 2>/dev/null || true
+            gsettings set org.mate.Marco.keybinding-commands command-2 "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+        fi
+        if command -v dconf &>/dev/null; then
+            dconf write /org/mate/desktop/keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
+            dconf write /org/mate/desktop/keybindings/custom-metis/action "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
+            dconf write /org/mate/desktop/keybindings/custom-metis/binding "'<Mod4>r'" 2>/dev/null || true
 
-        dconf write /org/mate/desktop/keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-screenai/action "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
-        dconf write /org/mate/desktop/keybindings/custom-screenai/binding "'<Control><Alt>v'" 2>/dev/null || true
+            dconf write /org/mate/desktop/keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
+            dconf write /org/mate/desktop/keybindings/custom-screenai/action "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
+            dconf write /org/mate/desktop/keybindings/custom-screenai/binding "'<Control><Alt>v'" 2>/dev/null || true
+        fi
         echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] configurados para MATE.${NC}"
         config_done=1
-    fi
-
-    # E. KDE Plasma
-    if [[ "$desktop" == *"kde"* ]]; then
-        local kw=""
-        command -v kwriteconfig6 &>/dev/null && kw="kwriteconfig6"
-        command -v kwriteconfig5 &>/dev/null && kw="kwriteconfig5"
-        if [ -n "$kw" ]; then
-            $kw --file kglobalshortcutsrc --group "Metis AI" --key "gui" "$INSTALL_DIR/bin/metis gui,none,Metis AI" 2>/dev/null || true
-            $kw --file kglobalshortcutsrc --group "Metis Vision" --key "vision" "$INSTALL_DIR/bin/metis vision,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
-            echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] registrados para KDE Plasma.${NC}"
-            config_done=1
-        fi
     fi
 
     # F. Window Managers (Hyprland / Sway / i3)
@@ -550,7 +625,18 @@ run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_li
             echo "" >> "$HOME/.config/hypr/hyprland.conf"
             echo "bind = \$mainMod, r, exec, [float; size 860 550; center; pin] $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/hypr/hyprland.conf"
             echo "bind = CTRL ALT, v, exec, [float; size 620 390; center; pin] $INSTALL_DIR/bin/metis vision --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
+            echo "bind = \$mainMod, v, exec, [float; size 620 390; center; pin] $INSTALL_DIR/bin/metis vision --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
             echo -e "${GREEN}  ✅ Atalhos [Super + R] e [Ctrl + Alt + V] adicionados ao ~/.config/hypr/hyprland.conf${NC}"
+            config_done=1
+        fi
+    fi
+
+    if [ -f "$HOME/.config/sway/config" ]; then
+        if ! grep -Fq "metis vision" "$HOME/.config/sway/config"; then
+            echo "" >> "$HOME/.config/sway/config"
+            echo "bindsym \$mod+r exec $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/sway/config"
+            echo "bindsym Control+Mod1+v exec $INSTALL_DIR/bin/metis vision" >> "$HOME/.config/sway/config"
+            echo -e "${GREEN}  ✅ Atalhos adicionados ao ~/.config/sway/config${NC}"
             config_done=1
         fi
     fi
@@ -561,6 +647,26 @@ run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_li
             echo "bindsym \$mod+r exec $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/i3/config"
             echo "bindsym Control+Mod1+v exec $INSTALL_DIR/bin/metis vision" >> "$HOME/.config/i3/config"
             echo -e "${GREEN}  ✅ Atalhos adicionados ao ~/.config/i3/config${NC}"
+            config_done=1
+        fi
+    fi
+
+    # G. Universal Fallback via xbindkeys (Openbox, bspwm, AwesomeWM, dwm, etc.)
+    if [ -f "$HOME/.xbindkeysrc" ] || command -v xbindkeys &>/dev/null; then
+        local xbind_conf="$HOME/.xbindkeysrc"
+        touch "$xbind_conf"
+        if ! grep -Fq "metis vision" "$xbind_conf"; then
+            cat << XBIND_EOF >> "$xbind_conf"
+
+# --- [ Metis AI Suite ] ---
+"$INSTALL_DIR/bin/metis gui"
+  Mod4 + r
+
+"$INSTALL_DIR/bin/metis vision"
+  Control + Mod1 + v
+XBIND_EOF
+            command -v pkill &>/dev/null && pkill -HUP xbindkeys 2>/dev/null || true
+            echo -e "${GREEN}  ✅ Atalhos adicionados ao ~/.xbindkeysrc (Universal X11).${NC}"
             config_done=1
         fi
     fi
