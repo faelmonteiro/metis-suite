@@ -64,50 +64,106 @@ if [ -f "$KITTY_CONF" ] && grep -Fq "explain_screen.zsh" "$KITTY_CONF"; then
 fi
 
 
-# 1.5 Remover atalho global do sistema operacional
-desktop="${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}"
-desktop="$(echo "$desktop" | tr '[:upper:]' '[:lower:]')"
-
-if [[ "$desktop" == *"gnome"* || "$desktop" == *"ubuntu"* || "$desktop" == *"pop"* ]] && command -v gsettings &>/dev/null; then
-    base_schema="org.gnome.settings-daemon.plugins.media-keys"
-    custom_path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/"
-    screenai_path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/"
-    current_list=$(gsettings get "$base_schema" custom-keybindings 2>/dev/null || echo "")
-    if [[ "$current_list" == *"$custom_path"* || "$current_list" == *"$screenai_path"* ]]; then
-        new_list=$(echo "$current_list" | sed "s|'$custom_path', ||; s|, '$custom_path'||; s|'$custom_path'||; s|'$screenai_path', ||; s|, '$screenai_path'||; s|'$screenai_path'||")
-        gsettings set "$base_schema" custom-keybindings "$new_list" 2>/dev/null || true
-    fi
+# 1.5 Remover atalhos globais do sistema operacional se existirem
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && [ -S "/run/user/$UID/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID/bus"
 fi
 
-if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] && command -v dconf &>/dev/null; then
-    dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null || true
-    dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null || true
-    dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
-    list=$(dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null || echo "")
-    if [[ "$list" == *"custom-metis"* || "$list" == *"custom-screenai"* ]]; then
-        new_l=$(echo "$list" | sed "s/'custom-metis', //; s/, 'custom-metis'//; s/'custom-metis'//; s/'custom-screenai', //; s/, 'custom-screenai'//; s/'custom-screenai'//")
-        dconf write /org/cinnamon/desktop/keybindings/custom-list "$new_l" 2>/dev/null || true
-    fi
+python3 -c "
+import os, re, subprocess
+
+def run_cmd(cmd):
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
+
+# 1. GNOME
+base_schema = 'org.gnome.settings-daemon.plugins.media-keys'
+base_path = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/'
+cur_raw = run_cmd(f'gsettings get {base_schema} custom-keybindings 2>/dev/null')
+if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
+    cur_raw = run_cmd(f'dconf read {base_path} 2>/dev/null') or '[]'
+
+items = re.findall(r'/custom-keybindings/(custom\d+)/', cur_raw)
+valid_slots = list(dict.fromkeys(items))
+keep_slots = []
+for s in valid_slots:
+    p = f'{base_path}{s}/'
+    c = run_cmd(f'dconf read {p}command 2>/dev/null').strip(\"'\\\"\")
+    n = run_cmd(f'dconf read {p}name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis' in c.lower() or 'screenai' in c.lower() or 'metis' in n.lower():
+        run_cmd(f'dconf reset -f {p}')
+    else:
+        keep_slots.append(s)
+
+if len(keep_slots) != len(valid_slots):
+    final_list = '[' + ', '.join([f\"'{base_path}{s}/'\" for s in keep_slots]) + ']'
+    run_cmd(f'gsettings set {base_schema} custom-keybindings \"{final_list}\" 2>/dev/null')
+    run_cmd(f'dconf write {base_path} \"{final_list}\" 2>/dev/null')
+
+run_cmd('dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/ 2>/dev/null')
+run_cmd('dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/ 2>/dev/null')
+
+# 2. Cinnamon
+cur_raw_c = run_cmd('gsettings get org.cinnamon.desktop.keybindings custom-list 2>/dev/null')
+if not cur_raw_c or '@as []' in cur_raw_c or 'no such schema' in cur_raw_c.lower():
+    cur_raw_c = run_cmd('dconf read /org/cinnamon/desktop/keybindings/custom-list 2>/dev/null') or '[]'
+
+items_c = re.findall(r'[\'\"]([^\'\"]+)[\'\"]', cur_raw_c)
+valid_slots_c = [s for s in items_c if re.match(r'^custom\d+$', s)]
+keep_slots_c = []
+for s in valid_slots_c:
+    p = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{s}/'
+    c = run_cmd(f'dconf read {p}command 2>/dev/null').strip(\"'\\\"\")
+    n = run_cmd(f'dconf read {p}name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis' in c.lower() or 'screenai' in c.lower() or 'metis' in n.lower():
+        run_cmd(f'dconf reset -f {p}')
+    else:
+        keep_slots_c.append(s)
+
+if len(keep_slots_c) != len(valid_slots_c):
+    final_list_c = '[' + ', '.join([f\"'{s}'\" for s in keep_slots_c]) + ']'
+    run_cmd(f'gsettings set org.cinnamon.desktop.keybindings custom-list \"{final_list_c}\" 2>/dev/null')
+    run_cmd(f'dconf write /org/cinnamon/desktop/keybindings/custom-list \"{final_list_c}\" 2>/dev/null')
+
+run_cmd('dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null')
+run_cmd('dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null')
+run_cmd('dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null')
+run_cmd('dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null')
+" 2>/dev/null || true
+
+# KDE
+if [ -f "$HOME/.config/kglobalshortcutsrc" ]; then
+    python3 -c "
+import configparser, os
+p = os.path.expanduser('~/.config/kglobalshortcutsrc')
+cfg = configparser.ConfigParser(interpolation=None)
+try:
+    cfg.read(p, encoding='utf-8')
+    modified = False
+    for sec in list(cfg.sections()):
+        if any(k in sec.lower() for k in ['metis', 'screenai']):
+            cfg.remove_section(sec)
+            modified = True
+    if modified:
+        with open(p, 'w', encoding='utf-8') as f:
+            cfg.write(f)
+except Exception:
+    pass
+" 2>/dev/null || true
 fi
 
-if [[ "$desktop" == *"xfce"* ]] && command -v xfconf-query &>/dev/null; then
+# XFCE
+if command -v xfconf-query &>/dev/null; then
     xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -r 2>/dev/null || true
     xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>z" -r 2>/dev/null || true
+    xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -r 2>/dev/null || true
     xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -r 2>/dev/null || true
 fi
 
-if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
-    sed -i '/Metis AI GUI Shortcut/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
-    sed -i '/bind.*metis gui/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
-    sed -i '/bind.*screenai/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
-    sed -i '/bind.*metis vision/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
-fi
-
-if [ -f "$HOME/.config/i3/config" ]; then
-    sed -i '/bindsym.*metis gui/d' "$HOME/.config/i3/config" 2>/dev/null || true
-    sed -i '/bindsym.*screenai/d' "$HOME/.config/i3/config" 2>/dev/null || true
-    sed -i '/bindsym.*metis vision/d' "$HOME/.config/i3/config" 2>/dev/null || true
-fi
+# Window Managers
+[ -f "$HOME/.config/hypr/hyprland.conf" ] && sed -i '/[Mm]etis/d; /screenai/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
+[ -f "$HOME/.config/sway/config" ] && sed -i '/[Mm]etis/d; /screenai/d' "$HOME/.config/sway/config" 2>/dev/null || true
+[ -f "$HOME/.config/i3/config" ] && sed -i '/[Mm]etis/d; /screenai/d' "$HOME/.config/i3/config" 2>/dev/null || true
+[ -f "$HOME/.xbindkeysrc" ] && sed -i '/# --- \[ Metis AI Suite \] ---/,/metis vision/d; /metis gui/d; /metis vision/d' "$HOME/.xbindkeysrc" 2>/dev/null || true
 
 # 2. Remover arquivos da aplicação e venv
 if [ -d "$INSTALL_DIR" ]; then

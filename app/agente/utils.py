@@ -99,7 +99,8 @@ _PADRAO_BUSCA = re.compile(r"\b(?:{})\b".format("|".join(_PALAVRAS_CHAVE_BUSCA))
 _PADRAO_SISTEMA_LOCAL = re.compile(
     r"(?i)\b(?:mem[oó]ria|ram|disco|armazenamento|cpu|processador|processo|processos|hyprland|waybar|"
     r"meu\s+pc|meu\s+computador|meu\s+sistema|meu\s+arquivo|minha\s+pasta|meus?\s+arquivos?|"
-    r"meu\s+desktop|meu\s+workspace|meu\s+monitor|meu\s+volume|meu\s+áudio|meu\s+audio)\b"
+    r"meu\s+desktop|meu\s+workspace|meu\s+monitor|meu\s+volume|meu\s+áudio|meu\s+audio|"
+    r"meu\s+ip|meu\s+dns|ip\s+p[uú]blico|servidores?\s+dns|portas?\s+abertas?|minha\s+rede|minha\s+conex[aã]o|meu\s+ping)\b"
 )
 
 def detectar_intencao_busca(texto: str) -> bool:

@@ -35,9 +35,11 @@ def _build_request(mensagens: list) -> tuple:
             continue
 
         if role_raw == "functionCall":
+            fc_data = dict(m["functionCall"])
+            fc_data.pop("id", None)
             contents.append({
                 "role": "model",
-                "parts": [{"functionCall": m["functionCall"]}]
+                "parts": [{"functionCall": fc_data}]
             })
             continue
             

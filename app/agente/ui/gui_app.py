@@ -1271,8 +1271,9 @@ class ModernHelpDialog(QDialog):
 
             c_layout.addWidget(card)
 
-        add_card("ATALHOS GLOBAIS & NAVEGAÇÃO", "⚡", [
-            ("Super + R", "Atalho global do sistema para invocar o Metis em janela flutuante no Hyprland."),
+        add_card("COMANDOS & NAVEGAÇÃO", "⚡", [
+            ("metis gui", "Comando para invocar a interface gráfica moderna do Metis."),
+            ("metis vision", "Comando para invocar o assistente visual de tela e OCR."),
             ("Setas ↑ / ↓ / ← / →", "Navega livremente pelos cartões do Dashboard, abas de provedores e modelos."),
             ("Enter ↵", "Executa a opção selecionada no menu ou envia a mensagem no chat."),
             ("Shift + Enter", "Insere uma quebra de linha no prompt sem enviar a mensagem."),

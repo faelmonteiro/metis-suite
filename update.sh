@@ -57,6 +57,10 @@ if [ -d "$INSTALL_DIR" ]; then
     [ -f "$INSTALL_DIR/app/.env" ] && cp "$INSTALL_DIR/app/.env" "$BACKUP_TMP/.env"
     [ -f "$INSTALL_DIR/app/config_models.json" ] && cp "$INSTALL_DIR/app/config_models.json" "$BACKUP_TMP/config_models.json"
 
+    for d in app zsh bash bin assets; do
+        [ -L "$INSTALL_DIR/$d" ] && rm -f "$INSTALL_DIR/$d"
+    done
+
     cp -r "$SOURCE_DIR/app" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/zsh" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/bash" "$INSTALL_DIR/"
@@ -170,36 +174,18 @@ if [ -d "$INSTALL_DIR" ]; then
         export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID/bus"
     fi
 
-    # Atualiza atalhos globais de teclado para todos os ambientes e distribuições Linux
-    local desktop="${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}"
-    if [ -z "$desktop" ]; then
-        if pgrep -x "cinnamon" &>/dev/null || pgrep -f "cinnamon-session" &>/dev/null || [ -d "/usr/share/cinnamon" ]; then
-            desktop="cinnamon"
-        elif pgrep -x "gnome-shell" &>/dev/null || [ -d "/usr/share/gnome-shell" ]; then
-            desktop="gnome"
-        elif pgrep -x "xfce4-session" &>/dev/null; then
-            desktop="xfce"
-        elif pgrep -x "mate-session" &>/dev/null; then
-            desktop="mate"
-        elif pgrep -x "plasmashell" &>/dev/null; then
-            desktop="kde"
-        fi
-    fi
-    desktop="$(echo "$desktop" | tr '[:upper:]' '[:lower:]')"
+    # 3. Limpeza de atalhos globais de sistema (foco 100% em atalhos de terminal)
+    clean_global_desktop_shortcuts() {
+        echo -e "  ${CYAN}🧹 Limpando atalhos globais de sistema (mantendo apenas atalhos de terminal)...${NC}"
 
-    # A. GNOME / Ubuntu / Pop!_OS / Fedora / Debian / Arch GNOME
-    if [[ "$desktop" == *"gnome"* || "$desktop" == *"ubuntu"* || "$desktop" == *"pop"* ]] || { command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.gnome.settings-daemon.plugins.media-keys"; }; then
-        INSTALL_DIR="$INSTALL_DIR" python3 -c "
-import os, sys, re, subprocess
+        # 1. GNOME / Ubuntu / Pop!_OS / Fedora / Debian / Arch GNOME
+        python3 -c "
+import os, re, subprocess
 
 def run_cmd(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
 
-install_dir = os.environ.get('INSTALL_DIR', os.path.expanduser('~/.local/share/metis'))
-cmd_gui = f'{install_dir}/bin/metis gui'
-cmd_vis = f'{install_dir}/bin/metis vision'
 base_schema = 'org.gnome.settings-daemon.plugins.media-keys'
-custom_schema = 'org.gnome.settings-daemon.plugins.media-keys.custom-keybinding'
 base_path = '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/'
 
 cur_raw = run_cmd(f'gsettings get {base_schema} custom-keybindings 2>/dev/null')
@@ -208,75 +194,32 @@ if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
 
 items = re.findall(r'/custom-keybindings/(custom\d+)/', cur_raw)
 valid_slots = list(dict.fromkeys(items))
-
-slot_gui = None
-slot_vis = None
+keep_slots = []
 
 for s in valid_slots:
     p = f'{base_path}{s}/'
     c = run_cmd(f'dconf read {p}command 2>/dev/null').strip(\"'\\\"\")
     n = run_cmd(f'dconf read {p}name 2>/dev/null').strip(\"'\\\"\")
-    if 'metis gui' in c or n == 'Metis AI':
-        slot_gui = s
-    elif 'metis vision' in c or 'screenai' in c or n == 'Metis Vision':
-        slot_vis = s
+    if 'metis' in c.lower() or 'screenai' in c.lower() or 'metis' in n.lower():
+        run_cmd(f'dconf reset -f {p}')
+    else:
+        keep_slots.append(s)
 
-def alloc_slot():
-    idx = 0
-    while f'custom{idx}' in valid_slots or f'custom{idx}' == slot_gui or f'custom{idx}' == slot_vis:
-        idx += 1
-    new_s = f'custom{idx}'
-    valid_slots.append(new_s)
-    return new_s
+if len(keep_slots) != len(valid_slots):
+    final_list = '[' + ', '.join([f\"'{base_path}{s}/'\" for s in keep_slots]) + ']'
+    run_cmd(f'gsettings set {base_schema} custom-keybindings \"{final_list}\" 2>/dev/null')
+    run_cmd(f'dconf write {base_path} \"{final_list}\" 2>/dev/null')
 
-if not slot_gui:
-    slot_gui = alloc_slot()
-if not slot_vis:
-    slot_vis = alloc_slot()
-
-if slot_gui not in valid_slots:
-    valid_slots.append(slot_gui)
-if slot_vis not in valid_slots:
-    valid_slots.append(slot_vis)
-
-path_gui = f'{base_path}{slot_gui}/'
-run_cmd(f\"gsettings set {custom_schema}:{path_gui} name 'Metis AI' 2>/dev/null\")
-run_cmd(f\"gsettings set {custom_schema}:{path_gui} command '{cmd_gui}' 2>/dev/null\")
-run_cmd(f\"gsettings set {custom_schema}:{path_gui} binding '<Super>r' 2>/dev/null\")
-run_cmd(f\"dconf write {path_gui}name \\\"'Metis AI'\\\" 2>/dev/null\")
-run_cmd(f\"dconf write {path_gui}command \\\"'{cmd_gui}'\\\" 2>/dev/null\")
-run_cmd(f\"dconf write {path_gui}binding \\\"'<Super>r'\\\" 2>/dev/null\")
-
-path_vis = f'{base_path}{slot_vis}/'
-run_cmd(f\"gsettings set {custom_schema}:{path_vis} name 'Metis Vision' 2>/dev/null\")
-run_cmd(f\"gsettings set {custom_schema}:{path_vis} command '{cmd_vis}' 2>/dev/null\")
-run_cmd(f\"gsettings set {custom_schema}:{path_vis} binding '<Primary><Alt>v' 2>/dev/null\")
-run_cmd(f\"dconf write {path_vis}name \\\"'Metis Vision'\\\" 2>/dev/null\")
-run_cmd(f\"dconf write {path_vis}command \\\"'{cmd_vis}'\\\" 2>/dev/null\")
-run_cmd(f\"dconf write {path_vis}binding \\\"'<Primary><Alt>v'\\\" 2>/dev/null\")
-
-final_list = '[' + ', '.join([f\"'{base_path}{s}/'\" for s in sorted(list(set(valid_slots)), key=lambda x: int(x.replace('custom', '')))]) + ']'
-run_cmd(f\"gsettings set {base_schema} custom-keybindings \\\"{final_list}\\\" 2>/dev/null\")
-run_cmd(f\"dconf write /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings \\\"{final_list}\\\" 2>/dev/null\")
+run_cmd('dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-metis/ 2>/dev/null')
+run_cmd('dconf reset -f /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-screenai/ 2>/dev/null')
 " 2>/dev/null || true
-    fi
 
-    # B. Cinnamon (Linux Mint, Arch Cinnamon, Fedora Cinnamon, Debian Cinnamon)
-    if [[ "$desktop" == *"cinnamon"* || "$desktop" == *"x-cinnamon"* ]] || { command -v cinnamon &>/dev/null && command -v dconf &>/dev/null; } || { command -v gsettings &>/dev/null && gsettings list-schemas 2>/dev/null | grep -q "org.cinnamon.desktop.keybindings"; }; then
-        dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null || true
-        dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null || true
-        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null || true
-        dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null || true
-
-        INSTALL_DIR="$INSTALL_DIR" python3 -c "
-import os, sys, re, subprocess
+        # 2. Cinnamon (Linux Mint)
+        python3 -c "
+import os, re, subprocess
 
 def run_c(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
-
-install_dir = os.environ.get('INSTALL_DIR', os.path.expanduser('~/.local/share/metis'))
-cmd_gui = f'{install_dir}/bin/metis gui'
-cmd_vis = f'{install_dir}/bin/metis vision'
 
 cur_raw = run_c('gsettings get org.cinnamon.desktop.keybindings custom-list 2>/dev/null')
 if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
@@ -284,190 +227,180 @@ if not cur_raw or '@as []' in cur_raw or 'no such schema' in cur_raw.lower():
 
 items = re.findall(r'[\'\"]([^\'\"]+)[\'\"]', cur_raw)
 valid_slots = [s for s in items if re.match(r'^custom\d+$', s)]
-
-slot_gui = None
-slot_vis = None
+keep_slots = []
 
 for s in valid_slots:
-    c = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/command 2>/dev/null').strip(\"'\\\"\")
-    n = run_c(f'dconf read /org/cinnamon/desktop/keybindings/custom-keybindings/{s}/name 2>/dev/null').strip(\"'\\\"\")
-    if 'metis gui' in c or n == 'Metis AI':
-        slot_gui = s
-    elif 'metis vision' in c or 'screenai' in c or n == 'Metis Vision':
-        slot_vis = s
+    p = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{s}/'
+    c = run_c(f'dconf read {p}command 2>/dev/null').strip(\"'\\\"\")
+    n = run_c(f'dconf read {p}name 2>/dev/null').strip(\"'\\\"\")
+    if 'metis' in c.lower() or 'screenai' in c.lower() or 'metis' in n.lower():
+        run_c(f'dconf reset -f {p}')
+    else:
+        keep_slots.append(s)
 
-def alloc_slot():
-    idx = 0
-    while f'custom{idx}' in valid_slots or f'custom{idx}' == slot_gui or f'custom{idx}' == slot_vis:
-        idx += 1
-    new_s = f'custom{idx}'
-    valid_slots.append(new_s)
-    return new_s
+if len(keep_slots) != len(valid_slots):
+    final_list = '[' + ', '.join([f\"'{s}'\" for s in keep_slots]) + ']'
+    run_c(f'gsettings set org.cinnamon.desktop.keybindings custom-list \"{final_list}\" 2>/dev/null')
+    run_c(f'dconf write /org/cinnamon/desktop/keybindings/custom-list \"{final_list}\" 2>/dev/null')
 
-if not slot_gui:
-    slot_gui = alloc_slot()
-if not slot_vis:
-    slot_vis = alloc_slot()
-
-if slot_gui not in valid_slots:
-    valid_slots.append(slot_gui)
-if slot_vis not in valid_slots:
-    valid_slots.append(slot_vis)
-
-path_gui = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_gui}/'
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} name 'Metis AI' 2>/dev/null\")
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} command '{cmd_gui}' 2>/dev/null\")
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_gui} binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_gui}name \\\"'Metis AI'\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_gui}command \\\"'{cmd_gui}'\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_gui}binding \\\"['<Super>r', '<Primary><Alt>m']\\\" 2>/dev/null\")
-
-path_vis = f'/org/cinnamon/desktop/keybindings/custom-keybindings/{slot_vis}/'
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} name 'Metis Vision' 2>/dev/null\")
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} command '{cmd_vis}' 2>/dev/null\")
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings.custom-keybinding:{path_vis} binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_vis}name \\\"'Metis Vision'\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_vis}command \\\"'{cmd_vis}'\\\" 2>/dev/null\")
-run_c(f\"dconf write {path_vis}binding \\\"['<Primary><Alt>v', '<Super>v']\\\" 2>/dev/null\")
-
-final_list = '[' + ', '.join([f\"'{s}'\" for s in sorted(list(set(valid_slots)), key=lambda x: int(x.replace('custom', '')))]) + ']'
-run_c(f\"gsettings set org.cinnamon.desktop.keybindings custom-list \\\"{final_list}\\\" 2>/dev/null\")
-run_c(f\"dconf write /org/cinnamon/desktop/keybindings/custom-list \\\"{final_list}\\\" 2>/dev/null\")
+run_c('dconf reset -f /org/cinnamon/desktop/keybindings/custom-metis/ 2>/dev/null')
+run_c('dconf reset -f /org/cinnamon/desktop/keybindings/custom-screenai/ 2>/dev/null')
+run_c('dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-metis/ 2>/dev/null')
+run_c('dconf reset -f /org/cinnamon/desktop/keybindings/custom-keybindings/custom-screenai/ 2>/dev/null')
 " 2>/dev/null || true
-    fi
 
-    # C. KDE Plasma 5 & 6 (Kubuntu, Fedora KDE, openSUSE, Arch KDE, Manjaro)
-    local kg_file="$HOME/.config/kglobalshortcutsrc"
-    if [[ "$desktop" == *"kde"* ]] || command -v kwriteconfig6 &>/dev/null || command -v kwriteconfig5 &>/dev/null || [ -f "$kg_file" ]; then
-        mkdir -p "$HOME/.config"
-        touch "$kg_file"
-        local kw=""
-        command -v kwriteconfig6 &>/dev/null && kw="kwriteconfig6"
-        [ -z "$kw" ] && command -v kwriteconfig5 &>/dev/null && kw="kwriteconfig5"
-
-        if [ -n "$kw" ]; then
-            $kw --file kglobalshortcutsrc --group "metis.desktop" --key "_launch" "Meta+R,Meta+R,Metis AI" 2>/dev/null || true
-            $kw --file kglobalshortcutsrc --group "metis-vision.desktop" --key "_launch" "Ctrl+Alt+V,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
-            $kw --file kglobalshortcutsrc --group "Metis AI" --key "gui" "$INSTALL_DIR/bin/metis gui,none,Metis AI" 2>/dev/null || true
-            $kw --file kglobalshortcutsrc --group "Metis Vision" --key "vision" "$INSTALL_DIR/bin/metis vision,Ctrl+Alt+V,Metis Vision" 2>/dev/null || true
-        fi
-
-        python3 -c "
+        # 3. KDE Plasma
+        local kg_file="$HOME/.config/kglobalshortcutsrc"
+        if [ -f "$kg_file" ]; then
+            python3 -c "
 import configparser, os
 p = os.path.expanduser('~/.config/kglobalshortcutsrc')
 cfg = configparser.ConfigParser(interpolation=None)
-if os.path.exists(p):
-    try:
-        cfg.read(p, encoding='utf-8')
-    except Exception:
-        pass
-if not cfg.has_section('metis.desktop'):
-    cfg.add_section('metis.desktop')
-cfg.set('metis.desktop', '_launch', 'Meta+R,Meta+R,Metis AI')
-
-if not cfg.has_section('metis-vision.desktop'):
-    cfg.add_section('metis-vision.desktop')
-cfg.set('metis-vision.desktop', '_launch', 'Ctrl+Alt+V,Ctrl+Alt+V,Metis Vision')
-
 try:
-    with open(p, 'w', encoding='utf-8') as f:
-        cfg.write(f)
+    cfg.read(p, encoding='utf-8')
+    modified = False
+    for sec in list(cfg.sections()):
+        if any(k in sec.lower() for k in ['metis', 'screenai']):
+            cfg.remove_section(sec)
+            modified = True
+    if modified:
+        with open(p, 'w', encoding='utf-8') as f:
+            cfg.write(f)
 except Exception:
     pass
 " 2>/dev/null || true
+            qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig 2>/dev/null || true
+            qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
+        fi
 
-        qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.reloadConfig 2>/dev/null || true
-        qdbus org.kde.KWin /KWin reconfigure 2>/dev/null || true
-    fi
+        # 4. XFCE
+        if command -v xfconf-query &>/dev/null; then
+            xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -r 2>/dev/null || true
+            xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>z" -r 2>/dev/null || true
+            xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -r 2>/dev/null || true
+            xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -r 2>/dev/null || true
+        fi
 
-    # D. XFCE (Xubuntu, Manjaro XFCE, Debian XFCE, Mint XFCE, Fedora XFCE, Arch)
-    if [[ "$desktop" == *"xfce"* ]] || command -v xfconf-query &>/dev/null; then
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || \
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>r" -n -t string -s "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
-        
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Primary><Alt>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
-
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || \
-        xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Super>v" -n -t string -s "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
-    fi
-
-    # E. MATE Desktop (Ubuntu MATE, Mint MATE, Debian MATE, Fedora MATE, Arch)
-    if [[ "$desktop" == *"mate"* ]] || command -v mate-session &>/dev/null; then
+        # 5. MATE Desktop
         if command -v gsettings &>/dev/null; then
-            gsettings set org.mate.Marco.global-keybindings run-command-1 '<Mod4>r' 2>/dev/null || true
-            gsettings set org.mate.Marco.keybinding-commands command-1 "$INSTALL_DIR/bin/metis gui" 2>/dev/null || true
-            gsettings set org.mate.Marco.global-keybindings run-command-2 '<Control><Alt>v' 2>/dev/null || true
-            gsettings set org.mate.Marco.keybinding-commands command-2 "$INSTALL_DIR/bin/metis vision" 2>/dev/null || true
+            for i in 1 2 3 4 5; do
+                local cmd
+                cmd="$(gsettings get org.mate.Marco.keybinding-commands command-$i 2>/dev/null || true)"
+                if [[ "$cmd" == *"metis"* || "$cmd" == *"screenai"* ]]; then
+                    gsettings reset org.mate.Marco.keybinding-commands command-$i 2>/dev/null || true
+                    gsettings reset org.mate.Marco.global-keybindings run-command-$i 2>/dev/null || true
+                fi
+            done
         fi
         if command -v dconf &>/dev/null; then
-            dconf write /org/mate/desktop/keybindings/custom-metis/name "'Metis AI'" 2>/dev/null || true
-            dconf write /org/mate/desktop/keybindings/custom-metis/action "'$INSTALL_DIR/bin/metis gui'" 2>/dev/null || true
-            dconf write /org/mate/desktop/keybindings/custom-metis/binding "'<Mod4>r'" 2>/dev/null || true
-
-            dconf write /org/mate/desktop/keybindings/custom-screenai/name "'Metis Vision'" 2>/dev/null || true
-            dconf write /org/mate/desktop/keybindings/custom-screenai/action "'$INSTALL_DIR/bin/metis vision'" 2>/dev/null || true
-            dconf write /org/mate/desktop/keybindings/custom-screenai/binding "'<Control><Alt>v'" 2>/dev/null || true
+            dconf reset -f /org/mate/desktop/keybindings/custom-metis/ 2>/dev/null || true
+            dconf reset -f /org/mate/desktop/keybindings/custom-screenai/ 2>/dev/null || true
         fi
-    fi
 
-    # F. Window Managers (Hyprland / Sway / i3)
-    if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
-        if ! grep -Fq "metis vision" "$HOME/.config/hypr/hyprland.conf"; then
-            echo "" >> "$HOME/.config/hypr/hyprland.conf"
-            echo "bind = \$mainMod, r, exec, [float; size 860 550; center; pin] $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/hypr/hyprland.conf"
-            echo "bind = CTRL ALT, v, exec, [float; size 620 390; center; pin] $INSTALL_DIR/bin/metis vision --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
-            echo "bind = \$mainMod, v, exec, [float; size 620 390; center; pin] $INSTALL_DIR/bin/metis vision --mode active_window" >> "$HOME/.config/hypr/hyprland.conf"
+        # 6. Window Managers (Hyprland / Sway / i3)
+        if [ -f "$HOME/.config/hypr/hyprland.conf" ]; then
+            sed -i '/[Mm]etis/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
+            sed -i '/screenai/d' "$HOME/.config/hypr/hyprland.conf" 2>/dev/null || true
         fi
-    fi
 
-    if [ -f "$HOME/.config/sway/config" ]; then
-        if ! grep -Fq "metis vision" "$HOME/.config/sway/config"; then
-            echo "" >> "$HOME/.config/sway/config"
-            echo "bindsym \$mod+r exec $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/sway/config"
-            echo "bindsym Control+Mod1+v exec $INSTALL_DIR/bin/metis vision" >> "$HOME/.config/sway/config"
+        if [ -f "$HOME/.config/sway/config" ]; then
+            sed -i '/metis gui/d' "$HOME/.config/sway/config" 2>/dev/null || true
+            sed -i '/metis vision/d' "$HOME/.config/sway/config" 2>/dev/null || true
+            sed -i '/screenai/d' "$HOME/.config/sway/config" 2>/dev/null || true
         fi
-    fi
 
-    if [ -f "$HOME/.config/i3/config" ]; then
-        if ! grep -Fq "metis vision" "$HOME/.config/i3/config"; then
-            echo "" >> "$HOME/.config/i3/config"
-            echo "bindsym \$mod+r exec $INSTALL_DIR/bin/metis gui" >> "$HOME/.config/i3/config"
-            echo "bindsym Control+Mod1+v exec $INSTALL_DIR/bin/metis vision" >> "$HOME/.config/i3/config"
+        if [ -f "$HOME/.config/i3/config" ]; then
+            sed -i '/metis gui/d' "$HOME/.config/i3/config" 2>/dev/null || true
+            sed -i '/metis vision/d' "$HOME/.config/i3/config" 2>/dev/null || true
+            sed -i '/screenai/d' "$HOME/.config/i3/config" 2>/dev/null || true
         fi
-    fi
 
-    # G. Universal Fallback via xbindkeys (Openbox, bspwm, AwesomeWM, dwm, etc.)
-    if [ -f "$HOME/.xbindkeysrc" ] || command -v xbindkeys &>/dev/null; then
-        local xbind_conf="$HOME/.xbindkeysrc"
-        touch "$xbind_conf"
-        if ! grep -Fq "metis vision" "$xbind_conf"; then
-            cat << XBIND_EOF >> "$xbind_conf"
-
-# --- [ Metis AI Suite ] ---
-"$INSTALL_DIR/bin/metis gui"
-  Mod4 + r
-
-"$INSTALL_DIR/bin/metis vision"
-  Control + Mod1 + v
-XBIND_EOF
+        # 7. xbindkeys
+        if [ -f "$HOME/.xbindkeysrc" ]; then
+            sed -i '/# --- \[ Metis AI Suite \] ---/,/metis vision/d' "$HOME/.xbindkeysrc" 2>/dev/null || true
+            sed -i '/metis gui/d' "$HOME/.xbindkeysrc" 2>/dev/null || true
+            sed -i '/metis vision/d' "$HOME/.xbindkeysrc" 2>/dev/null || true
             command -v pkill &>/dev/null && pkill -HUP xbindkeys 2>/dev/null || true
         fi
-    fi
+    }
 
-    # Garante que kitty.conf use ZSH se kitty existir
-    local kitty_conf="$HOME/.config/kitty/kitty.conf"
-    if [ -f "$kitty_conf" ]; then
-        local zsh_path
-        zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
-        if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
-            echo "" >> "$kitty_conf"
-            echo "# Shell padrão do Kitty com Metis (apenas no Kitty; terminais comuns usam Bash)" >> "$kitty_conf"
-            echo "shell $zsh_path" >> "$kitty_conf"
-        else
-            sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
+    clean_global_desktop_shortcuts
+
+    # 4. Atualização da integração com os terminais (Bash & Kitty ZSH)
+    update_terminal_integration() {
+        local kitty_conf="$HOME/.config/kitty/kitty.conf"
+        if [ -f "$kitty_conf" ] || command -v kitty &>/dev/null; then
+            mkdir -p "$HOME/.config/kitty"
+            touch "$kitty_conf"
+            local zsh_path
+            zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
+            if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
+                echo "" >> "$kitty_conf"
+                echo "# Shell padrão do Kitty com Metis (apenas no Kitty; terminais comuns usam Bash)" >> "$kitty_conf"
+                echo "shell $zsh_path" >> "$kitty_conf"
+            else
+                sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
+            fi
+
+            if ! grep -Eq "^[[:space:]]*copy_on_select[[:space:]]" "$kitty_conf"; then
+                echo "" >> "$kitty_conf"
+                echo "# Copia automaticamente o texto selecionado com o mouse para a área de transferência" >> "$kitty_conf"
+                echo "copy_on_select yes" >> "$kitty_conf"
+            fi
+
+            sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
+            sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
+
+            if ! grep -Fq "screen_launcher.zsh" "$kitty_conf" && ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
+                echo "" >> "$kitty_conf"
+                echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
+                echo "allow_remote_control yes" >> "$kitty_conf"
+                echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+                echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
+            else
+                sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+                sed -i "s|.*\.ZSH/ai.*screen_launcher\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
+                if ! grep -Eq "^[[:space:]]*listen_on[[:space:]]" "$kitty_conf"; then
+                    echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+                fi
+            fi
+
+            # Garante loader no ~/.zshrc para o Kitty se zshrc existir
+            if [ -f "$HOME/.zshrc" ] && ! grep -Fq "metis/zsh/loader.zsh" "$HOME/.zshrc"; then
+                echo "" >> "$HOME/.zshrc"
+                echo "# >>> METIS SUITE >>>" >> "$HOME/.zshrc"
+                echo "[[ -f \"$INSTALL_DIR/zsh/loader.zsh\" ]] && source \"$INSTALL_DIR/zsh/loader.zsh\"" >> "$HOME/.zshrc"
+                echo "# <<< METIS SUITE <<<" >> "$HOME/.zshrc"
+            fi
         fi
-    fi
+
+        # Garante integração no ~/.bashrc
+        local bashrc="$HOME/.bashrc"
+        if [ -f "$bashrc" ]; then
+            sed -i '/# >>> METIS ZSH AUTO-LAUNCH >>>/,/# <<< METIS ZSH AUTO-LAUNCH <<</d' "$bashrc" 2>/dev/null || true
+            sed -i '/^[[:space:]]*exec[[:space:]]\+zsh/d' "$bashrc" 2>/dev/null || true
+            sed -i '/^[[:space:]]*\[\[.*exec zsh.*\]\]/d' "$bashrc" 2>/dev/null || true
+            if ! grep -Fq "metis/bash/loader.bash" "$bashrc"; then
+                echo "" >> "$bashrc"
+                echo "# >>> METIS SUITE >>>" >> "$bashrc"
+                echo "[[ -f \"$INSTALL_DIR/bash/loader.bash\" ]] && source \"$INSTALL_DIR/bash/loader.bash\"" >> "$bashrc"
+                echo "# <<< METIS SUITE <<<" >> "$bashrc"
+            fi
+        fi
+
+        # Restaura shell de login se estiver como ZSH
+        local cur_login
+        cur_login="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || echo "$SHELL")"
+        if [[ "$cur_login" == *"zsh"* ]]; then
+            local bash_sys
+            bash_sys="$(which bash 2>/dev/null || command -v bash || echo "/bin/bash")"
+            if [ -x "$bash_sys" ]; then
+                sudo -n chsh -s "$bash_sys" "$USER" 2>/dev/null || timeout 3 chsh -s "$bash_sys" "$USER" 2>/dev/null || true
+            fi
+        fi
+    }
+
+    update_terminal_integration
 else
     echo -e "${RED}❌ Instalação do Metis não encontrada em $INSTALL_DIR.${NC}"
     echo "Por favor, instale o Metis executando: bash install.sh"
@@ -480,4 +413,9 @@ if [ "$CLEANUP_TEMP" -eq 1 ] && [ -n "$SOURCE_DIR" ]; then
 fi
 
 echo -e "\n${GREEN}${BOLD}✅ Metis AI Suite atualizado com sucesso!${NC}"
-echo -e "ℹ️  Suas configurações em ~/.config/metis/ foram mantidas intactas.\n"
+echo -e "  ${CYAN}[Alt + E]${NC} Explain Screen no terminal comum"
+if [ -f "$HOME/.config/kitty/kitty.conf" ] || command -v kitty &>/dev/null; then
+echo -e "  ${CYAN}[Ctrl + Shift + E]${NC} Explain Screen no Kitty"
+fi
+echo -e "  ${CYAN}[Ctrl + G]${NC} Menu FZF • ${CYAN}[Alt + H]${NC} Histórico • ${CYAN}[metis gui]${NC} GUI • ${CYAN}[metis vision]${NC} Visão"
+echo -e "\nℹ️  Suas configurações em ~/.config/metis/ foram mantidas intactas.\n"

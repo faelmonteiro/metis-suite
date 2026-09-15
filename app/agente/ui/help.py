@@ -20,8 +20,9 @@ def exibir_ajuda():
     )
     print(f"{GRAY}--------------------------------------------------{RESET}")
 
-    print(f"\n{BOLD}{MAGENTA}📌 ATALHOS GLOBAIS & GUI{RESET}")
-    print(f" 🪟 {BOLD}Super + R{RESET}       : Inicia a interface gráfica moderna do Metis (GUI flutuante)")
+    print(f"\n{BOLD}{MAGENTA}📌 COMANDOS & NAVEGAÇÃO{RESET}")
+    print(f" 🖥️  {BOLD}metis gui{RESET}       : Inicia a interface gráfica moderna do Metis (GUI flutuante)")
+    print(f" 👁️  {BOLD}metis vision{RESET}    : Inicia o assistente visual de tela e OCR")
     print(f" ⌨️  {BOLD}↑ / ↓ / ← / →{RESET}   : Navegação fluida entre opções, menus e modelos")
     print(f" ↵  {BOLD}Enter{RESET}           : Executa a opção ou envia a mensagem")
     print(f" ↵  {BOLD}Shift + Enter{RESET}   : Insere quebra de linha no prompt sem enviar")
