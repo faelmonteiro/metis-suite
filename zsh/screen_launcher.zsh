@@ -56,9 +56,9 @@ if [[ -n "$k_sock" && -z "$k_win" ]] && command -v kitty >/dev/null 2>&1; then
   fi
 fi
 
-[[ -n "$k_pid" ]] && echo "$k_pid" > /tmp/orig_kitty_pid
-[[ -n "$k_sock" ]] && echo "$k_sock" > /tmp/orig_kitty_listen
-[[ -n "$k_win" ]] && echo "$k_win" > /tmp/orig_kitty_id
+[[ -n "$k_pid" ]] && echo "$k_pid" > /tmp/orig_kitty_pid && echo "$k_pid" > "/tmp/orig_kitty_pid.$UID" 2>/dev/null
+[[ -n "$k_sock" ]] && echo "$k_sock" > /tmp/orig_kitty_listen && echo "$k_sock" > "/tmp/orig_kitty_listen.$UID" 2>/dev/null
+[[ -n "$k_win" ]] && echo "$k_win" > /tmp/orig_kitty_id && echo "$k_win" > "/tmp/orig_kitty_id.$UID" 2>/dev/null
 
 # 3. Captura instantaneamente a seleção ativa no momento do disparo do atalho
 local sel=""

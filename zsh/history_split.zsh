@@ -266,6 +266,13 @@ _metis_track_preexec() {
   _METIS_LAST_CMD="$1"
   local win="${KITTY_WINDOW_ID:-$$}"
   print -r -- "$1" > "/tmp/metis_cmd_${win}" 2>/dev/null
+  # Grava ambiente Kitty para Metis Screen
+  [[ -n "$KITTY_LISTEN_ON" ]] && print -r -- "$KITTY_LISTEN_ON" > "/tmp/orig_kitty_listen.${UID}" 2>/dev/null
+  [[ -n "$KITTY_LISTEN_ON" ]] && print -r -- "$KITTY_LISTEN_ON" > "/tmp/orig_kitty_listen" 2>/dev/null
+  [[ -n "$KITTY_WINDOW_ID" ]] && print -r -- "$KITTY_WINDOW_ID" > "/tmp/orig_kitty_id.${UID}" 2>/dev/null
+  [[ -n "$KITTY_WINDOW_ID" ]] && print -r -- "$KITTY_WINDOW_ID" > "/tmp/orig_kitty_id" 2>/dev/null
+  [[ -n "$KITTY_PID" ]] && print -r -- "$KITTY_PID" > "/tmp/orig_kitty_pid.${UID}" 2>/dev/null
+  [[ -n "$KITTY_PID" ]] && print -r -- "$KITTY_PID" > "/tmp/orig_kitty_pid" 2>/dev/null
 }
 
 _metis_track_precmd() {
