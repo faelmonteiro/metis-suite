@@ -63,8 +63,8 @@ def obter_servico_padrao() -> BaseService:
                 groq_m = dados.get("active_model")
             elif model_pref and any(k in model_pref.lower() for k in ["qwen", "llama", "mixtral", "compound", "oss"]):
                 groq_m = model_pref
-            if not groq_m or "gemini" in groq_m.lower() or "8b-instant" in groq_m.lower():
-                groq_m = "qwen/qwen3.8-27b"
+            if not groq_m or "gemini" in groq_m.lower():
+                groq_m = "llama-3.3-70b-versatile"
             return GroqService(model=groq_m)
         elif p == "nvidia" and getattr(config, "NVIDIA_API_KEY", ""):
             nvd_m = model_pref if any(k in model_pref.lower() for k in ["meta/", "nvidia/"]) else getattr(config, "NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct")
@@ -92,7 +92,7 @@ def obter_servico_padrao() -> BaseService:
 
     # Fallbacks se nenhum candidato pôde ser instanciado
     if getattr(config, "GROQ_API_KEY", ""):
-        return GroqService(model="qwen/qwen3.8-27b")
+        return GroqService(model="llama-3.3-70b-versatile")
     if getattr(config, "GEMINI_API_KEY", ""):
         return GeminiService(model=getattr(config, "GEMINI_MODEL", "gemini-2.0-flash"))
     if getattr(config, "NVIDIA_API_KEY", ""):

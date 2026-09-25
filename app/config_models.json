@@ -1,7 +1,6 @@
 {
   "builtin_models": {
     "Groq": [
-      "openai/gpt-oss-120b",
       "llama-3.3-70b-versatile",
       "llama-3.1-8b-instant"
     ],
@@ -41,7 +40,11 @@
       "mixtral-8x7b-32768",
       "deepseek-r1-distill-llama-70b"
     ],
-    "Gemini": [],
+    "Gemini": [
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-lite-preview-02-05"
+    ],
     "NVIDIA": [
       "meta/llama-3.3-70b-instruct",
       "nvidia/llama-3.1-nemotron-70b-instruct"
@@ -80,7 +83,7 @@
   "preferences": {
     "web_search_enabled": false,
     "last_active_provider": "groq",
-    "last_active_model": "openai/gpt-oss-120b",
+    "last_active_model": "llama-3.3-70b-versatile",
     "window_size": [
       860,
       550
@@ -96,5 +99,5 @@
     "is_sidebar_collapsed": true
   },
   "active_provider": "groq",
-  "active_model": "openai/gpt-oss-120b"
+  "active_model": "llama-3.3-70b-versatile"
 }

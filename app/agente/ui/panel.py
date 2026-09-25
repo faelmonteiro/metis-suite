@@ -149,7 +149,7 @@ def exibir_painel(history_manager=None):
     def_prov = getattr(config, "DEFAULT_PROVIDER", "ollama").strip().lower()
     if def_prov == "gemini" and config.GEMINI_API_KEY:
         provedor = "Gemini (Google)"
-        modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
+        modelo = getattr(config, "GEMINI_MODEL", "gemini-2.0-flash")
     elif def_prov == "groq" and config.GROQ_API_KEY:
         provedor = "Groq Cloud"
         modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
@@ -166,7 +166,7 @@ def exibir_painel(history_manager=None):
         # Fallback inteligente se DEFAULT_PROVIDER for genérico
         if config.GEMINI_API_KEY:
             provedor = "Gemini (Google)"
-            modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
+            modelo = getattr(config, "GEMINI_MODEL", "gemini-2.0-flash")
         elif config.GROQ_API_KEY:
             provedor = "Groq Cloud"
             modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")

@@ -27,9 +27,9 @@ DEFAULT_MODELS_DATA = {
         ],
         "Gemini": [
             "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
-            "gemini-2.0-flash-lite-preview-02-05"
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro"
         ],
         "OpenRouter": [
             "liquid/lfm-2.5-2.6b:free",
@@ -45,7 +45,8 @@ DEFAULT_MODELS_DATA = {
             "qwen2.5-coder:7b"
         ],
         "Groq": [
-            "openai/gpt-oss-120b"
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant"
         ],
         "G4F": [
             "gpt-4o-mini",

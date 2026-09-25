@@ -237,8 +237,8 @@ else
 fi
 
 # Corrige automaticamente modelos legados inválidos caso existam de instalações prévias
-if [ -f "$CONFIG_DIR/config_models.json" ] && grep -Fq "openai/gpt-oss-120b" "$CONFIG_DIR/config_models.json"; then
-    sed -i 's|openai/gpt-oss-120b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
+if [ -f "$CONFIG_DIR/config_models.json" ]; then
+    sed -i 's|qwen/qwen3.8-27b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
 fi
 
 # Garante que ENABLE_COMMAND_TOOL esteja habilitado por padrão no .env
