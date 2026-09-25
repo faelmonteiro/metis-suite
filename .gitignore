@@ -1,18 +1,1 @@
-# Python bytecode
-__pycache__/
-*.pyc
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Editor/IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs and temporary files
-*.log
-*.tmp
+(empty)

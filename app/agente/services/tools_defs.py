@@ -1,11 +1,14 @@
 import os
 import re
 import json
+import logging
 import subprocess
 from pathlib import Path
 from agente import config
 from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET, GRAY
 from agente.utils import caminho_leitura_seguro
+
+logger = logging.getLogger(__name__)
 
 try:
     from agente.providers_manager import obter_preferencia
