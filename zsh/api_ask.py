@@ -665,7 +665,12 @@ def main():
                     print(f"⚠️ Servidor Indisponível ({e.response.status_code}) na API {provider}. O provedor pode estar instável ou sobrecarregado no momento.", file=sys.stderr)
                 else:
                     print(f"⚠️ Erro HTTP na API {provider} ({e.response.status_code}): {e.response.text}", file=sys.stderr)
+            else:
+                print(f"⚠️ Erro inesperado ao comunicar com a API {provider}: {last_error}", file=sys.stderr)
             sys.exit(1)
+
+        print(f"⚠️ Falha ao obter resposta de {provider} após tentativas.", file=sys.stderr)
+        sys.exit(1)
 
     except KeyboardInterrupt:
         sys.exit(130)

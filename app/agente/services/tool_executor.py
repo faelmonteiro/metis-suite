@@ -27,13 +27,22 @@ def executar_tool(name: str, args: dict) -> str:
     try:
         resultado = func(**args)
         return str(resultado)
-    except TypeError:
+    except TypeError as te:
+        import inspect
         try:
-            resultado = func()
-            return str(resultado)
-        except Exception as e:
-            logger.error(f"Exceção durante execução da ferramenta {name}: {e}")
-            return f"Erro na execução de {name}: {e}"
+            sig = inspect.signature(func)
+            sig.bind(**args)
+            assinatura_ok = True
+        except TypeError:
+            assinatura_ok = False
+
+        if not assinatura_ok:
+            logger.warning(f"Args inválidos para ferramenta {name}: {te}")
+            return (f"Erro: argumentos inválidos para a ferramenta '{name}'. "
+                    f"Assinatura esperada: {sig}. Recebido: {args}")
+
+        logger.error(f"Exceção durante execução da ferramenta {name}: {te}")
+        return f"Erro na execução de {name}: {te}"
     except Exception as e:
         logger.error(f"Exceção durante execução da ferramenta {name}: {e}")
         return f"Erro na execução de {name}: {e}"

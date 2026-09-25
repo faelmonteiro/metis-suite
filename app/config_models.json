@@ -2,13 +2,14 @@
   "builtin_models": {
     "Groq": [
       "openai/gpt-oss-120b",
-      "qwen/qwen3.8-27b"
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant"
     ],
     "Gemini": [
       "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-2.0-flash-lite-preview-02-05"
+      "gemini-2.0-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro"
     ],
     "NVIDIA": [
       "meta/llama-3.2-11b-vision-instruct",
@@ -37,7 +38,6 @@
   },
   "removed_models": {
     "Groq": [
-      "llama-3.1-8b-instant",
       "mixtral-8x7b-32768",
       "deepseek-r1-distill-llama-70b"
     ],
@@ -96,5 +96,5 @@
     "is_sidebar_collapsed": true
   },
   "active_provider": "groq",
-  "active_model": "qwen/qwen3.8-27b"
+  "active_model": "openai/gpt-oss-120b"
 }

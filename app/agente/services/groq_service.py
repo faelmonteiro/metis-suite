@@ -147,7 +147,7 @@ def _handle_error(res, model: str = None):
 
 
 
-from agente.services.base import BaseService, parse_openai_sse_stream, process_tool_calls_map
+from agente.services.base import parse_openai_sse_stream, process_tool_calls_map
 
 def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
     """Gera resposta via streaming SSE da Groq API (formato OpenAI)."""
@@ -156,8 +156,11 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     from agente.services.http_client import get_http_client
     retries = 5
+    tool_calls_map = {}
+    yielded_any = False
+    last_429_wait = None
+
     for attempt in range(retries):
-        tool_calls_map = {}
         try:
             client = get_http_client()
             with client.stream("POST", API_URL, headers=headers, json=payload) as res:
@@ -171,17 +174,26 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                             espera = max(float(m.group(1)) + 1.0, 3.0)
                     except Exception:
                         pass
+                    last_429_wait = espera
                     time.sleep(espera)
                     continue
                 _handle_error(res, model=model_name)
 
-                yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                for chunk in parse_openai_sse_stream(res.iter_lines(), tool_calls_map):
+                    yielded_any = True
+                    yield chunk
             break
         except httpx.RequestError as e:
             if attempt == retries - 1:
                 raise RuntimeError(f"Erro de conexão com Groq API: {e}")
             import time
             time.sleep(1.5)
+
+    if not yielded_any and not tool_calls_map and last_429_wait is not None:
+        raise RuntimeError(
+            f"Groq: limite de requisições (429) persistente após {retries} tentativas "
+            f"(última espera: {last_429_wait:.1f}s). Tente novamente em instantes."
+        )
 
     if tool_calls_map:
         if iteration >= max_iterations:
