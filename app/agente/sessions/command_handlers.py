@@ -136,7 +136,7 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
 
     # 3. Busca inteligente se o usuário digitou diretamente o nome do modelo
     from agente.services import ollama_service
-    if arg in ollama_service.listar_modelos():
+    if arg in (ollama_service.listar_modelos() or []):
         from agente.services.ollama_service import OllamaService
         config.OLLAMA_MODEL = arg
         salvar_variavel_env("OLLAMA_MODEL", arg)

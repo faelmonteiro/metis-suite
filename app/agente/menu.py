@@ -170,14 +170,14 @@ def iniciar_menu():
 
             if sub_api == opt_keys:
                 print(f"\n{BOLD}Qual chave de API você quer alterar?{RESET}")
-                print(f"  1. Gemini (GEMINI_API_KEY) [{config.GEMINI_API_KEY[:6]}...]" if config.GEMINI_API_KEY else "  1. Gemini (GEMINI_API_KEY) [Não configurada]")
-                print(f"  2. Groq (GROQ_API_KEY) [{config.GROQ_API_KEY[:6]}...]" if config.GROQ_API_KEY else "  2. Groq (GROQ_API_KEY) [Não configurada]")
-                print(f"  3. NVIDIA (NVIDIA_API_KEY) [{config.NVIDIA_API_KEY[:6]}...]" if config.NVIDIA_API_KEY else "  3. NVIDIA (NVIDIA_API_KEY) [Não configurada]")
+                print("  1. Gemini (GEMINI_API_KEY) [✔ configurada]" if config.GEMINI_API_KEY else "  1. Gemini (GEMINI_API_KEY) [Não configurada]")
+                print("  2. Groq (GROQ_API_KEY) [✔ configurada]" if config.GROQ_API_KEY else "  2. Groq (GROQ_API_KEY) [Não configurada]")
+                print("  3. NVIDIA (NVIDIA_API_KEY) [✔ configurada]" if config.NVIDIA_API_KEY else "  3. NVIDIA (NVIDIA_API_KEY) [Não configurada]")
                 if servidores_custom:
                     for i, s in enumerate(servidores_custom, 4):
                         k_env = s.get("api_key_env", f"{s.get('id', 'custom').upper()}_API_KEY")
                         k_val = os.getenv(k_env, "") or s.get("api_key", "")
-                        preview = f"[{k_val[:6]}...]" if k_val else "[Não configurada]"
+                        preview = "[✔ configurada]" if k_val else "[Não configurada]"
                         print(f"  {i}. {s.get('nome')} ({k_env}) {preview}")
 
                 chave_esc = safe_input(f"\n{BOLD}Escolha a opção: {RESET}", multiline=False).strip()

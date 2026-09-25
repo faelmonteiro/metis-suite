@@ -24,25 +24,23 @@ def executar_tool(name: str, args: dict) -> str:
         return f"Erro: Ferramenta '{name}' não encontrada no catálogo de ferramentas disponíveis."
 
     func = AVAILABLE_TOOLS_CALLABLE[name]
+
+    # Valida a assinatura ANTES de executar: se os argumentos nao correspondem
+    # aos parametros esperados, devolvemos erro explicito em vez de executar a
+    # funcao com args invalidos (o que podia produzir "resultado-lixo" que a LLM
+    # interpretava como sucesso).
+    import inspect
+    try:
+        sig = inspect.signature(func)
+        sig.bind(**args)
+    except (TypeError, ValueError) as se:
+        logger.warning(f"Args invalidos para ferramenta {name}: {se}")
+        return (f"Erro: argumentos invalidos para a ferramenta '{name}'. "
+                f"Assinatura esperada: {sig}. Recebido: {args}")
+
     try:
         resultado = func(**args)
         return str(resultado)
-    except TypeError as te:
-        import inspect
-        try:
-            sig = inspect.signature(func)
-            sig.bind(**args)
-            assinatura_ok = True
-        except TypeError:
-            assinatura_ok = False
-
-        if not assinatura_ok:
-            logger.warning(f"Args inválidos para ferramenta {name}: {te}")
-            return (f"Erro: argumentos inválidos para a ferramenta '{name}'. "
-                    f"Assinatura esperada: {sig}. Recebido: {args}")
-
-        logger.error(f"Exceção durante execução da ferramenta {name}: {te}")
-        return f"Erro na execução de {name}: {te}"
     except Exception as e:
         logger.error(f"Exceção durante execução da ferramenta {name}: {e}")
         return f"Erro na execução de {name}: {e}"

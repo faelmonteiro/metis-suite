@@ -177,24 +177,43 @@ class CustomOpenAIService(BaseService):
 
         from agente.services.http_client import get_http_client
         retries = 3
+        tool_calls_map = {}
+        yielded_any = False
+        last_429_wait = None
         for attempt in range(retries):
-            tool_calls_map = {}
             try:
                 client = get_http_client()
                 with client.stream("POST", self.base_url, headers=headers, json=payload) as res:
                     if res.status_code == 429 and attempt < retries - 1:
                         import time
-                        time.sleep(3.0)
+                        espera = 3.0
+                        try:
+                            corpo = res.read().decode("utf-8")
+                            m = re.search(r"try again in ([\d\.]+)s", corpo)
+                            if m:
+                                espera = max(float(m.group(1)) + 1.0, 3.0)
+                        except Exception:
+                            logger.debug("Falha ao ler corpo do 429 da Custom API", exc_info=True)
+                        last_429_wait = espera
+                        time.sleep(espera)
                         continue
                     self._handle_error(res)
 
-                    yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                    for chunk in parse_openai_sse_stream(res.iter_lines(), tool_calls_map):
+                        yielded_any = True
+                        yield chunk
                 break
             except httpx.RequestError as e:
                 if attempt == retries - 1:
                     raise RuntimeError(f"Erro de conexão com {self.nome} ({self.base_url}): {e}")
                 import time
                 time.sleep(1.5)
+
+        if not yielded_any and not tool_calls_map and last_429_wait is not None:
+            raise RuntimeError(
+                f"{self.nome}: limite de requisições (429) persistente após {retries} tentativas "
+                f"(última espera: {last_429_wait:.1f}s). Tente novamente em instantes."
+            )
 
         if tool_calls_map:
             if iteration >= max_iterations:

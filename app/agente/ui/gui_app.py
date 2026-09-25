@@ -4474,7 +4474,7 @@ class MetisMainWindow(QMainWindow):
                         msg_conf = f"🌐 **Provedor alterado para {srv.get('nome', 'Custom')}!**\n\n> 💡 **Modelo Ativo:** `{mod}`"
                     else:
                         # Busca por nome direto de modelo
-                        if arg in ollama_service.listar_modelos():
+                        if arg in (ollama_service.listar_modelos() or []):
                             self.activate_ollama(arg)
                             msg_conf = f"🏛️ **Provedor alterado para Ollama Local!**\n\n> 💡 **Modelo Ativo:** `{arg}`"
                         elif arg in obter_modelos_provedor("Gemini") or "gemini" in arg.lower():
