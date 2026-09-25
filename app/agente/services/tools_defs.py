@@ -139,6 +139,8 @@ def escrever_arquivo(caminho: str, conteudo: str) -> str:
     import sys
     this_module = sys.modules[__name__]
     auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    if auto:
+        logger.warning("[Seguranca] AUTO_APPROVE_MODE ATIVO - confirmacoes suprimidas nesta acao.")
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Salvando arquivo: {BOLD}{path}{RESET}")
@@ -179,6 +181,8 @@ def editar_arquivo(caminho: str, trecho_antigo: str, trecho_novo: str) -> str:
     import sys
     this_module = sys.modules[__name__]
     auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    if auto:
+        logger.warning("[Seguranca] AUTO_APPROVE_MODE ATIVO - confirmacoes suprimidas nesta acao.")
 
     print(f"\n{YELLOW}📝 A IA quer fazer uma edição cirúrgica em: {BOLD}{path}{RESET}")
     print(f"{CYAN}--- Preview da Alteração (Diff) ---{RESET}")
@@ -219,6 +223,8 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
     import sys
     this_module = sys.modules[__name__]
     auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    if auto:
+        logger.warning("[Seguranca] AUTO_APPROVE_MODE ATIVO - confirmacoes suprimidas nesta acao.")
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Gerando PDF em: {BOLD}{path}{RESET}")
@@ -461,6 +467,8 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
     import sys
     this_module = sys.modules[__name__]
     auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    if auto:
+        logger.warning("[Seguranca] AUTO_APPROVE_MODE ATIVO - confirmacoes suprimidas nesta acao.")
 
     cmd_clean = comando.strip()
 
@@ -483,6 +491,8 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
                 return "Execução do comando cancelada pelo usuário."
 
     try:
+        import shlex as _shlex
+
         # Se for um aplicativo gráfico / desanexado comum (kate, xdg-open, navegador, etc.)
         is_gui = any(cmd_clean.startswith(app) for app in [
             "kate", "gedit", "xdg-open", "firefox", "chromium", "google-chrome",
@@ -490,9 +500,28 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
         ]) or (cmd_clean.endswith("&") and not cmd_clean.startswith("hyprctl"))
 
         if is_gui:
+            # Remove o(s) "&" de segundo plano antes do parse para garantir que o
+            # argv executado seja exatamente o que foi validado/aprovado.
+            cmd_gui = cmd_clean.rstrip().rstrip("&").strip()
+            # Segurança: recusa operadores de shell e curingas/glob (* ? [ ])
+            # (redirecionamento, substituição, encadeamento, wildcard) mesmo em
+            # apps GUI — evita RCE via prompt injection (ex.:
+            # "kate foo && rm -rf ..." ou "$(curl ...)"). Sob shell=False os
+            # curingas não seriam expandidos (virariam texto literal), o que
+            # divergiria do que o usuário aprovou → recusamos por consistência.
+            if any(op in cmd_gui for op in OPERADORES_SHELL_RAW) or any(ch in cmd_gui for ch in ("*", "?", "[", "]")):
+                return ("Execução bloqueada: comandos gráficos não podem conter "
+                        "operadores de shell (|, ;, &&, ||, >, <, $(...) etc.). "
+                        "Solicite um comando simples.")
+            try:
+                gui_argv = _shlex.split(cmd_gui)
+            except ValueError as e:
+                return f"Execução bloqueada: não foi possível interpretar o comando ({e})."
+            if not gui_argv:
+                return "Execução bloqueada: nenhum argumento executável identificado."
             subprocess.Popen(
-                comando,
-                shell=True,
+                gui_argv,
+                shell=False,
                 cwd=str(cwd_path),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
@@ -500,16 +529,38 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
             )
             return f"Aplicativo/comando '{comando}' iniciado com sucesso no sistema!"
 
-        # Se for diagnóstico SAFE, executa estritamente com shell=False se argv estiver disponível
-        if politica == PoliticaComando.SAFE and argv:
-            use_shell = False
-            exec_args = argv
-        elif argv and not any(op in cmd_clean for op in OPERADORES_PERIGOSOS_SHELL + OPERADORES_ENCADEAMENTO):
+        # Segurança geral: nunca executar via shell=True. A política já recusou
+        # a maioria dos operadores acima; aqui cobrimos os escapes restantes
+        # (glob "*", colchetes, novos caracteres) exigindo aprovação EXPLÍCITA
+        # do usuário + verificação de que apenas um binário simples aparece na
+        # string crua. Comandos compostos são devolvidos ao usuário como erro
+        # claro em vez de serem injetados no shell.
+        tem_glob = any(ch in cmd_clean for ch in ("*", "?", "{", "}")) or "[" in cmd_clean
+        if tem_glob:
+            if auto:
+                return ("Execução bloqueada: modo auto-approve não permite comandos "
+                        "com curingas/glob (* ? [] {}) por segurança. Desative o "
+                        "auto-approve e execute manualmente.")
+            print(f"{YELLOW}⚠️ Comando contém curingas/glob — será executado SEM shell "
+                  f"(padrões serão tratados como texto literal).{RESET}")
+
+        # Determina argv final: SEMPRE shell=False.
+        if argv:
             use_shell = False
             exec_args = argv
         else:
-            use_shell = True
-            exec_args = comando
+            # Re-parseia a string aprovada; se não for um único programa simples,
+            # recusa em vez de cair em shell=True (elimina TOCTOU shlex vs shell).
+            try:
+                reparsed = _shlex.split(cmd_clean.rstrip().rstrip("&").strip())
+            except ValueError as e:
+                return f"Execução bloqueada: não foi possível interpretar o comando ({e})."
+            if len(reparsed) < 1 or ("|" in cmd_clean or ";" in cmd_clean
+                                     or "&&" in cmd_clean or "||" in cmd_clean):
+                return ("Execução bloqueada: comandos compostos (pipes/encadeamento) "
+                        "não são permitidos por segurança. Solicite um comando simples.")
+            use_shell = False
+            exec_args = reparsed
 
         resultado = subprocess.run(
             exec_args,

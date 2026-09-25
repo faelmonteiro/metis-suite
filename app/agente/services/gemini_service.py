@@ -102,7 +102,8 @@ def _handle_error(res):
     if res.status_code in {400, 401, 403}:
         raise RuntimeError("Erro de autenticação/permissão na Gemini API.")
     if res.status_code == 429:
-        raise RuntimeError("Rate limit da Gemini API atingido.")
+        # Mensagem clara em vez de crash genérico do raise_for_status().
+        raise RuntimeError("Rate limit da Gemini API atingido (429). Tente novamente em instantes.")
     res.raise_for_status()
 
 
@@ -121,11 +122,33 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
     function_calls_detected = []
+    yielded_any = False
+    last_429_wait = None
+    retries = 3
 
-    try:
+    for attempt in range(retries):
+      try:
         from agente.services.http_client import get_http_client
         client = get_http_client(timeout=timeout)
         with client.stream("POST", url, headers=headers, json=payload) as res:
+                if res.status_code == 429 and attempt < retries - 1:
+                    import time
+                    espera = 3.0
+                    try:
+                        corpo = res.read().decode("utf-8")
+                        m_retry = re.search(r"after ([\d\.]+)s", corpo)
+                        if m_retry:
+                            espera = max(float(m_retry.group(1)) + 1.0, 3.0)
+                    except Exception:
+                        logger.debug("Falha ao ler corpo do 429 do Gemini", exc_info=True)
+                    last_429_wait = espera
+                    time.sleep(espera)
+                    continue
+                if res.status_code == 429:
+                    # Última tentativa ainda em rate limit: erro limpo, sem crash de raise_for_status.
+                    raise RuntimeError(
+                        f"Gemini: limite de requisições (429) persistente após {retries} tentativas."
+                    )
                 _handle_error(res)
 
                 for line in res.iter_lines():
@@ -138,13 +161,25 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                             if "text" in part:
                                 text = part["text"]
                                 if text:
+                                    yielded_any = True
                                     yield text
                             elif "functionCall" in part:
                                 function_calls_detected.append(part["functionCall"])
                     except (json.JSONDecodeError, KeyError, IndexError):
-                        pass
-    except httpx.RequestError as e:
-        raise RuntimeError(f"Erro de conexão com Gemini API: {e}")
+                        logger.debug("Linha SSE do Gemini ignorada (JSON malformado)", exc_info=True)
+      except httpx.RequestError as e:
+        if attempt == retries - 1:
+            raise RuntimeError(f"Erro de conexão com Gemini API: {e}")
+        import time
+        time.sleep(1.5)
+      else:
+        break
+
+    if not yielded_any and not function_calls_detected and last_429_wait is not None:
+        raise RuntimeError(
+            f"Gemini: limite de requisições (429) persistente após {retries} tentativas "
+            f"(última espera: {last_429_wait:.1f}s). Tente novamente em instantes."
+        )
 
     if function_calls_detected:
         if iteration >= max_iterations:

@@ -150,12 +150,13 @@ def hyprctl(command: str):
     """Executa comando hyprctl somente se o Hyprland estiver ativo."""
     if config.HYPRLAND_ENABLED:
         try:
+            import shlex
             subprocess.run(
-                ["hyprctl"] + command.split(),
+                ["hyprctl"] + shlex.split(command),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             pass
 
 

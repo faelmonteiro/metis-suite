@@ -54,7 +54,7 @@ def parse_openai_sse_stream(
                         if tc["function"].get("arguments"):
                             tool_calls_map[tc_idx]["args_str"] += tc["function"]["arguments"]
         except (json.JSONDecodeError, KeyError, IndexError):
-            pass
+            logger.debug("Linha SSE malformada ignorada no parse_openai_sse_stream", exc_info=True)
 
 
 def process_tool_calls_map(

@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 
 import httpx
@@ -6,6 +7,8 @@ import httpx
 from agente import config
 from agente.services.base import BaseService
 
+
+logger = logging.getLogger(__name__)
 
 import time
 
@@ -28,16 +31,23 @@ def verificar_status() -> bool:
 
 
 def listar_modelos() -> list:
+    """Lista modelos instalados no Ollama.
+
+    Retorna None quando o servidor está inacessível (para não confundir
+    "servidor offline" com "nenhum modelo instalado"); retorna [] apenas
+    quando o serviço respondeu e a lista está vazia de fato.
+    """
     try:
         res = httpx.get(f"{config.OLLAMA_HOST}/api/tags", timeout=5.0)
 
         if res.status_code == 200:
             return [m.get("name", "") for m in res.json().get("models", [])]
+        logger.warning(f"Ollama respondeu {res.status_code} em /api/tags")
+        return None
 
-    except Exception:
-        pass
-
-    return []
+    except Exception as exc:
+        logger.debug("Ollama inacessível ao listar modelos", exc_info=True)
+        return None
 
 
 # ---------------------------------------------------------------------------

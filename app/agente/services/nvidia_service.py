@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import httpx
 
@@ -60,10 +61,28 @@ def gerar_resposta_stream(mensagens: list, model: str = None):
 
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
-    try:
-        from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
-        with client.stream("POST", API_URL, headers=headers, json=payload) as res:
+    yielded_any = False
+    last_429_wait = None
+    retries = 3
+
+    for attempt in range(retries):
+        try:
+            from agente.services.http_client import get_http_client
+            client = get_http_client(timeout=timeout)
+            with client.stream("POST", API_URL, headers=headers, json=payload) as res:
+                if res.status_code == 429 and attempt < retries - 1:
+                    import time
+                    espera = 3.0
+                    try:
+                        corpo = res.read().decode("utf-8")
+                        m = re.search(r"try again in ([\d\.]+)s", corpo)
+                        if m:
+                            espera = max(float(m.group(1)) + 1.0, 3.0)
+                    except Exception:
+                        logger.debug("Falha ao ler corpo do 429 da NVIDIA", exc_info=True)
+                    last_429_wait = espera
+                    time.sleep(espera)
+                    continue
                 _handle_error(res)
 
                 for line in res.iter_lines():
@@ -75,11 +94,23 @@ def gerar_resposta_stream(mensagens: list, model: str = None):
                         data = json.loads(line[6:])
                         content = data["choices"][0]["delta"].get("content", "")
                         if content:
+                            yielded_any = True
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
-                        pass
-    except httpx.RequestError as e:
-        raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")
+                        logger.debug("Linha SSE da NVIDIA ignorada (JSON malformado)", exc_info=True)
+        except httpx.RequestError as e:
+            if attempt == retries - 1:
+                raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")
+            import time
+            time.sleep(1.5)
+        else:
+            break
+
+    if not yielded_any and last_429_wait is not None:
+        raise RuntimeError(
+            f"NVIDIA: limite de requisições (429) persistente após {retries} tentativas "
+            f"(última espera: {last_429_wait:.1f}s). Tente novamente em instantes."
+        )
 
 class NvidiaService(BaseService):
     def __init__(self, model: str = None):

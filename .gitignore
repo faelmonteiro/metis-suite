@@ -1,29 +1,18 @@
-# Byte-compiled / optimized / DLL files
+# Python bytecode
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 
-# Caches and environments
-.venv/
-venv/
-ENV/
-env/
-*.egg-info/
-build/
-dist/
+# Environment variables
+.env
+.env.local
+.env.*.local
 
-# Configuration and credentials
-.env*
-!.env.example
-!config/.env.example
-*.bak
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Temporary / scratch
-scratch/
-project_dump.txt
-.tempmediaStorage/
+# Logs and temporary files
+*.log
 *.tmp
-
-# Histories
-historico/*.json
-!historico/.gitkeep
