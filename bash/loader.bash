@@ -142,14 +142,22 @@ explain() {
     if [ "$1" = "screen" ] || [ "$1" = "tela" ]; then
         shift
     fi
-    if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]]; then
-        zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
+    if command -v metis-screen >/dev/null 2>&1; then
+        metis-screen "$@"
+    elif [[ -x "$HOME/.local/bin/metis-screen" ]]; then
+        "$HOME/.local/bin/metis-screen" "$@"
+    elif [[ -x "/usr/local/bin/metis-screen" ]]; then
+        "/usr/local/bin/metis-screen" "$@"
     elif command -v metis >/dev/null 2>&1; then
         metis explain "$@"
     elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
         "$METIS_INSTALL_DIR/bin/metis" explain "$@"
+    elif [[ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]]; then
+        "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+    elif command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]]; then
+        zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
     else
-        echo "⚠️  O ZSH é necessário para executar o assistente explain_screen." >&2
+        echo "❌ Não foi possível carregar o assistente screen." >&2
         return 1
     fi
 }
@@ -171,8 +179,7 @@ fix() {
     elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
         "$METIS_INSTALL_DIR/bin/metis" fix "$@"
     else
-        echo "⚠️  O ZSH é necessário para executar o menu fix." >&2
-        return 1
+        "$METIS_INSTALL_DIR/venv/bin/python" "$METIS_INSTALL_DIR/app/app.py" "$@"
     fi
 }
 
@@ -203,21 +210,24 @@ if [[ $- == *i* ]]; then
         rm -f "$cmd_file" 2>/dev/null
 
         if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then
-            METIS_BASH_MODE=1 zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt"
-            if [[ -f "$cmd_file" ]]; then
-                local cmd
-                cmd="$(cat "$cmd_file" 2>/dev/null)"
-                rm -f "$cmd_file" 2>/dev/null
-                if [[ -n "$cmd" ]]; then
-                    if [[ -n "$READLINE_LINE" && "$READLINE_LINE" != *[[:space:]] ]]; then
-                        READLINE_LINE+=' '
-                    fi
-                    READLINE_LINE+="$cmd"
-                    READLINE_POINT=${#READLINE_LINE}
-                fi
-            fi
+            METIS_BASH_MODE=1 zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt" </dev/tty >/dev/tty
         elif command -v metis >/dev/null 2>&1; then
-            metis fix
+            metis fix </dev/tty >/dev/tty
+        elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
+            "$METIS_INSTALL_DIR/bin/metis" fix </dev/tty >/dev/tty
+        fi
+
+        if [[ -f "$cmd_file" ]]; then
+            local cmd
+            cmd="$(cat "$cmd_file" 2>/dev/null)"
+            rm -f "$cmd_file" 2>/dev/null
+            if [[ -n "$cmd" ]]; then
+                if [[ -n "$READLINE_LINE" && "$READLINE_LINE" != *[[:space:]] ]]; then
+                    READLINE_LINE+=' '
+                fi
+                READLINE_LINE+="$cmd"
+                READLINE_POINT=${#READLINE_LINE}
+            fi
         fi
     }
 

@@ -4,7 +4,7 @@
 # Menus FZF Compartilhados de Gerenciamento de Modelos e Provedores.
 # =============================================================================
 
-MODELS_MODULES_DIR="${0:A:h}/models"
+MODELS_MODULES_DIR="${ZSH_AI_DIR:-${0:A:h}}/models"
 
 # Carregamento sequencial dos submódulos
 for mod in "$MODELS_MODULES_DIR"/*.zsh(Nn); do

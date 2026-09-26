@@ -257,7 +257,37 @@ echo -e "\n${CYAN}🚀 [5/6] Registrando lançadores, fontes e ícones no sistem
 chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" 2>/dev/null || true
 ln -sf "$INSTALL_DIR/bin/metis" "$BIN_DIR/metis"
 ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/metis-vision"
-ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/screenai" 
+ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/screenai"
+
+# Instalar / Vincular Metis Screen (Go nativo)
+if [ -f "$SCRIPT_DIR/bin/metis-screen" ]; then
+    cp "$SCRIPT_DIR/bin/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+elif [ -f "$HOME/metis-screen/metis-screen" ]; then
+    cp "$HOME/metis-screen/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+elif command -v go &>/dev/null; then
+    echo -e "  ${CYAN}Compilando Metis Screen (Go)...${NC}"
+    SCREEN_SRC="$HOME/metis-screen"
+    if [ ! -d "$SCREEN_SRC" ]; then
+        SCREEN_SRC="$(mktemp -d)/metis-screen-src"
+        git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet 2>/dev/null || true
+    fi
+    if [ -d "$SCREEN_SRC" ]; then
+        (cd "$SCREEN_SRC" && go build -o metis-screen main.go 2>/dev/null && cp metis-screen "$INSTALL_DIR/bin/metis-screen") || true
+    fi
+fi
+
+if [ -f "$INSTALL_DIR/bin/metis-screen" ]; then
+    chmod +x "$INSTALL_DIR/bin/metis-screen"
+    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/metis-screen"
+    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/explain" 2>/dev/null || true
+    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/screen" 2>/dev/null || true
+    if [ -w "/usr/local/bin" ]; then
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/metis-screen" 2>/dev/null || true
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/explain" 2>/dev/null || true
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/screen" 2>/dev/null || true
+    fi
+    echo -e "${GREEN}  ✅ Metis Screen (Go nativo) instalado com sucesso em $BIN_DIR/metis-screen.${NC}"
+fi
 
 # Instalar Fonte de Glifos do Metis (MetisIcons.ttf)
 if [ -f "$SCRIPT_DIR/assets/fonts/MetisIcons.ttf" ]; then
@@ -607,21 +637,17 @@ configure_kitty_terminal() {
         sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
         sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
 
-        if ! grep -Fq "screen_launcher.zsh" "$kitty_conf" && ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
-            echo "" >> "$kitty_conf"
-            echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
-            echo "allow_remote_control yes" >> "$kitty_conf"
-            echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-            echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
-            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] e seleção de mouse integrados ao Kitty (~/.config/kitty/kitty.conf).${NC}"
-        else
-            sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
-            sed -i "s|.*\.ZSH/ai.*screen_launcher\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
-            if ! grep -Eq "^[[:space:]]*listen_on[[:space:]]" "$kitty_conf"; then
-                echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-            fi
-            echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] do Kitty atualizado para o Metis Screen Launcher.${NC}"
-        fi
+        sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/.*explain_screen\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/# --- \[ Metis Explain Screen.*/d" "$kitty_conf" 2>/dev/null || true
+
+        echo "" >> "$kitty_conf"
+        echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
+        echo "allow_remote_control yes" >> "$kitty_conf"
+        echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+        echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
+        echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] integrado ao Kitty chamando o Metis Screen (Go nativo).${NC}"
     fi
 }
 

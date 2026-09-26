@@ -71,6 +71,37 @@ if [ -d "$INSTALL_DIR" ]; then
     cp "$SOURCE_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SOURCE_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 
+    # Instalar / Vincular Metis Screen (Go nativo)
+    if [ -f "$SOURCE_DIR/bin/metis-screen" ]; then
+        cp "$SOURCE_DIR/bin/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+    elif [ -f "$HOME/metis-screen/metis-screen" ]; then
+        cp "$HOME/metis-screen/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+    elif command -v go &>/dev/null; then
+        echo -e "  ${CYAN}Compilando Metis Screen (Go)...${NC}"
+        SCREEN_SRC="$HOME/metis-screen"
+        if [ ! -d "$SCREEN_SRC" ]; then
+            SCREEN_SRC="$(mktemp -d)/metis-screen-src"
+            git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet 2>/dev/null || true
+        fi
+        if [ -d "$SCREEN_SRC" ]; then
+            (cd "$SCREEN_SRC" && go build -o metis-screen main.go 2>/dev/null && cp metis-screen "$INSTALL_DIR/bin/metis-screen") || true
+        fi
+    fi
+
+    if [ -f "$INSTALL_DIR/bin/metis-screen" ]; then
+        chmod +x "$INSTALL_DIR/bin/metis-screen"
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/metis-screen"
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/explain" 2>/dev/null || true
+        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/screen" 2>/dev/null || true
+        if [ -w "/usr/local/bin" ]; then
+            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/metis-screen" 2>/dev/null || true
+            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/explain" 2>/dev/null || true
+            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/screen" 2>/dev/null || true
+        fi
+        echo -e "${GREEN}  ✅ Metis Screen (Go nativo) atualizado com sucesso em ~/.local/bin/metis-screen.${NC}"
+    fi
+
     # Restaura configurações legadas se existiam
     [ -f "$BACKUP_TMP/.env" ] && cp "$BACKUP_TMP/.env" "$INSTALL_DIR/app/.env"
     [ -f "$BACKUP_TMP/config_models.json" ] && cp "$BACKUP_TMP/config_models.json" "$INSTALL_DIR/app/config_models.json"
@@ -351,19 +382,16 @@ except Exception:
             sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
             sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
 
-            if ! grep -Fq "screen_launcher.zsh" "$kitty_conf" && ! grep -Fq "explain_screen.zsh" "$kitty_conf"; then
-                echo "" >> "$kitty_conf"
-                echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) ] ---" >> "$kitty_conf"
-                echo "allow_remote_control yes" >> "$kitty_conf"
-                echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-                echo "map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"" >> "$kitty_conf"
-            else
-                sed -i "s|.*explain_screen\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
-                sed -i "s|.*\.ZSH/ai.*screen_launcher\.zsh.*|map ctrl+shift+e pipe @screen_scrollback none /bin/zsh -c \"if [ -f \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\" ]; then zsh \\\"\$HOME/.local/share/metis/zsh/screen_launcher.zsh\\\"; fi\"|g" "$kitty_conf" 2>/dev/null || true
-                if ! grep -Eq "^[[:space:]]*listen_on[[:space:]]" "$kitty_conf"; then
-                    echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-                fi
-            fi
+            sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
+            sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+            sed -i "/.*explain_screen\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+            sed -i "/# --- \[ Metis Explain Screen.*/d" "$kitty_conf" 2>/dev/null || true
+
+            echo "" >> "$kitty_conf"
+            echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
+            echo "allow_remote_control yes" >> "$kitty_conf"
+            echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+            echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
 
             # Garante loader no ~/.zshrc para o Kitty se zshrc existir
             if [ -f "$HOME/.zshrc" ] && ! grep -Fq "metis/zsh/loader.zsh" "$HOME/.zshrc"; then

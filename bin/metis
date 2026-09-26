@@ -30,27 +30,33 @@ elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
     if [ "$1" = "screen" ] || [ "$1" = "explain" ] || [ "$1" = "tela" ]; then
         shift
     fi
-    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]; then
+    if command -v metis-screen >/dev/null 2>&1; then
+        exec metis-screen "$@"
+    elif [ -x "$HOME/.local/bin/metis-screen" ]; then
+        exec "$HOME/.local/bin/metis-screen" "$@"
+    elif [ -x "/usr/local/bin/metis-screen" ]; then
+        exec "/usr/local/bin/metis-screen" "$@"
+    elif [ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]; then
+        exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+    elif command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]; then
         exec zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
     else
-        echo "⚠️  O ZSH é necessário para executar o assistente explain_screen." >&2
-        exit 1
+        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
     fi
 elif [ "$1" = "fix" ] || [ "$1" = "menu" ]; then
     shift
     if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
         exec zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt"
     else
-        echo "⚠️  O ZSH é necessário para executar o menu fix." >&2
-        exit 1
+        echo "💡 ZSH não instalado. Iniciando menu interativo Metis..." >&2
+        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
     fi
 elif [ "$1" = "aiman" ] || [ "$1" = "man" ]; then
     shift
     if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
         exec zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; aiman "$@"' _ "$METIS_INSTALL_DIR" "$@"
     else
-        echo "⚠️  O ZSH é necessário para executar o aiman." >&2
-        exit 1
+        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" --help "$@"
     fi
 elif [ "$1" = "commit" ] || [ "$1" = "gca" ] || [ "$1" = "git" ]; then
     shift

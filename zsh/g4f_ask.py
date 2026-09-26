@@ -90,8 +90,8 @@ def main():
                 messages=messages
             )
         except Exception:
-            # 2. Se falhar, tenta modelos gratuitos conhecidos por estabilidade
-            fallbacks = ["llama-3.1-70b", "llama-3.3-70b", "deepseek-r1"]
+            # 2. Se falhar, tenta modelos gratuitos conhecidos por estabilidade (priorizando gpt-4o e gpt-4o-mini)
+            fallbacks = ["gpt-4o-mini", "gpt-4o", "llama-3.3-70b", "llama-3.1-70b", "deepseek-r1"]
             for fb in fallbacks:
                 if fb == modelo:
                     continue
