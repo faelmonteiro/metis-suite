@@ -60,6 +60,7 @@ if [ -d "$INSTALL_DIR" ]; then
     for d in app zsh bash bin assets; do
         [ -L "$INSTALL_DIR/$d" ] && rm -f "$INSTALL_DIR/$d"
     done
+    rm -rf "$INSTALL_DIR/app/vision/assets" 2>/dev/null || true
 
     cp -r "$SOURCE_DIR/app" "$INSTALL_DIR/"
     cp -r "$SOURCE_DIR/zsh" "$INSTALL_DIR/"

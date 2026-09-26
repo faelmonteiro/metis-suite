@@ -185,6 +185,7 @@ echo -e "\n${CYAN}📂 [2/6] Instalando arquivos em ${INSTALL_DIR}...${NC}"
 for d in app zsh bash bin assets; do
     [ -L "$INSTALL_DIR/$d" ] && rm -f "$INSTALL_DIR/$d"
 done
+rm -rf "$INSTALL_DIR/app/vision/assets" 2>/dev/null || true
 cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/zsh" "$INSTALL_DIR/"
 cp -r "$SCRIPT_DIR/bash" "$INSTALL_DIR/" 2>/dev/null || true
