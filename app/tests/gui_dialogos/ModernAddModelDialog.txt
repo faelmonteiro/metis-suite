@@ -1,0 +1,28 @@
+QVBoxLayout||ModernAddModelDialog:|PyQt6.QtCore.QRect(0, 0, 480, 205)||True||||||
+QWidget|CentralWidget|ModernAddModelDialog:|PyQt6.QtCore.QRect(0, 0, 480, 205)|True|True||||||
+QVBoxLayout||QWidget:CentralWidget|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 20, 440, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 20, 282, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 148, 440, 34)||True||||||
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 20, 22, 43)|True|True|🔮|background: transparent;||||
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(52, 20, 282, 24)|True|True|ADICIONAR NOVO MODELO|color: #fad094; letter-spacing: 0.5px; background: transparent;||||
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(52, 46, 282, 17)|True|True|Insira o identificador oficial do modelo para Groq|color: #67e8f9; background: transparent;||||
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(434, 28, 26, 26)|True|True|✕|
+            QPushButton {
+                color: #94a3b8;
+                background: transparent;
+                border: none;
+                font-size: 13px;
+                font-weight: bold;
+                border-radius: 13px;
+            }
+            QPushButton:hover {
+                color: #fad094;
+                background: rgba(255, 255, 255, 0.08);
+            }
+        ||||
+QFrame||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 79, 440, 1)|True|True||background-color: #1e3557;||||
+QLineEdit||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 96, 440, 36)|True|True||||ex: deepseek/deepseek-chat ou meta-llama/llama-3.3-70b-instruct||EchoMode.Normal
+QObject||QLineEdit:|||||||||
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(240, 148, 72, 34)|True|True|Cancelar||||SecondaryBtn|
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(322, 148, 138, 34)|True|True|➕ Adicionar Modelo||||PrimaryBtn|

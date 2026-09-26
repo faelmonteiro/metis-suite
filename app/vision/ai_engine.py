@@ -3,26 +3,57 @@ Motor de Inteligência Artificial para Análise Visual.
 Suporta múltiplos provedores (NVIDIA NIM, Google Gemini, OpenRouter e Ollama) com streaming em tempo real.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import base64
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Generator, Optional
+import atexit
+import threading
 import httpx
-import config
+from . import config
 
 # Timeout padrão para requisições HTTP (com 120s de leitura para modelos vision)
 _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 DEFAULT_VISION_MAX_TOKENS = int(getattr(config, "MAX_VISION_TOKENS", 1500))
 
+# Adiciona caminho do Metis para importar base service
+metis_root = Path(__file__).parent.parent
+if str(metis_root) not in sys.path:
+    sys.path.insert(0, str(metis_root))
+from agente.services.base import parse_openai_sse_stream
+
 _vision_client: Optional[httpx.Client] = None
+_vision_client_lock = threading.Lock()
+
 
 def _get_vision_client() -> httpx.Client:
     global _vision_client
     if _vision_client is None or _vision_client.is_closed:
         limits = httpx.Limits(max_keepalive_connections=10, max_connections=25, keepalive_expiry=60.0)
-        _vision_client = httpx.Client(timeout=_DEFAULT_TIMEOUT, limits=limits, follow_redirects=True)
+        with _vision_client_lock:
+            if _vision_client is None or _vision_client.is_closed:
+                _vision_client = httpx.Client(timeout=_DEFAULT_TIMEOUT, limits=limits, follow_redirects=True)
     return _vision_client
+
+
+def close_vision_client():
+    global _vision_client
+    with _vision_client_lock:
+        if _vision_client is not None and not _vision_client.is_closed:
+            try:
+                _vision_client.close()
+            except Exception:
+                pass
+            _vision_client = None
+
+
+atexit.register(close_vision_client)
 
 class VisionAIEngine:
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
@@ -31,21 +62,11 @@ class VisionAIEngine:
 
     @staticmethod
     def _parse_openai_sse_stream(response: httpx.Response) -> Generator[str, None, None]:
-        """Parseia stream SSE no padrão OpenAI (data: {...}) e gera chunks de conteúdo."""
-        for line in response.iter_lines():
-            line = line.strip()
-            if not line or line == "data: [DONE]":
-                continue
-            if line.startswith("data: "):
-                try:
-                    chunk = json.loads(line[6:])
-                    choices = chunk.get("choices", [])
-                    if choices and "delta" in choices[0]:
-                        content = choices[0]["delta"].get("content", "")
-                        if content:
-                            yield content
-                except (json.JSONDecodeError, KeyError, IndexError) as e:
-                    print(f"[ai_engine] Erro ao parsear SSE: {e}", file=sys.stderr)
+        """Parseia stream SSE no padrão OpenAI usando a implementação compartilhada."""
+        # O parse_openai_sse_stream compartilhado espera um iterador de linhas e um dict para tool_calls
+        # Como Vision não usa tool_calls, passamos um dict vazio
+        tool_calls_map: dict = {}
+        yield from parse_openai_sse_stream(response.iter_lines(), tool_calls_map)
 
     def chat_multiturn_stream(
         self,
@@ -98,7 +119,7 @@ class VisionAIEngine:
         elif prov == "groq":
             base_url = "https://api.groq.com/openai/v1"
             api_key = config.GROQ_API_KEY
-            model = self.model or "llama-3.3-70b-versatile"
+            model = self.model or "llama-3.2-11b-vision-preview"
         elif prov == "gemini" and config.GEMINI_API_KEY.startswith("AIzaSy"):
             try:
                 from google import genai
@@ -143,47 +164,27 @@ class VisionAIEngine:
                 "messages": ollama_messages
             }
             try:
-                with httpx.Client(timeout=_DEFAULT_TIMEOUT) as client:
-                    with client.stream("POST", url, json=payload) as response:
-                        if response.status_code != 200:
-                            yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
-                            return
-                        for line in response.iter_lines():
-                            if line:
-                                try:
-                                    data = json.loads(line)
-                                    content = data.get("message", {}).get("content", "")
-                                    if content:
-                                        yield content
-                                except Exception:
-                                    pass
+                client = _get_vision_client()
+                with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
+                        return
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                content = data.get("message", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 return
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
                 return
-        elif prov == "g4f":
-            try:
-                from g4f.client import Client
-                client = Client()
-                g4f_messages = [{"role": "system", "content": sys_prompt}]
-                for m in messages:
-                    g4f_messages.append({"role": m.get("role", "user"), "content": m.get("content", "")})
-                response = client.chat.completions.create(
-                    model=self.model or "gpt-4o-mini",
-                    messages=g4f_messages,
-                    stream=True
-                )
-                for chunk in response:
-                    content = getattr(chunk.choices[0].delta, "content", None) or ""
-                    if content:
-                        yield content
-                return
-            except Exception as e:
-                yield f"⚠️ Erro no G4F Multi-turn: {str(e)}"
-                return
         else:
             # Resolução dinâmica de Servidores Customizados cadastrados no Metis
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -265,29 +266,9 @@ class VisionAIEngine:
             )
         elif prov == "ollama":
             yield from self._stream_ollama(b64_image, prompt, sys_prompt)
-        elif prov == "g4f":
-            try:
-                from g4f.client import Client
-                client = Client()
-                messages = [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": prompt}
-                ]
-                response = client.chat.completions.create(
-                    model=self.model or "gpt-4o",
-                    messages=messages,
-                    image=image_bytes,
-                    stream=True
-                )
-                for chunk in response:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
-            except Exception as e:
-                yield f"⚠️ Erro no G4F Vision: {str(e)}"
         else:
             # Verifica servidores customizados
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -391,44 +372,25 @@ class VisionAIEngine:
                 ]
             }
             try:
-                with httpx.Client(timeout=_DEFAULT_TIMEOUT) as client:
-                    with client.stream("POST", url, json=payload) as response:
-                        if response.status_code != 200:
-                            yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
-                            return
-                        for line in response.iter_lines():
-                            if line:
-                                try:
-                                    data = json.loads(line)
-                                    content = data.get("message", {}).get("content", "")
-                                    if content:
-                                        yield content
-                                except Exception:
-                                    pass
+                client = _get_vision_client()
+                with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
+                        return
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                content = data.get("message", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
-        elif prov == "g4f":
-            try:
-                from g4f.client import Client
-                client = Client()
-                messages = [
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": full_user_prompt}
-                ]
-                response = client.chat.completions.create(
-                    model=self.model or "gpt-4o",
-                    messages=messages,
-                    stream=True
-                )
-                for chunk in response:
-                    content = chunk.choices[0].delta.content or ""
-                    if content:
-                        yield content
-            except Exception as e:
-                yield f"⚠️ Erro no G4F: {str(e)}"
         else:
             # Verifica servidores customizados
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -595,13 +557,13 @@ class VisionAIEngine:
                                 content = msg.get("content", "")
                                 if content:
                                     yield content
-                            except Exception:
-                                pass
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         except Exception as e:
             yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
 
 if __name__ == "__main__":
-    from capture import capture_screen
+    from .capture import capture_screen
     print("Testando motor de IA com captura...")
     engine = VisionAIEngine()
     print(f"Provedor ativo: {engine.provider} | Modelo: {engine.model}")

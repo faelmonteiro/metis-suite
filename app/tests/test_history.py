@@ -104,6 +104,30 @@ class TestHistoryManager(unittest.TestCase):
         self.assertEqual(hm.sessao, "sessao_nova")
         self.assertTrue(hm.file_path.exists())
 
+    def test_renomear_nao_sobrescreve_arquivo_existente(self):
+        alvo = HistoryManager("sessao_destino")
+        alvo.adicionar_mensagem("user", "conteudo original")
+        destino_path = alvo.file_path
+
+        origem = HistoryManager("sessao_origem")
+        origem.adicionar_mensagem("user", "conteudo novo")
+        origem_path = origem.file_path
+
+        self.assertFalse(origem.renomear_sessao("sessao_destino"))
+        # A sessão original não foi movida
+        self.assertTrue(origem_path.exists())
+        self.assertEqual(origem.sessao, "sessao_origem")
+        # O destino segue íntegro (não foi sobrescrito)
+        import json as _json
+        conteudo = _json.loads(destino_path.read_text(encoding="utf-8"))
+        self.assertEqual(conteudo["historico"][0]["content"], "conteudo original")
+
+    def test_renomear_sessao_inexistente(self):
+        hm = HistoryManager("sessao_vazia")
+        empty = Path(self.temp_dir) / "sessao_vazia.json"
+        empty.unlink(missing_ok=True)
+        self.assertFalse(hm.renomear_sessao("outra"))
+
     def test_nao_mutar_modelo_global_ao_carregar(self):
         config.OLLAMA_MODEL = "modelo_ativo_original"
         # Cria sessão com outro modelo salvo no JSON

@@ -3,6 +3,10 @@ Cliente HTTP compartilhado com Connection Pooling e Keep-Alive para o Metis.
 Reutiliza conexões TCP e handshakes TLS já abertos, economizando centenas de ms por chamada.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import threading
 import httpx
 from agente import config
@@ -11,11 +15,12 @@ _client_instance: httpx.Client = None
 _client_lock = threading.Lock()
 
 
-def get_http_client(timeout: httpx.Timeout = None) -> httpx.Client:
+def get_http_client() -> httpx.Client:
     """
     Retorna a instância compartilhada de httpx.Client com Keep-Alive ativo e thread-safe.
-    Se um timeout customizado for especificado, cria um cliente dedicado para evitar
-    efeitos colaterais em outras partes da aplicação.
+
+    O timeout é configurado uma única vez a partir de config.API_TIMEOUT na criação
+    do pool; para ajustar temporariamente, use timeout por requisição no retorno.
     """
     global _client_instance
     limits = httpx.Limits(
@@ -25,13 +30,6 @@ def get_http_client(timeout: httpx.Timeout = None) -> httpx.Client:
     )
     read_sec = float(getattr(config, "API_TIMEOUT", 120))
     default_timeout = httpx.Timeout(connect=10.0, read=read_sec, write=15.0, pool=10.0)
-
-    if timeout is not None and timeout != default_timeout:
-        return httpx.Client(
-            timeout=timeout,
-            limits=limits,
-            follow_redirects=True
-        )
 
     with _client_lock:
         if _client_instance is None or _client_instance.is_closed:
@@ -50,6 +48,6 @@ def close_http_client():
         if _client_instance is not None and not _client_instance.is_closed:
             try:
                 _client_instance.close()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             _client_instance = None

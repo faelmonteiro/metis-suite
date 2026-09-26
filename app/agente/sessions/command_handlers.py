@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agente import config
-from agente.colors import *
+from agente.colors import BOLD, CYAN, GRAY, GREEN, RED, RESET, YELLOW
 from agente.history import HistoryManager
 from agente.services.base import BaseService
 from agente.utils import (
@@ -35,17 +35,15 @@ def handle_limpar(history_manager: HistoryManager) -> None:
         if conf == "s":
             history_manager.limpar()
             print(f"{GREEN}Histórico limpo.{RESET}")
-    except (KeyboardInterrupt, EOFError):
-        pass
+    except (KeyboardInterrupt, EOFError) as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def handle_modelo(service: BaseService, user_input: str) -> BaseService:
     from agente.providers_manager import (
         obter_servidores_customizados,
         obter_modelos_provedor,
-        salvar_variavel_env,
-        salvar_preferencia,
-        atualizar_modelo_ativo_servidor
+        salvar_variavel_env
     )
     custom_servidores = obter_servidores_customizados()
     custom_nomes = [s.get("id") for s in custom_servidores]
@@ -69,9 +67,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         modelo = second_token or config.OLLAMA_MODEL
         config.OLLAMA_MODEL = modelo
         salvar_variavel_env("OLLAMA_MODEL", modelo)
-        salvar_variavel_env("DEFAULT_PROVIDER", "ollama")
-        salvar_preferencia("last_active_provider", "ollama")
-        salvar_preferencia("last_active_model", modelo)
         print(f"{GREEN}Provedor alterado para Ollama ({modelo}).{RESET}")
         return OllamaService(model=modelo)
 
@@ -80,9 +75,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         modelo = second_token or config.GEMINI_MODEL
         config.GEMINI_MODEL = modelo
         salvar_variavel_env("GEMINI_MODEL", modelo)
-        salvar_variavel_env("DEFAULT_PROVIDER", "gemini")
-        salvar_preferencia("last_active_provider", "gemini")
-        salvar_preferencia("last_active_model", modelo)
         print(f"{GREEN}Provedor alterado para Gemini ({modelo}).{RESET}")
         return GeminiService(model=modelo)
 
@@ -91,9 +83,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         modelo = second_token or config.GROQ_MODEL
         config.GROQ_MODEL = modelo
         salvar_variavel_env("GROQ_MODEL", modelo)
-        salvar_variavel_env("DEFAULT_PROVIDER", "groq")
-        salvar_preferencia("last_active_provider", "groq")
-        salvar_preferencia("last_active_model", modelo)
         print(f"{GREEN}Provedor alterado para Groq ({modelo}).{RESET}")
         return GroqService(model=modelo)
 
@@ -102,9 +91,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         modelo = second_token or getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
         config.NVIDIA_MODEL = modelo
         salvar_variavel_env("NVIDIA_MODEL", modelo)
-        salvar_variavel_env("DEFAULT_PROVIDER", "nvidia")
-        salvar_preferencia("last_active_provider", "nvidia")
-        salvar_preferencia("last_active_model", modelo)
         print(f"{GREEN}Provedor alterado para Nvidia ({modelo}).{RESET}")
         return NvidiaService(model=modelo)
 
@@ -113,9 +99,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         modelo = second_token or getattr(config, "G4F_MODEL", "gpt-4o-mini")
         config.G4F_MODEL = modelo
         salvar_variavel_env("G4F_MODEL", modelo)
-        salvar_variavel_env("DEFAULT_PROVIDER", "g4f")
-        salvar_preferencia("last_active_provider", "g4f")
-        salvar_preferencia("last_active_model", modelo)
         print(f"{GREEN}Provedor alterado para G4F ({modelo}).{RESET}")
         return G4FService(model=modelo)
 
@@ -127,10 +110,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
             if second_token:
                 srv_copy["modelo_atual"] = second_token
             modelo = srv_copy.get("modelo_atual", "")
-            salvar_variavel_env("DEFAULT_PROVIDER", f"custom:{s.get('id')}")
-            salvar_preferencia("last_active_provider", f"custom:{s.get('id')}")
-            salvar_preferencia("last_active_model", modelo)
-            atualizar_modelo_ativo_servidor(s.get("id"), modelo)
             print(f"{GREEN}Provedor alterado para {s.get('nome')} ({modelo}).{RESET}")
             return CustomOpenAIService(srv_copy)
 
@@ -140,9 +119,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         from agente.services.ollama_service import OllamaService
         config.OLLAMA_MODEL = arg
         salvar_variavel_env("OLLAMA_MODEL", arg)
-        salvar_variavel_env("DEFAULT_PROVIDER", "ollama")
-        salvar_preferencia("last_active_provider", "ollama")
-        salvar_preferencia("last_active_model", arg)
         print(f"{GREEN}Provedor alterado para Ollama ({arg}).{RESET}")
         return OllamaService(model=arg)
 
@@ -150,9 +126,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         from agente.services.gemini_service import GeminiService
         config.GEMINI_MODEL = arg
         salvar_variavel_env("GEMINI_MODEL", arg)
-        salvar_variavel_env("DEFAULT_PROVIDER", "gemini")
-        salvar_preferencia("last_active_provider", "gemini")
-        salvar_preferencia("last_active_model", arg)
         print(f"{GREEN}Provedor alterado para Gemini ({arg}).{RESET}")
         return GeminiService(model=arg)
 
@@ -160,9 +133,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         from agente.services.groq_service import GroqService
         config.GROQ_MODEL = arg
         salvar_variavel_env("GROQ_MODEL", arg)
-        salvar_variavel_env("DEFAULT_PROVIDER", "groq")
-        salvar_preferencia("last_active_provider", "groq")
-        salvar_preferencia("last_active_model", arg)
         print(f"{GREEN}Provedor alterado para Groq ({arg}).{RESET}")
         return GroqService(model=arg)
 
@@ -170,9 +140,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         from agente.services.nvidia_service import NvidiaService
         config.NVIDIA_MODEL = arg
         salvar_variavel_env("NVIDIA_MODEL", arg)
-        salvar_variavel_env("DEFAULT_PROVIDER", "nvidia")
-        salvar_preferencia("last_active_provider", "nvidia")
-        salvar_preferencia("last_active_model", arg)
         print(f"{GREEN}Provedor alterado para Nvidia ({arg}).{RESET}")
         return NvidiaService(model=arg)
 
@@ -180,9 +147,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
         from agente.services.g4f_service import G4FService
         config.G4F_MODEL = arg
         salvar_variavel_env("G4F_MODEL", arg)
-        salvar_variavel_env("DEFAULT_PROVIDER", "g4f")
-        salvar_preferencia("last_active_provider", "g4f")
-        salvar_preferencia("last_active_model", arg)
         print(f"{GREEN}Provedor alterado para G4F ({arg}).{RESET}")
         return G4FService(model=arg)
 
@@ -191,10 +155,6 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
             from agente.services.custom_openai_service import CustomOpenAIService
             srv_copy = dict(s)
             srv_copy["modelo_atual"] = arg
-            salvar_variavel_env("DEFAULT_PROVIDER", f"custom:{s.get('id')}")
-            salvar_preferencia("last_active_provider", f"custom:{s.get('id')}")
-            salvar_preferencia("last_active_model", arg)
-            atualizar_modelo_ativo_servidor(s.get("id"), arg)
             print(f"{GREEN}Provedor alterado para {s.get('nome')} ({arg}).{RESET}")
             return CustomOpenAIService(srv_copy)
 
@@ -205,9 +165,7 @@ def handle_modelo(service: BaseService, user_input: str) -> BaseService:
 
 def handle_automode() -> None:
     from agente.services import tools_defs
-    from agente.providers_manager import salvar_preferencia
     tools_defs.AUTO_APPROVE_MODE = not getattr(tools_defs, "AUTO_APPROVE_MODE", False)
-    salvar_preferencia("auto_approve_mode", tools_defs.AUTO_APPROVE_MODE)
     status = "ATIVADO" if tools_defs.AUTO_APPROVE_MODE else "DESATIVADO"
     print(f"{GREEN}Modo automático de escrita de arquivos: {status}!{RESET}")
 
@@ -301,64 +259,40 @@ def handle_arquivo(user_input: str, history_manager: HistoryManager, service: Ba
     return "CONTINUE"
 
 
-def _obter_diretorio_exportacao() -> Path:
-    """Retorna um diretório seguro e gravável para exportações do usuário."""
-    # 1. Prioridade: Downloads ou Documentos do usuário
-    for d in [Path.home() / "Downloads", Path.home() / "Documentos", Path.home() / "Documents"]:
-        if d.exists() and os.access(d, os.W_OK):
-            target = d / "Metis_Exports"
-            try:
-                target.mkdir(parents=True, exist_ok=True)
-                return target
-            except Exception:
-                pass
-
-    # 2. Diretório XDG de dados do usuário (~/.local/share/metis/exports)
-    xdg_exports = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "metis" / "exports"
-    try:
-        xdg_exports.mkdir(parents=True, exist_ok=True)
-        return xdg_exports
-    except Exception:
-        pass
-
-    # 3. Fallback no CWD do usuário
-    fallback = Path.cwd() / "metis_exports"
-    fallback.mkdir(parents=True, exist_ok=True)
-    return fallback
-
-
 def handle_exportar(history_manager: HistoryManager) -> None:
     turnos = history_manager.listar_turnos()
     if not turnos:
         print(f"{YELLOW}Histórico vazio.{RESET}")
         return
 
-    try:
-        export_dir = _obter_diretorio_exportacao()
-    except Exception as e:
-        print(f"{RED}Erro ao acessar diretório de exportação: {e}{RESET}")
+    candidatos = [
+        Path(config.PROJECT_ROOT) / "exports",
+        Path.home() / "metis_exports",
+    ]
+    export_dir = None
+    for d in candidatos:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            export_dir = d
+            break
+        except OSError as _e:
+            logger.debug("Exceção silenciosa tratada: %s", _e, exc_info=True)
+    if export_dir is None:
+        print(f"{RED}Erro ao exportar: nenhum diretório gravável ({', '.join(str(c) for c in candidatos)}).{RESET}")
         return
+    if export_dir != candidatos[0]:
+        print(f"{YELLOW}Diretório padrão indisponível; exportando em {export_dir}.{RESET}")
 
-    data_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    base_nome = f"conversa_{data_str}.md"
-    nome = export_dir / base_nome
-    counter = 1
-    while nome.exists():
-        nome = export_dir / f"conversa_{data_str}_{counter}.md"
-        counter += 1
-
+    nome = export_dir / f"conversa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     try:
-        conteudo = f"# Conversa Metis — {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-        for t in turnos:
-            conteudo += f"## 🧑 Você\n{t.get('user', '')}\n\n"
-            conteudo += f"## 🤖 Assistente\n{t.get('assistant', '')}\n\n---\n\n"
-
-        nome.write_text(conteudo, encoding="utf-8")
-        print(f"{GREEN}✔ Conversa exportada com sucesso: {BOLD}{nome}{RESET}")
-    except PermissionError:
-        print(f"{RED}Erro de permissão: Não foi possível gravar em '{nome}'. Verifique as permissões da pasta.{RESET}")
+        with open(nome, "w", encoding="utf-8") as f:
+            f.write(f"# Conversa — {datetime.now().strftime('%d/%m/%Y %H:%M')}\n")
+            for t in turnos:
+                f.write(f"## 🧑 Você\n{t['user']}\n")
+                f.write(f"## 🤖 Assistente\n{t['assistant']}\n\n---\n\n")
+        print(f"{GREEN}Conversa exportada: {nome}{RESET}")
     except Exception as e:
-        print(f"{RED}Erro ao exportar conversa: {e}{RESET}")
+        print(f"{RED}Erro ao exportar: {e}{RESET}")
 
 
 def handle_sessoes(history_manager: HistoryManager) -> HistoryManager:
@@ -462,84 +396,6 @@ def handle_sessao(user_input: str, history_manager: HistoryManager) -> HistoryMa
     return novo_hm
 
 
-def restaurar_servico_sessao(novo_hm: HistoryManager, current_service: BaseService) -> BaseService:
-    """Restaura o provedor e modelo salvos na sessão, se existirem."""
-    saved_prov = getattr(novo_hm, "saved_provider", "").lower()
-    saved_model = getattr(novo_hm, "saved_model", "").strip()
-    if not saved_prov and not saved_model:
-        return current_service
-
-    try:
-        from agente.providers_manager import salvar_variavel_env, salvar_preferencia
-        if saved_prov == "gemini" or (not saved_prov and "gemini" in saved_model.lower()):
-            from agente.services.gemini_service import GeminiService
-            modelo = saved_model or config.GEMINI_MODEL
-            config.GEMINI_MODEL = modelo
-            salvar_variavel_env("GEMINI_MODEL", modelo)
-            salvar_variavel_env("DEFAULT_PROVIDER", "gemini")
-            salvar_preferencia("last_active_provider", "gemini")
-            salvar_preferencia("last_active_model", modelo)
-            print(f"{GREEN}Provedor da sessão restaurado: Gemini ({modelo}).{RESET}")
-            return GeminiService(model=modelo)
-        elif saved_prov == "groq":
-            from agente.services.groq_service import GroqService
-            modelo = saved_model or config.GROQ_MODEL
-            config.GROQ_MODEL = modelo
-            salvar_variavel_env("GROQ_MODEL", modelo)
-            salvar_variavel_env("DEFAULT_PROVIDER", "groq")
-            salvar_preferencia("last_active_provider", "groq")
-            salvar_preferencia("last_active_model", modelo)
-            print(f"{GREEN}Provedor da sessão restaurado: Groq ({modelo}).{RESET}")
-            return GroqService(model=modelo)
-        elif saved_prov == "nvidia":
-            from agente.services.nvidia_service import NvidiaService
-            modelo = saved_model or getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
-            config.NVIDIA_MODEL = modelo
-            salvar_variavel_env("NVIDIA_MODEL", modelo)
-            salvar_variavel_env("DEFAULT_PROVIDER", "nvidia")
-            salvar_preferencia("last_active_provider", "nvidia")
-            salvar_preferencia("last_active_model", modelo)
-            print(f"{GREEN}Provedor da sessão restaurado: NVIDIA ({modelo}).{RESET}")
-            return NvidiaService(model=modelo)
-        elif saved_prov == "g4f":
-            from agente.services.g4f_service import G4FService
-            modelo = saved_model or getattr(config, "G4F_MODEL", "gpt-4o-mini")
-            config.G4F_MODEL = modelo
-            salvar_variavel_env("G4F_MODEL", modelo)
-            salvar_variavel_env("DEFAULT_PROVIDER", "g4f")
-            salvar_preferencia("last_active_provider", "g4f")
-            salvar_preferencia("last_active_model", modelo)
-            print(f"{GREEN}Provedor da sessão restaurado: G4F ({modelo}).{RESET}")
-            return G4FService(model=modelo)
-        elif saved_prov.startswith("custom:"):
-            server_id = saved_prov.split("custom:", 1)[1]
-            from agente.providers_manager import obter_servidor_customizado
-            from agente.services.custom_openai_service import CustomOpenAIService
-            srv = obter_servidor_customizado(server_id)
-            if srv:
-                srv_copy = dict(srv)
-                if saved_model:
-                    srv_copy["modelo_atual"] = saved_model
-                salvar_variavel_env("DEFAULT_PROVIDER", saved_prov)
-                salvar_preferencia("last_active_provider", saved_prov)
-                salvar_preferencia("last_active_model", srv_copy.get("modelo_atual", ""))
-                print(f"{GREEN}Provedor da sessão restaurado: {srv.get('nome')} ({srv_copy['modelo_atual']}).{RESET}")
-                return CustomOpenAIService(srv_copy)
-        elif saved_prov == "ollama" or (saved_model and not saved_prov):
-            from agente.services.ollama_service import OllamaService
-            modelo = saved_model or config.OLLAMA_MODEL
-            config.OLLAMA_MODEL = modelo
-            salvar_variavel_env("OLLAMA_MODEL", modelo)
-            salvar_variavel_env("DEFAULT_PROVIDER", "ollama")
-            salvar_preferencia("last_active_provider", "ollama")
-            salvar_preferencia("last_active_model", modelo)
-            print(f"{GREEN}Provedor da sessão restaurado: Ollama ({modelo}).{RESET}")
-            return OllamaService(model=modelo)
-    except Exception as e:
-        logger.warning(f"Não foi possível restaurar o serviço da sessão: {e}")
-    return current_service
-
-
 def handle_deletar_sessao(history_manager: HistoryManager) -> HistoryManager:
     """Deleta a sessão atual do disco e cria uma nova."""
     try:
@@ -632,7 +488,6 @@ def despachar_comando(user_input: str, history_manager: HistoryManager, service:
 
     if l_input in {"/sessao", "/sessoes"} or l_input.startswith("/sessao "):
         history_manager = handle_sessao(user_input, history_manager)
-        service = restaurar_servico_sessao(history_manager, service)
         return True, history_manager, service, "CONTINUE"
 
     if l_input in {"/novo", "/nova", "/new", "/reset"} or l_input.startswith("/novo ") or l_input.startswith("/nova ") or l_input.startswith("/new "):

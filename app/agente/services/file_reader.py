@@ -1,6 +1,4 @@
-import os
 import subprocess
-from pathlib import Path
 
 def ler_arquivo(caminho: str, max_chars: int = 25000) -> str:
     """

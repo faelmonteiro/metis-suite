@@ -1,17 +1,75 @@
+import logging
+logger = logging.getLogger(__name__)
 import os
 import re
 import json
 import subprocess
+import sys
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from agente import config
-from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET, GRAY
+from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET
 from agente.utils import caminho_leitura_seguro
 
-try:
-    from agente.providers_manager import obter_preferencia
-    AUTO_APPROVE_MODE = bool(obter_preferencia("auto_approve_mode", False))
-except Exception:
-    AUTO_APPROVE_MODE = False
+# ---------------------------------------------------------------------------
+# Modo auto-approve por contexto (thread-local) em vez de flag global.
+#
+# Antes, "AUTO_APPROVE_MODE" era uma flag global no módulo: o AIWorker ligava
+# em run() e desligava em finally(). Com dois QThreads concorrentes, um worker
+# desligava a permissão do outro no meio da execução, fazendo ferramentas de
+# escrita/edição serem NEGADAS mesmo no GUI (que não tem stdin interativo).
+#
+# Agora cada thread tem seu próprio valor. A flag global continua funcionando
+# como fallback para o comando "/automode" (CLI) e para os testes.
+# ---------------------------------------------------------------------------
+_auto_approve_context = threading.local()
+
+
+def definir_auto_approve(valor: bool) -> None:
+    """Define o auto-approve apenas no contexto da thread atual."""
+    _auto_approve_context.ativo = bool(valor)
+
+
+@contextmanager
+def auto_approve_temporario(valor: bool):
+    """Habilita o auto-approve no contexto, e restaura o estado anterior.
+
+    O `finally` tem que RESTAURAR, e nao forcar `False`. Um atributo definido
+    na thread tem prioridade sobre o fallback global `AUTO_APPROVE_MODE`, e
+    essa prioridade nao volta: quem forca `False` no fim deixa o `/automode` do
+    CLI morto para sempre naquela thread, sem nenhum sintoma alem de ferramentas
+    de escrita sendo negadas em silencio.
+    """
+    tinha_valor = hasattr(_auto_approve_context, "ativo")
+    valor_anterior = getattr(_auto_approve_context, "ativo", None)
+    definir_auto_approve(valor)
+    try:
+        yield
+    finally:
+        if tinha_valor:
+            _auto_approve_context.ativo = valor_anterior
+        else:
+            del _auto_approve_context.ativo
+
+
+def auto_approve_habilitado() -> bool:
+    """True se o auto-approve estiver ativo no contexto atual.
+
+    Prioriza o valor da thread; se nenhuma thread definiu, respeita a flag
+    global AUTO_APPROVE_MODE (ex.: /automode no CLI e testes).
+    """
+    valor = getattr(_auto_approve_context, "ativo", None)
+    if valor is not None:
+        return valor
+    mod = sys.modules[__name__]
+    return bool(vars(mod).get("AUTO_APPROVE_MODE", False))
+
+
+def __getattr__(name: str):
+    if name == "AUTO_APPROVE_MODE":
+        return auto_approve_habilitado()
+    raise AttributeError(f"módulo {__name__!r} não possui o atributo {name!r}")
 
 def _resolver_caminho_amigavel(caminho_str: str) -> str:
     """
@@ -47,15 +105,15 @@ def _resolver_caminho_amigavel(caminho_str: str) -> str:
         for item in Path.home().iterdir():
             if unaccent(item.name) == c_un:
                 return str(item)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     try:
         for item in Path.cwd().iterdir():
             if unaccent(item.name) == c_un:
                 return str(item)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     # 4. Fallback para nomes e apelidos comuns de pastas
     termo_lower = c_str.lower()
@@ -135,10 +193,8 @@ def escrever_arquivo(caminho: str, conteudo: str) -> str:
         path = caminho_leitura_seguro(caminho)
     except Exception as e:
         return f"Acesso negado para escrita: {e}"
-    
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+
+    auto = auto_approve_habilitado()
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Salvando arquivo: {BOLD}{path}{RESET}")
@@ -176,9 +232,7 @@ def editar_arquivo(caminho: str, trecho_antigo: str, trecho_novo: str) -> str:
     if trecho_antigo not in conteudo:
         return f"Erro: O trecho antigo especificado não foi encontrado exatamente dentro do arquivo {path.name}."
 
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    auto = auto_approve_habilitado()
 
     print(f"\n{YELLOW}📝 A IA quer fazer uma edição cirúrgica em: {BOLD}{path}{RESET}")
     print(f"{CYAN}--- Preview da Alteração (Diff) ---{RESET}")
@@ -215,10 +269,8 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
         
     if not path.name.lower().endswith(".pdf"):
         path = path.with_suffix(".pdf")
-        
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+
+    auto = auto_approve_habilitado()
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Gerando PDF em: {BOLD}{path}{RESET}")
@@ -250,8 +302,8 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
                     pdf.set_font("DejaVu", size=12)
                     fonte_carregada = True
                     break
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         if not fonte_carregada:
             pdf.set_font("Helvetica", size=12)
@@ -270,14 +322,11 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
 
 COMANDOS_BLOQUEADOS = [
     r"\bsudo\b",
-    r"\bsu\s+-\b",
-    r"\bdoas\b",
     r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f?\s+[/~*]",
     r"\brm\s+-[a-zA-Z]*f[a-zA-Z]*r?\s+[/~*]",
     r"\bmkfs\b",
     r"\bfdisk\b",
     r"\bparted\b",
-    r"\bgdisk\b",
     r"\bdd\s+if=",
     r"\bshutdown\b",
     r"\breboot\b",
@@ -286,33 +335,26 @@ COMANDOS_BLOQUEADOS = [
     r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:",
     r">\s*/dev/(sd|nvme|hd)",
     r"\bchmod\s+-R\s+777\s+/",
-    r"\bchown\s+-R\s+.*?\s+/"
+    r"\bchown\s+-R\s+.*?\s+/",
+    # Vetores de execução indireta / injeção (bloqueados para QUALQUER comando)
+    r"\$\(|`",
+    r"\b(eval|source)\b",
+    r"\b(?:sh|bash|zsh|python|python3|perl|ruby|php)\s+-[ce]\s+",
+    r"\bbase64\s+-d",
+    r"\b(curl|wget)\s+[^\|;&`]*\|\s*(?:sh|bash|sudo)\b",
+    r"\b(?:printf|echo|cat)\s+[^\|;&`]*\|\s*(?:sh|bash)\b",
 ]
 
 COMANDOS_DIAGNOSTICO = (
-    "free", "df", "uptime", "uname", "top", "ps", "ip", "ping",
-    "hyprctl", "wpctl", "brightnessctl", "nmcli", "bluetoothctl", "systemctl",
-    "journalctl", "cat", "head", "tail", "ls", "grep", "which", "whereis", "whoami",
-    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id", "pwd",
-    "curl", "wget", "dig", "host", "nslookup", "resolvectl", "systemd-resolve", "ifconfig",
-    "ss", "netstat", "route", "traceroute", "tracepath", "mtr", "echo", "printf",
-    "awk", "sed", "cut", "sort", "uniq", "wc"
+    "free", "df", "uptime", "uname", "top -b", "ps", "ip ", "ip a", "ping -c",
+    "hyprctl", "wpctl", "brightnessctl", "nmcli", "bluetoothctl", "systemctl status", "systemctl is-active",
+    "journalctl", "cat ", "head ", "tail ", "ls ", "ls -", "find ", "grep ", "which ", "whereis ", "whoami",
+    "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id"
 )
 
-SENSITIVE_TARGETS = (
-    ".ssh", ".aws", ".gnupg", ".env", "id_rsa", "credentials",
-    "shadow", "sudoers", ".netrc", ".kube", ".docker/config",
-    "/root", ".git-credentials", ".bash_history", ".zsh_history"
-)
-
-OPERADORES_PERIGOSOS_SHELL = (">", "<", "`", "$(", "${", "\n", "\r")
-OPERADORES_ENCADEAMENTO = (";", "&&", "||", "|")
-OPERADORES_SHELL_RAW = OPERADORES_PERIGOSOS_SHELL + OPERADORES_ENCADEAMENTO
-
-class PoliticaComando:
-    SAFE = "SAFE"        # Diagnóstico estritamente somente-leitura. Pode executar diretamente.
-    CONFIRM = "CONFIRM"  # Comandos de alteração, compostos desconhecidos ou scripts. Exigem confirmação do usuário.
-    BLOCK = "BLOCK"      # Comandos destrutivos ou de alto risco. Bloqueados categoricamente.
+# Operadores de shell que desqualificam um comando de diagnóstico para o AUTO-APPROVE.
+# O comando ainda pode ser executado se o usuário confirmar manualmente.
+_OPERADORES_SHELL = re.compile(r"[;&|<>`]|\$\(")
 
 def normalizar_comando(comando) -> str:
     """Limpa e normaliza argumentos de comando enviados por LLMs (listas, JSON, aspas)."""
@@ -348,105 +390,14 @@ def validar_comando_seguro(comando: str) -> tuple[bool, str]:
             return False, f"Comando bloqueado por segurança (padrão perigoso detectado: {pattern})"
     return True, ""
 
-def avaliar_politica_comando_simples(cmd_simples: str) -> tuple[str, str, list[str] | None]:
-    cmd_clean = cmd_simples.strip()
-    if not cmd_clean:
-        return PoliticaComando.CONFIRM, "Comando vazio", None
-
-    seguro, motivo = validar_comando_seguro(cmd_clean)
-    if not seguro:
-        return PoliticaComando.BLOCK, motivo, None
-
-    if cmd_clean.endswith("&") and not any(cmd_clean.startswith(a) for a in ["kate", "gedit", "xdg-open", "firefox", "chromium", "google-chrome", "code"]):
-        return PoliticaComando.CONFIRM, "Comando em segundo plano (&) requer confirmação", None
-
-    import shlex
-    try:
-        argv = shlex.split(cmd_clean)
-    except ValueError as e:
-        return PoliticaComando.CONFIRM, f"Parsing de argumentos shell inconclusivo: {e}", None
-
-    if not argv:
-        return PoliticaComando.CONFIRM, "Nenhum argumento executável identificado", None
-
-    raw_bin = argv[0].strip()
-    bin_name = os.path.basename(raw_bin).lower()
-
-    if bin_name not in COMANDOS_DIAGNOSTICO:
-        return PoliticaComando.CONFIRM, f"O utilitário '{bin_name}' requer confirmação para execução", argv
-
-    # Validações adicionais para ferramentas específicas
-    if bin_name == "find":
-        flags_find = {arg.lower() for arg in argv[1:]}
-        if any(f in flags_find for f in ["-exec", "-execdir", "-delete", "-ok", "-okdir"]):
-            return PoliticaComando.CONFIRM, "Comando find contém parâmetros potencialmente modificadores (-exec/-delete)", argv
-
-    if bin_name in {"cat", "head", "tail", "grep", "ls"}:
-        for arg in argv[1:]:
-            arg_l = arg.lower()
-            if any(s in arg_l for s in SENSITIVE_TARGETS):
-                return PoliticaComando.CONFIRM, "Acesso a arquivos de credenciais ou diretórios sensíveis do sistema", argv
-
-    if bin_name == "systemctl":
-        if len(argv) < 2 or argv[1].lower() not in {"status", "is-active", "is-enabled", "list-units", "list-unit-files"}:
-            return PoliticaComando.CONFIRM, "Operações de alteração em serviços do systemctl exigem confirmação", argv
-
-    if bin_name == "top" and "-b" not in argv:
-        return PoliticaComando.CONFIRM, "Comando top interativo pode travar sem a opção em lote (-b)", argv
-
-    if bin_name == "ping" and "-c" not in argv:
-        return PoliticaComando.CONFIRM, "Comando ping contínuo requer limite de contagem (-c)", argv
-
-    if bin_name == "curl":
-        flags_mod = {"-o", "-O", "--output", "-d", "--data", "--data-raw", "--data-ascii", "--data-binary", "-F", "--form", "-T", "--upload-file"}
-        for i, arg in enumerate(argv[1:]):
-            arg_l = arg.lower()
-            if arg_l in flags_mod or arg_l.startswith("-o") or arg_l.startswith("-O"):
-                return PoliticaComando.CONFIRM, "Comando curl salva arquivo local ou envia dados", argv
-            if arg in {"-X", "--request"} or arg_l in {"-x", "--request"}:
-                if i + 2 < len(argv) and argv[i + 2].upper() not in {"GET", "HEAD"}:
-                    return PoliticaComando.CONFIRM, "Comando curl com método HTTP não somente-leitura", argv
-            if arg.startswith("-X") and len(arg) > 2 and arg[2:].upper() not in {"GET", "HEAD"}:
-                return PoliticaComando.CONFIRM, "Comando curl com método HTTP não somente-leitura", argv
-
-    if bin_name == "wget":
-        has_stdout = any(arg in {"-O-", "-qO-"} or arg == "-" for arg in argv[1:])
-        has_post = any(arg.startswith("--post") for arg in argv[1:])
-        if has_post or not has_stdout:
-            return PoliticaComando.CONFIRM, "Comando wget salva arquivo local ou envia dados", argv
-
-    return PoliticaComando.SAFE, "Comando de diagnóstico somente leitura seguro", argv
-
-def avaliar_politica_comando(comando: str) -> tuple[str, str, list[str] | None]:
-    """
-    Avalia a política de segurança de um comando.
-    Retorna: (PoliticaComando, motivo, tokens_argv_se_simples)
-    """
-    cmd_clean = comando.strip()
-    if not cmd_clean:
-        return PoliticaComando.CONFIRM, "Comando vazio", None
-
-    seguro, motivo = validar_comando_seguro(cmd_clean)
-    if not seguro:
-        return PoliticaComando.BLOCK, motivo, None
-
-    # 1. Se contiver operadores de composição, redirecionamento ou substituição shell
-    cmd_lower = cmd_clean.lower()
-    for op in OPERADORES_SHELL_RAW:
-        if op in cmd_lower:
-            return PoliticaComando.CONFIRM, f"Comando composto ou com operador de shell detectado ('{op}')", None
-
-    # 2. Comando simples
-    return avaliar_politica_comando_simples(cmd_clean)
-
 def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not config.ENABLE_COMMAND_TOOL:
         return "Erro: a ferramenta executar_comando está desabilitada. Defina ENABLE_COMMAND_TOOL=1 no .env somente se você realmente precisar executar comandos."
 
     comando = normalizar_comando(comando)
 
-    politica, motivo, argv = avaliar_politica_comando(comando)
-    if politica == PoliticaComando.BLOCK:
+    seguro, motivo = validar_comando_seguro(comando)
+    if not seguro:
         print(f"\n{RED}🚫 [Segurança] {motivo}{RESET}")
         return f"Erro de Segurança: {motivo}"
 
@@ -458,29 +409,39 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not cwd_path.exists() or not cwd_path.is_dir():
         return f"Erro: Diretório de execução {diretorio} não existe."
 
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    auto = auto_approve_habilitado()
 
     cmd_clean = comando.strip()
+    cmd_lower = cmd_clean.lower()
 
-    # Se for SAFE, executa diretamente como diagnóstico
-    if politica == PoliticaComando.SAFE:
-        if auto:
-            print(f"\n{YELLOW}⚡ [Metis Auto-Approve] Executando diagnóstico: {BOLD}{comando}{RESET}")
-        else:
-            print(f"\n{CYAN}🔍 [Diagnóstico do Sistema] Executando: {BOLD}{comando}{RESET}")
-    else:
-        # Requer confirmação explícita do usuário
+    # Avaliação para comandos encapsulados ou com caminho absoluto
+    cmd_eval = cmd_lower
+    for prefix in ("sh -c ", "bash -c ", "/bin/sh -c ", "/bin/bash -c "):
+        if cmd_eval.startswith(prefix):
+            cmd_eval = cmd_eval[len(prefix):].strip().strip("'\"")
+            break
+
+    for bin_path in ("/usr/bin/", "/bin/", "/usr/local/bin/"):
+        if cmd_eval.startswith(bin_path):
+            cmd_eval = cmd_eval[len(bin_path):]
+            break
+
+    eh_diagnostico = (
+        any(cmd_eval.startswith(d) or cmd_lower.startswith(d) for d in COMANDOS_DIAGNOSTICO)
+        and not _OPERADORES_SHELL.search(cmd_lower)
+    )
+
+    if auto or eh_diagnostico:
         if auto:
             print(f"\n{YELLOW}⚡ [Metis Auto-Approve] Executando comando: {BOLD}{comando}{RESET}")
         else:
-            print(f"\n{YELLOW}⚠️ A IA quer executar um comando no terminal:{RESET}")
-            print(f"   {CYAN}${RESET} {BOLD}{comando}{RESET}")
-            print(f"   {YELLOW}Diretório:{RESET} {cwd_path}")
-            print(f"   {GRAY}Classificação:{RESET} {motivo}")
-            if not pedir_confirmacao_usuario(f"{YELLOW}Deseja permitir a execução? (s/n): {RESET}"):
-                return "Execução do comando cancelada pelo usuário."
+            print(f"\n{CYAN}🔍 [Diagnóstico do Sistema] Executando: {BOLD}{comando}{RESET}")
+    else:
+        print(f"\n{YELLOW}⚠️ A IA quer executar um comando no terminal:{RESET}")
+        print(f"   {CYAN}${RESET} {BOLD}{comando}{RESET}")
+        print(f"   {YELLOW}Diretório:{RESET} {cwd_path}")
+        if not pedir_confirmacao_usuario(f"{YELLOW}Deseja permitir a execução? (s/n): {RESET}"):
+            return "Execução do comando cancelada pelo usuário."
 
     try:
         # Se for um aplicativo gráfico / desanexado comum (kate, xdg-open, navegador, etc.)
@@ -500,20 +461,9 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
             )
             return f"Aplicativo/comando '{comando}' iniciado com sucesso no sistema!"
 
-        # Se for diagnóstico SAFE, executa estritamente com shell=False se argv estiver disponível
-        if politica == PoliticaComando.SAFE and argv:
-            use_shell = False
-            exec_args = argv
-        elif argv and not any(op in cmd_clean for op in OPERADORES_PERIGOSOS_SHELL + OPERADORES_ENCADEAMENTO):
-            use_shell = False
-            exec_args = argv
-        else:
-            use_shell = True
-            exec_args = comando
-
         resultado = subprocess.run(
-            exec_args,
-            shell=use_shell,
+            comando,
+            shell=True,
             cwd=str(cwd_path),
             capture_output=True,
             text=True,
@@ -542,7 +492,8 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
         return saida
 
     except subprocess.TimeoutExpired:
-        return "Erro: O comando excedeu o tempo limite e foi interrompido."
+        timeout_s = int(getattr(config, "COMMAND_TIMEOUT", 60))
+        return f"Erro: O comando excedeu o tempo limite de {timeout_s} segundos e foi interrompido."
     except Exception as e:
         return f"Erro ao executar comando: {e}"
 
@@ -629,7 +580,7 @@ GEMINI_TOOLS_DECLARATION = [{
         },
         {
             "name": "executar_comando",
-            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use SEMPRE para consultar status do sistema (free, df, ps, uptime), rede e internet (obter IP público via 'curl -s https://ifconfig.me', DNS via 'cat /etc/resolv.conf' ou 'resolvectl status', interfaces via 'ip a', portas via 'ss -tuln'), gerenciar o desktop (hyprctl), áudio (wpctl), logs (journalctl) ou rodar testes.",
+            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use para consultar status do sistema (free, df, ps, uptime), gerenciar o desktop Hyprland (hyprctl), áudio (wpctl/pamixer), processos (kill), verificar logs (journalctl), rodar testes (pytest) ou iniciar programas e scripts.",
             "parameters": {
                 "type": "OBJECT",
                 "properties": {
@@ -751,7 +702,7 @@ OPENAI_TOOLS_DECLARATION = [
         "type": "function",
         "function": {
             "name": "executar_comando",
-            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use SEMPRE para consultar status do sistema (free, df, ps, uptime), rede e internet (obter IP público via 'curl -s https://ifconfig.me', DNS via 'cat /etc/resolv.conf' ou 'resolvectl status', interfaces via 'ip a', portas via 'ss -tuln'), gerenciar o desktop (hyprctl), áudio (wpctl), logs (journalctl) ou rodar testes.",
+            "description": "Executa um comando no terminal Linux com segurança, capturando a saída (stdout/stderr). Use para consultar status do sistema (free, df, ps, uptime), gerenciar o desktop Hyprland (hyprctl), áudio (wpctl/pamixer), processos (kill), verificar logs (journalctl), rodar testes (pytest) ou iniciar programas e scripts.",
             "parameters": {
                 "type": "object",
                 "properties": {

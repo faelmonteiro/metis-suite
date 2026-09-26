@@ -9,11 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import config
-from capture import capture_screen
-from ai_engine import VisionAIEngine
+from . import config
+from .capture import capture_screen
+from .ai_engine import VisionAIEngine
 
-from folder_analyzer import format_folder_context, format_file_context
+from .folder_analyzer import format_folder_context, format_file_context
 
 def parse_args():
     parser = argparse.ArgumentParser(description="ScreenAI • Assistente Visual de Tela com IA")
@@ -102,14 +102,6 @@ def run_headless(args):
     full_text = "".join(chunks)
     if args.notify and shutil.which("notify-send"):
         icon_path = Path(__file__).parent / "assets" / "icon_128x128.png"
-        if not icon_path.exists():
-            for fallback in [
-                Path(__file__).parent.parent / "assets" / "icons" / "icon_128x128.png",
-                Path(__file__).parent.parent.parent / "assets" / "icons" / "icon_128x128.png",
-            ]:
-                if fallback.exists():
-                    icon_path = fallback
-                    break
         icon_arg = ["-i", str(icon_path)] if icon_path.exists() else []
         subprocess.run(["notify-send", *icon_arg, "✨ Metis Vision", full_text[:400] + "..."])
 
@@ -120,7 +112,7 @@ def main():
         run_headless(args)
     else:
         # Modo Interface Gráfica Flutuante
-        from ui import run_app
+        from .ui import run_app
         sys.exit(run_app(capture_mode=args.mode, target_path=args.target))
 
 if __name__ == "__main__":

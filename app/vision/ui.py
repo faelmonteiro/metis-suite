@@ -7,9 +7,12 @@ Inclui:
   4. Extrator de comandos bash, streaming de IA e histórico contínuo de conversação.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -32,32 +35,31 @@ from PyQt6.QtWidgets import (
     QTextBrowser,
     QLabel,
     QFrame,
-    QComboBox,
     QFileDialog,
     QStackedWidget,
     QListWidget,
     QListWidgetItem,
-    QInputDialog,
-    QMessageBox,
     QPlainTextEdit,
     QSizePolicy,
     QAbstractItemView,
     QMenu
 )
 
-_vision_dir = str(Path(__file__).resolve().parent)
-if _vision_dir not in sys.path:
-    sys.path.insert(0, _vision_dir)
+# Adiciona caminho do Metis para importar utilitários compartilhados
+metis_root = Path(__file__).parent.parent
+if str(metis_root) not in sys.path:
+    sys.path.insert(0, str(metis_root))
+from agente.ui.clipboard import extrair_blocos, _extrair_comando_e_comentario
 
-import config
-import model_manager
-from capture import capture_screen
-from ai_engine import VisionAIEngine
-from folder_analyzer import (
+from . import config
+from . import model_manager
+from .capture import capture_screen
+from .ai_engine import VisionAIEngine
+from .folder_analyzer import (
     format_folder_context, format_file_context, detect_and_attach_local_files,
     get_active_window_cwd, detect_save_target_path
 )
-import theme_manager
+from . import theme_manager
 
 PROVIDER_ICONS = {
     "nvidia": "⚡ NVIDIA",
@@ -93,8 +95,8 @@ class ModernInputDialog(QDialog):
                 x = p_geo.x() + (p_geo.width() - 460) // 2
                 y = p_geo.y() + (p_geo.height() - 195) // 2
                 self.move(max(10, x), max(10, y))
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -241,8 +243,8 @@ class ModernConfirmDialog(QDialog):
                 x = p_geo.x() + (p_geo.width() - 450) // 2
                 y = p_geo.y() + (p_geo.height() - 190) // 2
                 self.move(max(10, x), max(10, y))
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -1070,8 +1072,8 @@ class ScreenAIOverlay(QWidget):
                     if any(x in title or x in initial_title or x in cls or x in initial_cls for x in ["metis", "screenai"]):
                         self._cached_hypr_addr = c.get("address")
                         return self._cached_hypr_addr
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         return None
 
     def get_active_monitor_workarea(self) -> tuple[int, int, int, int]:
@@ -1103,8 +1105,8 @@ class ScreenAIOverlay(QWidget):
                     work_w = mw - r_left - r_right
                     work_h = mh - r_top - r_bottom
                     return work_x, work_y, work_w, work_h
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         # Fallback nativo universal cross-desktop (GNOME, KDE, XFCE, Cinnamon, X11, Wayland)
         try:
@@ -1113,8 +1115,8 @@ class ScreenAIOverlay(QWidget):
             if screen:
                 geo = screen.availableGeometry()
                 return geo.x(), geo.y(), geo.width(), geo.height()
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         return 0, 0, 1920, 1080
 
@@ -1255,11 +1257,11 @@ class ScreenAIOverlay(QWidget):
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.card.setStyleSheet(self.current_stylesheet + f"""
-            QWidget#MainCard {{
+            self.card.setStyleSheet(self.current_stylesheet + """
+            QWidget#MainCard {
                 border: 2px dashed #fbbf24;
                 background-color: rgba(245, 158, 11, 0.12);
-            }}
+            }
             """)
         else:
             event.ignore()
@@ -1369,6 +1371,30 @@ class ScreenAIOverlay(QWidget):
         self.search_input.setFocus()
         if not getattr(self, 'last_failed_prompt', None):
             self.status_label.setText("✓ Pronto para análise.")
+
+    def sync_with_metis(self):
+        """Sincroniza servidores e modelos com o Metis e Ollama local sem fechar a interface."""
+        try:
+            res = model_manager.sync_with_metis()
+            prov_count = res.get("providers_count", 0)
+            srv_count = res.get("custom_servers_count", 0)
+            ollama_str = " (incluindo Ollama local)" if res.get("ollama_synced") else ""
+
+            # Recarregar categorias e menu de modelos
+            self.load_settings_categories()
+            self.refresh_model_menu()
+
+            # Feedback no status
+            feedback_msg = f"✓ Sincronizado com o Metis: {prov_count} provedores, {srv_count} servidores{ollama_str}."
+            self.status_label.setText(feedback_msg)
+
+            # Feedback temporário no seletor de modelos (ao lado do fullscreen)
+            if hasattr(self, 'model_btn'):
+                current_label = self.model_btn.text()
+                self.model_btn.setText("✅ Sincronizado!")
+                QTimer.singleShot(1800, lambda: self.model_btn.setText(current_label) if hasattr(self, 'model_btn') else None)
+        except Exception as e:
+            self.status_label.setText(f"❌ Erro ao sincronizar: {e}")
 
     def load_settings_categories(self):
         self.settings_provider_list.clear()
@@ -1675,6 +1701,9 @@ class ScreenAIOverlay(QWidget):
                     )
 
         menu.addSeparator()
+        sync_act = menu.addAction("🔄  Sincronizar com o Metis")
+        sync_act.setToolTip("Sincroniza modelos e servidores com o Metis e Ollama local")
+        sync_act.triggered.connect(self.sync_with_metis)
         settings_act = menu.addAction("⚙️  Gerenciar Modelos e Provedores...")
         settings_act.triggered.connect(self.open_settings)
         menu.blockSignals(False)
@@ -1702,10 +1731,6 @@ class ScreenAIOverlay(QWidget):
             self.status_label.setText(f"⭐ Ativo: {prov_name} • {short_mod} • Pressione Enter para reenviar ao novo modelo")
         else:
             self.status_label.setText(f"✓ Modelo ativo: {prov_name} • {short_mod}")
-
-    def on_model_changed(self, index: int = 0):
-        """Método de retrocompatibilidade."""
-        pass
 
     def on_submit_query(self):
         query = self.search_input.text().strip()
@@ -1746,7 +1771,7 @@ class ScreenAIOverlay(QWidget):
         if len(self.chat_history) > 1:
             self.rendered_markdown_history += f"\n\n---\n\n### 🧑 **Você:**\n{prompt}\n\n### 🤖 **Metis:**\n"
         else:
-            self.rendered_markdown_history = f"### 🤖 **Metis:**\n"
+            self.rendered_markdown_history = "### 🤖 **Metis:**\n"
 
         self.current_stream_chunk = ""
         self.preview_container.hide()
@@ -1839,12 +1864,17 @@ class ScreenAIOverlay(QWidget):
         self.search_input.setFocus()
 
     def extract_commands_from_text(self, text: str) -> List[str]:
-        code_blocks = re.findall(r'```(?:bash|sh|shell|zsh)?\s*\n(.*?)\n```', text, re.DOTALL)
+        """Extrai comandos executáveis de blocos de código usando utilitário compartilhado."""
+        blocos_shell, blocos_codigo = extrair_blocos(text)
         commands = []
-        for block in code_blocks:
-            lines = [line.strip() for line in block.splitlines() if line.strip() and not line.strip().startswith("#")]
-            if lines:
-                commands.extend(lines)
+        for bloco in blocos_shell:
+            for linha in bloco.strip().split("\n"):
+                linha_limpa = linha.strip()
+                if not linha_limpa:
+                    continue
+                cmd, _ = _extrair_comando_e_comentario(linha_limpa)
+                if cmd:
+                    commands.append(cmd)
         return commands
 
     def _reset_copy_cmd_btn(self):

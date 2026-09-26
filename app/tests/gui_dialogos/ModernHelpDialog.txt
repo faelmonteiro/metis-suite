@@ -1,0 +1,117 @@
+QVBoxLayout||ModernHelpDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 680, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 343, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 469, 680, 29)||True||||||
+QLabel||ModernHelpDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|📖|background: transparent;||||
+QLabel||ModernHelpDialog:|PyQt6.QtCore.QRect(54, 16, 343, 24)|True|True|METIS • GUIA DO ORÁCULO|color: #fad094; background: transparent;||||
+QLabel||ModernHelpDialog:|PyQt6.QtCore.QRect(54, 42, 343, 17)|True|True|Manual de Operações, Comandos Rápidos e Funcionalidades|color: #94a3b8; background: transparent;||||
+QFrame||ModernHelpDialog:|PyQt6.QtCore.QRect(20, 71, 680, 1)|True|True||background-color: #162234;||||
+QScrollArea||ModernHelpDialog:|PyQt6.QtCore.QRect(20, 84, 680, 373)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 673, 373)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 673, 1204)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 1204)||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 275)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 273)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 39, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 72, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 105, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 138, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 171, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 204, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 237, 643, 25)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 18)|True|True|⚡  ATALHOS GLOBAIS & NAVEGAÇÃO|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 39, 79, 25)|True|True|Super + R|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(106, 39, 552, 25)|True|True|Atalho global do sistema para invocar o Metis em janela flutuante no Hyprland.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 72, 133, 25)|True|True|Setas ↑ / ↓ / ← / →|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(160, 72, 498, 25)|True|True|Navega livremente pelos cartões do Dashboard, abas de provedores e modelos.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 105, 69, 25)|True|True|Enter ↵|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(96, 105, 562, 25)|True|True|Executa a opção selecionada no menu ou envia a mensagem no chat.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 138, 98, 25)|True|True|Shift + Enter|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(125, 138, 533, 25)|True|True|Insere uma quebra de linha no prompt sem enviar a mensagem.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 171, 66, 25)|True|True|Ctrl + C|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(93, 171, 565, 25)|True|True|Interrompe imediatamente a geração de resposta da IA em andamento.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 204, 45, 25)|True|True|ESC|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(72, 204, 586, 25)|True|True|Cancela a resposta da IA, retorna à tela anterior ou fecha a janela.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 237, 51, 25)|True|True|1 a 6|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(78, 237, 580, 25)|True|True|Digite o número da opção e pressione Enter para executar rapidamente no Dashboard.|color: #cbd5e1; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 287, 673, 227)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 225)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 39, 643, 34)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 81, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 114, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 147, 643, 34)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 189, 643, 25)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 18)|True|True|🌐  CONSULTAS, CHAT & BUSCA NA WEB|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 39, 142, 34)|True|True|01 - Consultar Metis|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(169, 39, 489, 34)|True|True|Chat inteligente com IA e pesquisa web integrada (chave 🌐 ativável via switch ou /web).|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 81, 178, 25)|True|True|03 - Buscar Conhecimento|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(205, 81, 453, 25)|True|True|Pesquisa web direta sem IA (resultados e links brutos).|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 114, 126, 25)|True|True|/web <pergunta>|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(153, 114, 505, 25)|True|True|Força a busca web em tempo real para responder sua dúvida.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 147, 154, 34)|True|True|/opcoes ou /avancado|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(181, 147, 477, 34)|True|True|Configura ferramentas de terminal (ENABLE_COMMAND_TOOL) e extração web (FETCH_PAGE_CONTENT).|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 189, 127, 25)|True|True|/retry ou /repetir|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(154, 189, 504, 25)|True|True|Rebobina e regenera a última resposta gerada pelo oráculo.|color: #cbd5e1; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 526, 673, 161)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 159)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 39, 643, 34)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 81, 643, 34)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 123, 643, 25)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 18)|True|True|✨  ORÁCULOS, MODELOS & PROVEDORES|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 39, 166, 34)|True|True|02 - Oráculos & Modelos|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(193, 39, 465, 34)|True|True|Painel completo de provedores: Ollama (local), Gemini, Groq, NVIDIA, G4F e Servidores Customizados (OpenRouter, DeepSeek, etc.).|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 81, 119, 34)|True|True|/modelo [nome]|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(146, 81, 512, 34)|True|True|Troca rápida de provedor ativo (ex: /modelo gemini, /modelo groq, /modelo ollama) ou abre a lista.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 123, 150, 25)|True|True|/apis, /api ou /chaves|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(177, 123, 481, 25)|True|True|Gerenciador completo de Chaves de API e variáveis de ambiente no arquivo .env.|color: #cbd5e1; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 699, 673, 110)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 108)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 39, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 72, 643, 25)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 18)|True|True|📎  ARQUIVOS, ANEXOS & MULTIMODALIDADE|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 39, 121, 25)|True|True|Botão 📎 Anexar|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(148, 39, 510, 25)|True|True|Abre o explorador para anexar imagens, PDFs ou arquivos de código/texto.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 72, 143, 25)|True|True|/arquivo <caminho>|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(170, 72, 488, 25)|True|True|Carrega e analisa um arquivo, documento ou imagem do seu computador.|color: #cbd5e1; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 821, 673, 383)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 381)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 39, 643, 34)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 81, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 114, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 147, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 180, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 213, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 246, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 279, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 312, 643, 25)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 345, 643, 25)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 18)|True|True|📜  TÁBULA DE MÉTIS (HISTÓRICO & SESSÕES)|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 39, 141, 34)|True|True|04 - Tábula de Métis|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(168, 39, 490, 34)|True|True|Gerenciamento avançado de sessões, histórico e inspeção/exclusão cirúrgica de turnos.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 81, 155, 25)|True|True|05 - Purificar Memória|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(182, 81, 476, 25)|True|True|Limpa com segurança todas as sessões e históricos armazenados no disco.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 114, 149, 25)|True|True|06 - Encerrar Sistema|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(176, 114, 482, 25)|True|True|Fecha a aplicação com segurança.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 147, 103, 25)|True|True|/novo [nome]|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(130, 147, 528, 25)|True|True|Inicia imediatamente uma nova conversa/tópico limpo sem fechar o app.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 180, 114, 25)|True|True|/sessao [nome]|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(141, 180, 517, 25)|True|True|Lista sessões salvas ou troca/cria diretamente uma sessão pelo nome.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 213, 81, 25)|True|True|/exportar|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(108, 213, 550, 25)|True|True|Exporta a conversa atual para arquivo Markdown (.md) na pasta exports/.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 246, 124, 25)|True|True|/limpar ou /clear|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(151, 246, 507, 25)|True|True|Limpa a conversa da tela e reseta a memória da sessão atual.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 279, 116, 25)|True|True|/deletar_sessao|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(143, 279, 515, 25)|True|True|Apaga a sessão atual gravada no disco e inicia uma nova.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 312, 105, 25)|True|True|/deletar_tudo|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(132, 312, 526, 25)|True|True|Solicita confirmação para apagar todo o histórico de conversas do HD.|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 345, 66, 25)|True|True|/status|color: #67e8f9; background-color: #0e1a2c; padding: 4px 8px; border-radius: 4px;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(93, 345, 565, 25)|True|True|Abre o painel de telemetria e diagnóstico dos serviços (Ollama, Busca Web, APIs).|color: #cbd5e1; background: transparent;||||
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(673, 0, 7, 373)|True|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 373)|True|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 373)||True||||||
+QPushButton||ModernHelpDialog:|PyQt6.QtCore.QRect(586, 469, 114, 29)|True|True|Entendido (ESC)||||PrimaryBtn|

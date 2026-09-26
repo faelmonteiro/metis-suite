@@ -1,4 +1,4 @@
-from agente.colors import *
+from agente.colors import BOLD, GREEN, RED, RESET, YELLOW
 from agente.services import searxng_service
 from agente.utils import COMANDOS_SAIDA
 

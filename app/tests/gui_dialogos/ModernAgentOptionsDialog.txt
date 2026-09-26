@@ -1,0 +1,112 @@
+QVBoxLayout||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 680, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 485, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 467, 680, 31)||True||||||
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🤖|background: transparent;||||
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(54, 16, 485, 24)|True|True|OPÇÕES DO AGENTE|color: #fad094; background: transparent;||||
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(54, 42, 485, 17)|True|True|Personalize diretrizes, ferramentas de sistema, busca na web e memória do assistente|color: #94a3b8; background: transparent;||||
+QFrame||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 71, 680, 1)|True|True||background-color: #162234;||||
+QScrollArea||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 84, 680, 371)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 673, 371)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 673, 633)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 633)||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 222)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 220)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 178, 643, 31)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|🧠  PERSONALIDADE & DIRETRIZES DO AGENTE|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 17)|True|True|Instruções personalizadas (System Prompt Customizado):|color: #cbd5e1; background: transparent;||||
+QPlainTextEdit||QFrame:|PyQt6.QtCore.QRect(15, 63, 643, 75)|True|True||||Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux...||
+QWidget|qt_scrollarea_viewport|QPlainTextEdit:|PyQt6.QtCore.QRect(11, 6, 621, 63)|True|True||||||
+QWidget|qt_scrollarea_hcontainer|QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget|qt_scrollarea_vcontainer|QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True||||||
+QObject||QPlainTextEdit:|||||||||
+QTextDocument||QObject:|||||||||
+QPlainTextDocumentLayout||QTextDocument:|||||||||
+QWidget||QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 146, 643, 15)|True|True|💡 Deixe em branco para usar as diretrizes automáticas inteligentes do Metis.|color: #64748b; background: transparent;||||
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 169, 643, 1)|True|True||background-color: #1a2638;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 178, 217, 31)|True|True|Nível de Criatividade (Temperatura):|color: #cbd5e1; background: transparent;||||
+QComboBox||QFrame:|PyQt6.QtCore.QRect(240, 178, 418, 31)|True|True||||||
+QStandardItemModel||QComboBox:|||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True||||||
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemSelectionModel||QListView:|||||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemDelegate||QListView:|||||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 234, 673, 152)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 150)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|⚡  FERRAMENTAS & EXECUÇÃO NO SISTEMA|color: #f0a85d; background: transparent;||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 19)|True|True|Permitir execução segura de comandos no terminal (ENABLE_COMMAND_TOOL)|color: #fad094; font-size: 11px; font-weight: bold;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 65, 643, 15)|True|True|Habilita o agente a executar comandos seguros no sistema operacional para diagnósticos e tarefas locais.|color: #64748b; background: transparent; padding-left: 20px;||||
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 88, 643, 1)|True|True||background-color: #1a2638;||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 97, 643, 19)|True|True|Exibir checklist visual de execução em tempo real (AGENT_VISUAL_CHECKLIST)|color: #fad094; font-size: 11px; font-weight: bold;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 124, 643, 15)|True|True|Mostra um painel interativo na mensagem do chat com as ações e ferramentas executadas pelo agente.|color: #64748b; background: transparent; padding-left: 20px;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 398, 673, 141)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 139)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 97, 643, 31)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|🌐  PESQUISA NA WEB & ENRIQUECIMENTO|color: #f0a85d; background: transparent;||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 19)|True|True|Extrair conteúdo completo de páginas na busca web (FETCH_PAGE_CONTENT)|color: #fad094; font-size: 11px; font-weight: bold;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 65, 643, 15)|True|True|Lê e sintetiza o corpo textual completo das páginas encontradas, gerando respostas mais ricas.|color: #64748b; background: transparent; padding-left: 20px;||||
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 88, 643, 1)|True|True||background-color: #1a2638;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 97, 225, 31)|True|True|Resultados consultados por pesquisa:|color: #cbd5e1; background: transparent;||||
+QComboBox||QFrame:|PyQt6.QtCore.QRect(248, 97, 410, 31)|True|True||||||
+QStandardItemModel||QComboBox:|||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True||||||
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemSelectionModel||QListView:|||||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemDelegate||QListView:|||||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 551, 673, 82)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 80)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 38, 643, 31)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|📜  MEMÓRIA & CONTEXTO DA CONVERSA|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 38, 240, 31)|True|True|Mensagens mantidas na memória ativa:|color: #cbd5e1; background: transparent;||||
+QComboBox||QFrame:|PyQt6.QtCore.QRect(263, 38, 395, 31)|True|True||||||
+QStandardItemModel||QComboBox:|||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True||||||
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemSelectionModel||QListView:|||||||||
+QStyledItemDelegate||QListView:|||||||||
+QItemDelegate||QListView:|||||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 364, 673, 7)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 673, 7)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 673, 7)||True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(673, 0, 7, 371)|True|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)|True|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)||True||||||
+QPushButton||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(430, 467, 101, 31)|True|True|Cancelar (ESC)||||SecondaryBtn|
+QPushButton||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(543, 468, 157, 29)|True|True|💾 Salvar Configurações||||PrimaryBtn|

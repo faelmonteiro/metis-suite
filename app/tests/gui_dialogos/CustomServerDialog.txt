@@ -1,0 +1,21 @@
+QVBoxLayout||CustomServerDialog:|PyQt6.QtCore.QRect()||True||||||
+QVBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(18, 14, 504, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(18, 435, 504, 31)||True||||||
+QLabel||CustomServerDialog:|PyQt6.QtCore.QRect(18, 14, 504, 24)|True|True|➕ NOVO SERVIDOR API (OpenAI Compatible)|color: #fad094; background: transparent;||||
+QLabel||CustomServerDialog:|PyQt6.QtCore.QRect(18, 40, 504, 17)|True|True|Cadastre OpenRouter, DeepSeek, LocalAI, vLLM, LM Studio ou endpoints compatíveis|color: #94a3b8; background: transparent;||||
+QFrame||CustomServerDialog:|PyQt6.QtCore.QRect(18, 67, 504, 358)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 502, 356)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 474, 40)|True|True|1. Nome do Provedor / Servidor:|color: #cbd5e1; background: transparent;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 59, 474, 33)|True|True||||Ex: OpenRouter, DeepSeek, LocalAI...||EchoMode.Normal
+QObject||QLineEdit:|||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 98, 474, 39)|True|True|2. URL do Endpoint (Base URL):|color: #cbd5e1; background: transparent;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 143, 474, 33)|True|True|https://openrouter.ai/api/v1/chat/completions|||https://openrouter.ai/api/v1/chat/completions||EchoMode.Normal
+QObject||QLineEdit:|||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 182, 474, 40)|True|True|3. Chave de API (Authorization Bearer):|color: #cbd5e1; background: transparent;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 228, 474, 33)|True|True||||sk-... (deixe vazio se for servidor local sem auth)||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 267, 474, 39)|True|True|4. Identificador do Modelo Inicial:|color: #cbd5e1; background: transparent;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 312, 474, 33)|True|True||||Ex: deepseek/deepseek-chat, mistralai/mistral-large...||EchoMode.Normal
+QObject||QLineEdit:|||||||||
+QPushButton||CustomServerDialog:|PyQt6.QtCore.QRect(316, 435, 72, 31)|True|True|Cancelar||||SecondaryBtn|
+QPushButton||CustomServerDialog:|PyQt6.QtCore.QRect(398, 436, 124, 29)|True|True|💾 Salvar Servidor||||PrimaryBtn|

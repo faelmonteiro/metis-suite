@@ -22,7 +22,6 @@ def _build_request(mensagens: list) -> tuple:
     contents = []
     system_instruction = None
 
-    import base64
     import mimetypes
 
     from agente.services.tools_defs import GEMINI_TOOLS_DECLARATION
@@ -35,11 +34,9 @@ def _build_request(mensagens: list) -> tuple:
             continue
 
         if role_raw == "functionCall":
-            fc_data = dict(m["functionCall"])
-            fc_data.pop("id", None)
             contents.append({
                 "role": "model",
-                "parts": [{"functionCall": fc_data}]
+                "parts": [{"functionCall": m["functionCall"]}]
             })
             continue
             
@@ -98,17 +95,24 @@ def _build_request(mensagens: list) -> tuple:
 
 
 def _handle_error(res):
-    """Trata erros HTTP da Gemini API."""
-    if res.status_code in {400, 401, 403}:
-        raise RuntimeError("Erro de autenticação/permissão na Gemini API.")
-    if res.status_code == 429:
-        raise RuntimeError("Rate limit da Gemini API atingido.")
-    res.raise_for_status()
+    """Trata erros HTTP da Gemini API com mensagem amigável (sem vazar httpx cru)."""
+    if res.status_code != 200:
+        body = ""
+        try:
+            body = res.read().decode("utf-8", errors="replace")
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+        msg = body.strip() or f"HTTP {res.status_code}"
+        if res.status_code in {400, 401, 403}:
+            raise RuntimeError(f"Gemini API ({res.status_code}): Erro de autenticação/permissão. {msg}".strip())
+        if res.status_code == 429:
+            raise RuntimeError(f"Gemini API (429): Rate limit atingido. {msg}".strip())
+        raise RuntimeError(f"Gemini API ({res.status_code}): {msg}")
 
 
 
 
-def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
+def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     """Gera resposta via streaming SSE da Gemini API."""
     model_name = model or config.GEMINI_MODEL
     headers, payload = _build_request(mensagens)
@@ -124,11 +128,16 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     try:
         from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
-        with client.stream("POST", url, headers=headers, json=payload) as res:
+        client = get_http_client()
+        with client.stream("POST", url, headers=headers, json=payload, timeout=timeout) as res:
+            if service:
+                service._active_stream = res
+            try:
                 _handle_error(res)
 
                 for line in res.iter_lines():
+                    if service and getattr(service, "_aborted", False):
+                        break
                     if not line.startswith("data: "):
                         continue
                     try:
@@ -141,43 +150,47 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                                     yield text
                             elif "functionCall" in part:
                                 function_calls_detected.append(part["functionCall"])
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        pass
+                    except (json.JSONDecodeError, KeyError, IndexError) as _silent_e:
+                        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+            finally:
+                if service:
+                    service._active_stream = None
     except httpx.RequestError as e:
+        if service and getattr(service, "_aborted", False):
+            return
         raise RuntimeError(f"Erro de conexão com Gemini API: {e}")
+
+    if service and getattr(service, "_aborted", False):
+        return
 
     if function_calls_detected:
         if iteration >= max_iterations:
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
-        import uuid
         from agente.services.tool_executor import executar_tool
         for fc in function_calls_detected:
             name = fc.get("name")
             args = fc.get("args", {})
-            call_id = fc.get("id") or f"call_gemini_{iteration}_{uuid.uuid4().hex[:8]}"
-            fc_dict = dict(fc)
-            fc_dict["id"] = call_id
             
             mensagens.append({
                 "role": "functionCall",
-                "functionCall": fc_dict
+                "functionCall": fc
             })
             
             result = executar_tool(name, args)
                 
             mensagens.append({
                 "role": "functionResponse",
-                "id": call_id,
                 "name": name,
                 "content": result
             })
         
-        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name)
+        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name, service=service)
 
 class GeminiService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or config.GEMINI_MODEL
 
     @property
@@ -185,4 +198,5 @@ class GeminiService(BaseService):
         return f"GEMINI ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)

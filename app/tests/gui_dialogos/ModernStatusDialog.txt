@@ -1,0 +1,69 @@
+QVBoxLayout||ModernStatusDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 640, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 297, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 469, 640, 29)||True||||||
+QLabel||ModernStatusDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|📊|background: transparent;||||
+QLabel||ModernStatusDialog:|PyQt6.QtCore.QRect(54, 16, 297, 24)|True|True|METIS • TELEMETRIA DOS SERVIÇOS|color: #fad094; background: transparent;||||
+QLabel||ModernStatusDialog:|PyQt6.QtCore.QRect(54, 42, 297, 17)|True|True|Diagnóstico, Latência e Conectividade de Provedores|color: #94a3b8; background: transparent;||||
+QFrame||ModernStatusDialog:|PyQt6.QtCore.QRect(20, 71, 640, 1)|True|True||background-color: #162234;||||
+QScrollArea||ModernStatusDialog:|PyQt6.QtCore.QRect(20, 84, 640, 373)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 633, 373)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 633, 436)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 633, 436)||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 633, 131)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 631, 129)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 57, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 80, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 103, 603, 17)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 603, 17)|True|True|🏛️  OLLAMA (LOCAL)|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 34, 36, 17)|True|True|Status|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(578, 34, 40, 17)|True|True|Online|color: #4ade80; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 57, 28, 17)|True|True|Host|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(490, 57, 128, 17)|True|True|http://127.0.0.1:11434|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 80, 75, 17)|True|True|Modelo Ativo|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(550, 80, 68, 17)|True|True|qwen3.5:4b|color: #67e8f9; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 103, 108, 17)|True|True|Contexto / Threads|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(472, 103, 146, 17)|True|True|4096 tokens / 10 threads|color: #94a3b8; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 141, 633, 108)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 631, 106)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 57, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 80, 603, 17)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 603, 17)|True|True|🌐  BUSCA WEB (DUCKDUCKGO)|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 34, 36, 17)|True|True|Status|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(578, 34, 40, 17)|True|True|Online|color: #4ade80; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 57, 67, 17)|True|True|Motor Ativo|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(541, 57, 77, 17)|True|True|DuckDuckGo|color: #cbd5e1; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 80, 121, 17)|True|True|Resultados por busca|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(611, 80, 7, 17)|True|True|5|color: #67e8f9; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 259, 633, 177)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 631, 175)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 57, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 80, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 103, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 126, 603, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 149, 603, 17)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 603, 17)|True|True|✨  ORÁCULOS & NUVEM|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 34, 84, 17)|True|True|Google Gemini|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(544, 34, 74, 17)|True|True|Configurado|color: #4ade80; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 57, 64, 17)|True|True|Groq Cloud|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(544, 57, 74, 17)|True|True|Configurado|color: #4ade80; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 80, 68, 17)|True|True|NVIDIA NIM|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(544, 80, 74, 17)|True|True|Configurado|color: #4ade80; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 103, 106, 17)|True|True|Servidores Custom|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(544, 103, 74, 17)|True|True|OpenRouter|color: #67e8f9; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 126, 113, 17)|True|True|Oráculo Ativo Agora|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(488, 126, 130, 17)|True|True|OLLAMA (qwen3.5:4b)|color: #fad094; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 149, 72, 17)|True|True|Sessão Atual|color: #94a3b8; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(485, 149, 133, 17)|True|True|chat_<T>|color: #67e8f9; background: transparent;||||
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(633, 0, 7, 373)|True|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 373)|True|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 373)||True||||||
+QPushButton||ModernStatusDialog:|PyQt6.QtCore.QRect(565, 469, 95, 29)|True|True|Fechar (ESC)||||PrimaryBtn|

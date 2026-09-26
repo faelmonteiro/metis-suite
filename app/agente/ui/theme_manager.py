@@ -3,6 +3,10 @@ Módulo de Gerenciamento de Temas, Aparência e Estilos do Metis.
 Permite alternar paletas visuais completas, transparência/opacidade,
 tamanho e família de fontes, efeitos de brilho (glow neon) e preferências visuais.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 from typing import Dict, List, Any
 from agente.providers_manager import obter_preferencia, salvar_preferencia
 
@@ -284,8 +288,8 @@ def _hex_to_rgba(hex_str: str, alpha: float) -> str:
             g = int(hex_clean[2:4], 16)
             b = int(hex_clean[4:6], 16)
             return f"rgba({r}, {g}, {b}, {alpha:.2f})"
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return str(hex_str)
 
 

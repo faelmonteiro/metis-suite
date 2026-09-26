@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import tempfile
 from pathlib import Path
 import logging
@@ -22,8 +21,7 @@ class HistoryManager:
         self.dir_path.mkdir(parents=True, exist_ok=True)
         self.file_path = self.dir_path / f"{self.sessao}.json"
         self.historico = []
-        self.saved_provider = ""
-        self.saved_model = ""
+        self.saved_model = None
         self.carregar()
 
     def carregar(self):
@@ -36,16 +34,11 @@ class HistoryManager:
 
             if isinstance(dados, list):
                 self.historico = dados
-                self.saved_provider = ""
-                self.saved_model = ""
             elif isinstance(dados, dict):
-                self.saved_provider = str(dados.get("provider", "")).strip().lower()
-                self.saved_model = str(dados.get("model", dados.get("OLLAMA_MODEL", ""))).strip()
                 self.historico = dados.get("historico", [])
+                self.saved_model = dados.get("OLLAMA_MODEL")
             else:
                 self.historico = []
-                self.saved_provider = ""
-                self.saved_model = ""
 
             self._validar_consistencia()
 
@@ -54,41 +47,18 @@ class HistoryManager:
             backup = self.file_path.with_suffix(".json.bak")
             try:
                 self.file_path.replace(backup)
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self.historico = []
-        except Exception as e:
+        except Exception:
             logger.exception("Falha ao carregar histórico")
             self.historico = []
 
     def salvar(self):
         try:
-            prov = (self.saved_provider or getattr(config, "DEFAULT_PROVIDER", "") or "ollama").lower()
-            modelo_atual = self.saved_model or ""
-            if not modelo_atual:
-                if prov == "ollama":
-                    modelo_atual = getattr(config, "OLLAMA_MODEL", "")
-                elif prov == "gemini":
-                    modelo_atual = getattr(config, "GEMINI_MODEL", "")
-                elif prov == "groq":
-                    modelo_atual = getattr(config, "GROQ_MODEL", "")
-                elif prov == "nvidia":
-                    modelo_atual = getattr(config, "NVIDIA_MODEL", "")
-                elif prov == "g4f":
-                    modelo_atual = getattr(config, "G4F_MODEL", "")
-                elif prov.startswith("custom:"):
-                    try:
-                        from agente.providers_manager import obter_servidor_customizado
-                        srv = obter_servidor_customizado(prov.split("custom:", 1)[1])
-                        modelo_atual = srv.get("modelo_atual", "") if srv else ""
-                    except Exception:
-                        modelo_atual = ""
-
             dados = {
+                "historico": self.historico,
                 "OLLAMA_MODEL": config.OLLAMA_MODEL,
-                "provider": prov,
-                "model": modelo_atual or config.OLLAMA_MODEL,
-                "historico": self.historico
             }
 
             dir_name = str(self.file_path.parent)
@@ -101,18 +71,12 @@ class HistoryManager:
             except Exception:
                 try:
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
+                except OSError as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 raise
 
-        except Exception as e:
+        except Exception:
             logger.exception("Falha ao salvar histórico")
-
-    def adicionar_raw(self, msg: dict):
-        """Adiciona uma mensagem estruturada (ex: functionCall, functionResponse) ao histórico."""
-        if isinstance(msg, dict) and msg.get("role"):
-            self.historico.append(dict(msg))
-            self.salvar()
 
     def adicionar_mensagem(self, role: str, content: str, media_paths: list = None):
         if role == "assistant" and not str(content or "").strip():
@@ -267,15 +231,27 @@ class HistoryManager:
         novo_nome = sanitizar_nome_sessao(novo_nome)
         nova_path = self.dir_path / f"{novo_nome}.json"
 
-        if nova_path.exists():
+        if not self.file_path.exists():
             return False
 
         try:
-            if self.file_path.exists():
-                self.file_path.rename(nova_path)
-
-            self.sessao = novo_nome
-            self.file_path = nova_path
-            return True
-        except Exception:
+            # Renomeação atômica sem sobrescrita: os.rename no Linux substitui
+            # arquivos existentes em silêncio. Criar o link rígido do novo nome
+            # (O_EXCL implícito) falha com FileExistsError se o alvo existir,
+            # eliminando a janela de corrida do antigo check-then-rename.
+            os.link(self.file_path, nova_path)
+            self.file_path.unlink()
+        except FileExistsError:
             return False
+        except OSError:
+            # Filesystem sem suporte a hard link: cai no rename com checagem.
+            try:
+                if nova_path.exists():
+                    return False
+                self.file_path.rename(nova_path)
+            except OSError:
+                return False
+
+        self.sessao = novo_nome
+        self.file_path = nova_path
+        return True

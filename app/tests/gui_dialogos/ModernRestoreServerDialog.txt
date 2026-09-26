@@ -1,0 +1,25 @@
+QVBoxLayout||ModernRestoreServerDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 600, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 401, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 435, 600, 29)||True||||||
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🔄|background: transparent;||||
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(54, 16, 401, 24)|True|True|RESTAURAR SERVIDORES DE IA|color: #fad094; background: transparent;||||
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(54, 42, 401, 17)|True|True|Reative provedores nativos ou customizados removidos anteriormente:|color: #94a3b8; background: transparent;||||
+QFrame||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 71, 600, 1)|True|True||background-color: #162234;||||
+QScrollArea||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 84, 600, 339)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 600, 339)||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True|||||HelpCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 598, 337)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(21, 25, 558, 289)|True|True|🎉 Todos os servidores de IA estão ativos!
+Nenhum provedor está desativado ou oculto no momento.|color: #4ade80; background: transparent;||||
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QPushButton||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(525, 435, 95, 29)|True|True|Fechar (ESC)||||PrimaryBtn|

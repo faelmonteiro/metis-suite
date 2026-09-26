@@ -1,305 +1,81 @@
 """
 Gerenciador de modelos e servidores personalizados (OpenAI-compatible) para o Metis.
-Permite salvar histórico de modelos por provedor, alternar sem redigitar,
-adicionar novos modelos, remover modelos, e adicionar/remover servidores personalizados (OpenRouter, DeepSeek, etc.).
+Wrapper fino sobre o módulo centralizado agente.models.
 """
-import json
 import logging
-import os
-import re
-from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 from agente import config
-from agente.colors import BOLD, RESET, YELLOW, GREEN, RED, CYAN, GRAY
 
 logger = logging.getLogger(__name__)
 
-def get_config_file_path() -> Path:
-    """Retorna o caminho canônico do config_models.json priorizando ~/.config/metis."""
-    metis_cfg_dir = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"))
-    canonical = metis_cfg_dir / "config_models.json"
-    if canonical.exists():
-        return canonical
-    # Migração automática de arquivos legados caso existam
-    for p in [config.PROJECT_ROOT / "config_models.json", Path.home() / "Metis" / "config_models.json", Path.home() / ".ZSH" / "ai" / "config_models.json"]:
-        if p.exists() and p.is_file():
-            try:
-                metis_cfg_dir.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(p, canonical)
-                return canonical
-            except Exception:
-                pass
-    metis_cfg_dir.mkdir(parents=True, exist_ok=True)
-    return canonical
+# Re-exporta técnicas usadas do módulo centralizado
+from agente.models import (
+    # Storage
+    load_config,
+    save_config,
+    purge_model_from_legacy_files,
+    # Builtin models
+    BUILTIN_MODELS,
+    get_models_for_provider,
+    add_builtin_model,
+    _canonical_provider_name,
+    # Custom servers CRUD
+    get_custom_servers,
+    get_custom_server,
+    add_custom_server,
+    remove_custom_server,
+    add_model_to_server,
+    remove_model_from_server,
+    set_server_active_model,
+    get_server_models,
+    # Preferences & .env
+    get_preference,
+    set_preference,
+    get_removed_servers,
+    is_server_removed as _is_server_removed,
+    remove_server,
+    restore_server,
+    save_env_var,
+)
 
-
-CONFIG_FILE = get_config_file_path()
-
-DEFAULT_MODELS: Dict[str, List[str]] = {
-    "Groq": [],
-    "Gemini": [],
-    "NVIDIA": [],
-    "G4F": [],
-    "OpenRouter": [],
-    "Ollama": []
-}
-
-DEFAULT_CUSTOM_SERVERS: List[dict] = [
-    {
-        "id": "openrouter",
-        "nome": "OpenRouter",
-        "base_url": "https://openrouter.ai/api/v1/chat/completions",
-        "api_key_env": "OPENROUTER_API_KEY",
-        "api_key": "",
-        "modelo_atual": "",
-        "modelos": []
-    }
-]
+# Compatibilidade: alias para funções com nomes ligeiramente diferentes
+DEFAULT_MODELS = BUILTIN_MODELS
 
 
 def carregar_dados() -> dict:
-    """Carrega o arquivo config_models.json ou inicializa com valores padrão."""
-    config_file = get_config_file_path()
-    if not config_file.exists():
-        default_file_candidates = [
-            config.PROJECT_ROOT.parent / "config" / "config_models.default.json",
-            Path(os.getenv("METIS_INSTALL_DIR", Path.home() / ".local" / "share" / "metis")) / "config" / "config_models.default.json",
-        ]
-        dados_iniciais = None
-        for df in default_file_candidates:
-            if df.exists():
-                try:
-                    with open(df, "r", encoding="utf-8") as f:
-                        dados_iniciais = json.load(f)
-                        break
-                except Exception:
-                    pass
-
-        if not dados_iniciais:
-            dados_iniciais = {
-                "builtin_models": dict(DEFAULT_MODELS),
-                "custom_servers": list(DEFAULT_CUSTOM_SERVERS),
-                "preferences": {
-                    "last_active_provider": "ollama",
-                    "last_active_model": "llama3.2:3b"
-                }
-            }
-        salvar_dados(dados_iniciais)
-        return dados_iniciais
-
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-            if "builtin_models" not in dados:
-                dados["builtin_models"] = dict(DEFAULT_MODELS)
-            if "custom_servers" not in dados:
-                dados["custom_servers"] = []
-            
-            # Garante que chaves de provedores padrão existam se forem novas
-            for prov, models in DEFAULT_MODELS.items():
-                if prov not in dados["builtin_models"]:
-                    dados["builtin_models"][prov] = list(models)
-
-            # Garante que servidores padrão (como OpenRouter) existam caso não removidos
-            server_ids = {s.get("id") for s in dados.get("custom_servers", [])}
-            removed_servers = set(dados.get("removed_servers", []))
-            for def_srv in DEFAULT_CUSTOM_SERVERS:
-                if def_srv["id"] not in server_ids and def_srv["id"] not in removed_servers:
-                    dados["custom_servers"].append(dict(def_srv))
-
-            return dados
-    except Exception as e:
-        logger.error(f"Erro ao ler {config_file}: {e}")
-        return {
-            "builtin_models": dict(DEFAULT_MODELS),
-            "custom_servers": list(DEFAULT_CUSTOM_SERVERS)
-        }
+    """Carrega o arquivo config_models.json (compatibilidade)."""
+    return load_config()
 
 
 def salvar_dados(dados: dict) -> None:
-    """Salva os dados no arquivo config_models.json canônico."""
-    config_file = get_config_file_path()
-    try:
-        config_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_file, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"Erro ao salvar {config_file}: {e}")
-
-
-def get_target_env_files() -> List[Path]:
-    """Retorna a lista de arquivos .env que devem ser sincronizados."""
-    candidates = [
-        Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / ".env",
-        config.PROJECT_ROOT / ".env",
-        Path.home() / "Metis" / ".env",
-        Path.home() / ".ZSH" / "ai" / ".env_local",
-    ]
-    target_files = []
-    seen = set()
-    for p in candidates:
-        try:
-            resolved = p.resolve()
-        except Exception:
-            resolved = p
-        if resolved not in seen:
-            seen.add(resolved)
-            if p.exists() or p.parent.exists():
-                target_files.append(p)
-    return target_files
-
-
-def _atualizar_conteudo_env(conteudo: str, chave: str, valor: str) -> str:
-    """
-    Atualiza com segurança uma variável no conteúdo do arquivo .env:
-    - Suporta 'CHAVE=...', 'export CHAVE=...'
-    - Preserva comentários inline e espaços
-    - Adiciona aspas adequadas ao valor
-    - Se não existir, anexa no final
-    """
-    val_str = str(valor).strip()
-    if (val_str.startswith('"') and val_str.endswith('"')) or (val_str.startswith("'") and val_str.endswith("'")):
-        val_str = val_str[1:-1]
-
-    val_escaped = val_str.replace('"', '\\"')
-    padrao = rf"^(?P<prefix>[ \t]*(?:export[ \t]+)?{re.escape(chave)}[ \t]*=[ \t]*)(?:\"(?:\\\"|[^\"])*\"|'(?:\\'|[^'])*'|[^#\r\n]*)(?P<suffix>[ \t]*#.*)?$"
-
-    if re.search(padrao, conteudo, flags=re.MULTILINE):
-        def _subst(m):
-            suffix = m.group("suffix") or ""
-            return f'{m.group("prefix")}"{val_escaped}"{suffix}'
-        return re.sub(padrao, _subst, conteudo, flags=re.MULTILINE)
-    else:
-        conteudo_base = conteudo.rstrip()
-        prefixo = f"{conteudo_base}\n" if conteudo_base else ""
-        return f'{prefixo}{chave}="{val_escaped}"\n'
-
-
-def _salvar_estado_zsh_provider(provider: str) -> None:
-    """Sincroniza o provedor ativo com os arquivos lidos pelo ZSH (Ctrl+G)."""
-    metis_cfg_dir = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"))
-    if not metis_cfg_dir.exists():
-        return
-    file_selected = metis_cfg_dir / ".fix_ia_selected"
-    file_last = metis_cfg_dir / ".last_provider"
-
-    prov = (provider or "").strip().lower()
-    label_map = {
-        "ollama": ("Local: Ollama", "1"),
-        "g4f": ("Web: G4F", "2"),
-        "gemini": ("API: Gemini", "3"),
-        "groq": ("API: Groq", "4"),
-        "nvidia": ("API: NVIDIA", "5"),
-        "openrouter": ("API: OpenRouter", "6"),
-    }
-    label, num = label_map.get(prov, (f"API: {provider}", provider))
-    try:
-        with open(file_selected, "w", encoding="utf-8") as f:
-            f.write(f"{label}\n")
-        with open(file_last, "w", encoding="utf-8") as f:
-            f.write(f"{num}\n")
-    except Exception as e:
-        logger.debug(f"Não foi possível sincronizar estado ZSH: {e}")
-
-
-def sincronizar_config(chave: str, valor: str) -> None:
-    """
-    Sincroniza uma configuração em TODAS as camadas:
-    1. Variáveis de ambiente do processo (os.environ)
-    2. Atributos do módulo config em memória
-    3. Arquivos .env em disco (~/.config/metis/.env, app/.env, etc.)
-    4. Estado do ZSH se for DEFAULT_PROVIDER
-    """
-    valor_str = str(valor).strip()
-
-    # 1. Atualiza os.environ
-    os.environ[chave] = valor_str
-
-    # 2. Atualiza em memória no config
-    if hasattr(config, chave):
-        attr_atual = getattr(config, chave)
-        if isinstance(attr_atual, bool):
-            setattr(config, chave, valor_str.lower() in {"1", "true", "yes", "on"})
-        elif isinstance(attr_atual, int):
-            try:
-                setattr(config, chave, int(valor_str))
-            except ValueError:
-                setattr(config, chave, valor_str)
-        elif isinstance(attr_atual, float):
-            try:
-                setattr(config, chave, float(valor_str))
-            except ValueError:
-                setattr(config, chave, valor_str)
-        else:
-            setattr(config, chave, valor_str)
-
-    # 3. Grava nos arquivos .env alvo
-    for env_path in get_target_env_files():
-        try:
-            env_path.parent.mkdir(parents=True, exist_ok=True)
-            conteudo = ""
-            if env_path.exists():
-                with open(env_path, "r", encoding="utf-8") as f:
-                    conteudo = f.read()
-
-            novo_conteudo = _atualizar_conteudo_env(conteudo, chave, valor_str)
-            temp_path = env_path.with_suffix(".tmp")
-            with open(temp_path, "w", encoding="utf-8") as f:
-                f.write(novo_conteudo)
-            os.replace(temp_path, env_path)
-            try:
-                os.chmod(env_path, 0o600)
-            except Exception:
-                pass
-        except Exception as e:
-            logger.error(f"Erro ao salvar {env_path}: {e}")
-
-    # 4. Se for DEFAULT_PROVIDER, sincroniza arquivos do ZSH
-    if chave == "DEFAULT_PROVIDER":
-        _salvar_estado_zsh_provider(valor_str)
+    """Salva os dados no arquivo config_models.json com gravação atômica (compatibilidade)."""
+    save_config(dados)
 
 
 def salvar_variavel_env(chave: str, valor: str) -> None:
-    """Salva ou atualiza uma variável no arquivo .env (chama sincronizar_config)."""
-    sincronizar_config(chave, valor)
+    """Salva ou atualiza uma variável no arquivo .env (compatibilidade)."""
+    save_env_var(chave, valor)
+    # Sincroniza em memória para o processo atual
+    val_str = str(valor)
+    config.__dict__[chave] = val_str
 
 
-# ---------------------------------------------------------------------------
-# Preferências do Usuário (Persistência de Configurações)
-# ---------------------------------------------------------------------------
-
+# Preferências (mesmos nomes, delegam para agente.models)
 def obter_preferencia(chave: str, default=None):
-    """Retorna uma preferência salva do usuário ou o valor default."""
-    dados = carregar_dados()
-    prefs = dados.get("preferences", {})
-    return prefs.get(chave, default)
+    return get_preference(chave, default)
 
 
 def salvar_preferencia(chave: str, valor) -> None:
-    """Salva uma preferência do usuário no arquivo de configurações."""
-    dados = carregar_dados()
-    if "preferences" not in dados:
-        dados["preferences"] = {}
-    dados["preferences"][chave] = valor
-    salvar_dados(dados)
+    set_preference(chave, valor)
 
 
-# ---------------------------------------------------------------------------
-# Gerenciamento de Modelos por Provedor
-# ---------------------------------------------------------------------------
-
+# Modelos por provedor
 def obter_modelos_provedor(provedor: str, server_id: Optional[str] = None) -> List[str]:
     """Retorna a lista de modelos salvos para um provedor ou servidor customizado."""
-    dados = carregar_dados()
     if server_id:
-        for s in dados.get("custom_servers", []):
-            if s.get("id") == server_id:
-                return s.get("modelos", [])
-        return []
-
-    return dados.get("builtin_models", {}).get(provedor, DEFAULT_MODELS.get(provedor, []))
+        return get_server_models(server_id)
+    return get_models_for_provider(provedor)
 
 
 def adicionar_modelo_provedor(provedor: str, modelo: str, server_id: Optional[str] = None) -> None:
@@ -308,96 +84,70 @@ def adicionar_modelo_provedor(provedor: str, modelo: str, server_id: Optional[st
     if not modelo:
         return
 
-    dados = carregar_dados()
     if server_id:
-        for s in dados.get("custom_servers", []):
-            if s.get("id") == server_id:
-                if "modelos" not in s:
-                    s["modelos"] = []
-                if modelo not in s["modelos"]:
-                    s["modelos"].append(modelo)
-                
-                # Se for provedor também mapeado em builtin_models (ex: OpenRouter), mantém sincronizado
-                prov_key = s.get("nome", provedor)
-                if "builtin_models" in dados:
-                    for bk in dados["builtin_models"]:
-                        if bk.lower() == prov_key.lower() or bk.lower() == server_id.lower():
-                            if modelo not in dados["builtin_models"][bk]:
-                                dados["builtin_models"][bk].append(modelo)
-                            break
-                salvar_dados(dados)
-                return
-        return
-
-    if "builtin_models" not in dados:
-        dados["builtin_models"] = {}
-    if provedor not in dados["builtin_models"]:
-        dados["builtin_models"][provedor] = []
-
-    if modelo not in dados["builtin_models"][provedor]:
-        dados["builtin_models"][provedor].append(modelo)
-        # Se for OpenRouter ou outro com custom_server, mantém sincronizado lá também
-        for s in dados.get("custom_servers", []):
-            if s.get("nome", "").lower() == provedor.lower() or s.get("id", "").lower() == provedor.lower():
-                if "modelos" not in s:
-                    s["modelos"] = []
-                if modelo not in s["modelos"]:
-                    s["modelos"].append(modelo)
-        salvar_dados(dados)
+        add_model_to_server(server_id, modelo)
+        # Sincroniza no builtin se for OpenRouter
+        if server_id == "openrouter":
+            add_builtin_model("OpenRouter", modelo)
+    else:
+        # Adiciona ao builtin do provedor
+        add_builtin_model(provedor, modelo)
+        # Salva na config
+        cfg = load_config()
+        if "builtin_models" not in cfg:
+            cfg["builtin_models"] = {}
+        canon = _canonical_provider_name(provedor)
+        if canon not in cfg["builtin_models"]:
+            cfg["builtin_models"][canon] = []
+        if modelo not in cfg["builtin_models"][canon]:
+            cfg["builtin_models"][canon].append(modelo)
+        save_config(cfg)
 
 
 def remover_modelo_provedor(provedor: str, modelo: str, server_id: Optional[str] = None) -> bool:
     """Remove um modelo da lista de modelos salvos."""
-    dados = carregar_dados()
-    removed = False
-    if server_id:
-        for s in dados.get("custom_servers", []):
-            if s.get("id") == server_id:
-                if modelo in s.get("modelos", []):
-                    s["modelos"].remove(modelo)
-                    removed = True
-                prov_key = s.get("nome", provedor)
-                if "builtin_models" in dados:
-                    for bk, bmodels in dados["builtin_models"].items():
-                        if (bk.lower() == prov_key.lower() or bk.lower() == server_id.lower()) and modelo in bmodels:
-                            bmodels.remove(modelo)
-                            removed = True
-                if removed:
-                    salvar_dados(dados)
-                return removed
+    modelo = modelo.strip()
+    if not modelo:
         return False
 
-    if provedor in dados.get("builtin_models", {}):
-        if modelo in dados["builtin_models"][provedor]:
-            dados["builtin_models"][provedor].remove(modelo)
+    if server_id:
+        return remove_model_from_server(server_id, modelo)
+
+    # Remove do builtin
+    canon = _canonical_provider_name(provedor)
+    cfg = load_config()
+    removed = False
+    if canon in cfg.get("builtin_models", {}):
+        bmodels = cfg["builtin_models"][canon]
+        new_models = [m for m in bmodels if m.strip().lower() != modelo.lower()]
+        if len(new_models) != len(bmodels):
+            cfg["builtin_models"][canon] = new_models
             removed = True
-        for s in dados.get("custom_servers", []):
-            if s.get("nome", "").lower() == provedor.lower() or s.get("id", "").lower() == provedor.lower():
-                if modelo in s.get("modelos", []):
-                    s["modelos"].remove(modelo)
-                    removed = True
-        if removed:
-            salvar_dados(dados)
-            return True
-    return False
+
+    # Remove de custom_servers com mesmo provedor
+    for s in cfg.get("custom_servers", []):
+        if s.get("nome", "").lower() == provedor.lower() or s.get("id", "").lower() == provedor.lower():
+            mods = s.get("modelos", [])
+            new_mods = [m for m in mods if m.strip().lower() != modelo.lower()]
+            if len(new_mods) != len(mods):
+                s["modelos"] = new_mods
+                removed = True
+            if s.get("modelo_atual", "").lower() == modelo.lower():
+                s["modelo_atual"] = new_mods[0] if new_mods else ""
+
+    if removed:
+        save_config(cfg)
+        purge_model_from_legacy_files(modelo)
+    return removed
 
 
-# ---------------------------------------------------------------------------
-# Gerenciamento de Servidores Customizados (OpenRouter, DeepSeek, etc.)
-# ---------------------------------------------------------------------------
-
+# Servidores customizados
 def obter_servidores_customizados() -> List[dict]:
-    """Retorna todos os servidores de API customizados cadastrados."""
-    dados = carregar_dados()
-    return dados.get("custom_servers", [])
+    return get_custom_servers()
 
 
 def obter_servidor_customizado(server_id: str) -> Optional[dict]:
-    """Busca um servidor customizado pelo ID."""
-    for s in obter_servidores_customizados():
-        if s.get("id") == server_id:
-            return s
-    return None
+    return get_custom_server(server_id)
 
 
 def salvar_servidor_customizado(
@@ -408,88 +158,62 @@ def salvar_servidor_customizado(
     api_key_env: str = "",
     modelos_iniciais: Optional[List[str]] = None
 ) -> dict:
-    """Adiciona ou atualiza um servidor customizado."""
-    dados = carregar_dados()
-    
-    server_id = re.sub(r"[^a-zA-Z0-9_]", "_", nome.strip().lower()).strip("_")
-    if not server_id:
-        existing_ids = {s.get("id") for s in dados.get("custom_servers", [])}
-        idx = 1
-        while f"custom_server_{idx}" in existing_ids:
-            idx += 1
-        server_id = f"custom_server_{idx}"
-
-    if not api_key_env:
-        api_key_env = f"{server_id.upper()}_API_KEY"
-
-    # Salva no .env se foi informada chave
-    if api_key:
-        salvar_variavel_env(api_key_env, api_key)
-        os.environ[api_key_env] = api_key
-
-    # Normaliza base_url
-    url_limpa = base_url.strip().rstrip("/")
-    if "openrouter.ai" in url_limpa.lower():
-        url_limpa = "https://openrouter.ai/api/v1/chat/completions"
-    elif not url_limpa.endswith("/chat/completions"):
-        if url_limpa.endswith("/v1"):
-            url_limpa = f"{url_limpa}/chat/completions"
-        else:
-            url_limpa = f"{url_limpa}/v1/chat/completions" if "deepseek" in url_limpa.lower() else f"{url_limpa}/chat/completions"
-
-    modelos = list(modelos_iniciais or [])
-    if modelo_padrao and modelo_padrao not in modelos:
-        modelos.insert(0, modelo_padrao)
-
-    if not modelos:
-        modelos = [modelo_padrao or "default"]
-
-    novo_servidor = {
-        "id": server_id,
-        "nome": nome.strip(),
-        "base_url": url_limpa,
-        "api_key_env": api_key_env,
-        "api_key": "",
-        "modelo_atual": modelo_padrao or modelos[0],
-        "modelos": modelos
-    }
-
-    # Atualiza se já existir ou adiciona
-    substituido = False
-    for i, s in enumerate(dados.get("custom_servers", [])):
-        if s.get("id") == server_id:
-            dados["custom_servers"][i] = novo_servidor
-            substituido = True
-            break
-
-    if not substituido:
-        dados["custom_servers"].append(novo_servidor)
-
-    salvar_dados(dados)
-    return novo_servidor
+    """Adiciona ou atualiza um servidor customizado preservando modelos existentes."""
+    server = add_custom_server(
+        nome=nome,
+        base_url=base_url,
+        api_key=api_key,
+        modelo_padrao=modelo_padrao,
+        api_key_env=api_key_env,
+        modelos_iniciais=modelos_iniciais,
+    )
+    return server
 
 
 def remover_servidor_customizado(server_id: str) -> bool:
-    """Remove um servidor customizado da lista."""
-    dados = carregar_dados()
-    custom_servers = dados.get("custom_servers", [])
-    for i, s in enumerate(custom_servers):
-        if s.get("id") == server_id:
-            custom_servers.pop(i)
-            salvar_dados(dados)
-            return True
-    return False
+    return remove_custom_server(server_id)
 
 
 def atualizar_modelo_ativo_servidor(server_id: str, modelo: str) -> None:
-    """Atualiza o modelo ativo de um servidor customizado."""
-    dados = carregar_dados()
-    for s in dados.get("custom_servers", []):
-        if s.get("id") == server_id:
-            s["modelo_atual"] = modelo
-            if "modelos" not in s:
-                s["modelos"] = []
-            if modelo not in s["modelos"]:
-                s["modelos"].append(modelo)
-            salvar_dados(dados)
-            return
+    set_server_active_model(server_id, modelo)
+
+
+# Servidores removidos (soft delete)
+def obter_servidores_removidos() -> List[str]:
+    return get_removed_servers()
+
+
+def is_servidor_removido(provedor_ou_id: str) -> bool:
+    return _is_server_removed(provedor_ou_id)
+
+
+def remover_servidor_provedor(provedor_ou_id: str) -> bool:
+    """Remove permanentemente um provedor ou servidor customizado dos arquivos."""
+    val = (provedor_ou_id or "").strip().lower()
+    if not val:
+        return False
+    remove_server(val)
+    cfg = load_config()
+    changed = False
+    if "builtin_models" in cfg:
+        for k in list(cfg["builtin_models"].keys()):
+            if k.lower() == val:
+                del cfg["builtin_models"][k]
+                changed = True
+    if "custom_servers" in cfg:
+        before = len(cfg["custom_servers"])
+        cfg["custom_servers"] = [s for s in cfg["custom_servers"] if s.get("id", "").lower() != val and s.get("nome", "").lower() != val]
+        if len(cfg["custom_servers"]) != before:
+            changed = True
+    if changed:
+        save_config(cfg)
+    return True
+
+
+def restaurar_servidor_provedor(provedor_ou_id: str) -> bool:
+    """Restaura um provedor ou servidor removido."""
+    val = (provedor_ou_id or "").strip().lower()
+    if not val:
+        return False
+    restore_server(val)
+    return True

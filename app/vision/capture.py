@@ -3,14 +3,18 @@ Módulo de Captura e Otimização de Imagem para Wayland / Hyprland e X11.
 Realiza capturas ultrarrápidas em memória e otimiza para envio a modelos de visão.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import io
 import json
 import os
 import shutil
 import subprocess
-from typing import Optional, Tuple
+from typing import Optional
 from PIL import Image
-import config
+from . import config
 
 def is_wayland() -> bool:
     return bool(os.getenv("WAYLAND_DISPLAY") or os.getenv("XDG_SESSION_TYPE") == "wayland")
@@ -27,8 +31,8 @@ def get_active_window_geometry() -> Optional[str]:
             size = data.get("size")
             if at and size and len(at) == 2 and len(size) == 2:
                 return f"{at[0]},{at[1]} {size[0]}x{size[1]}"
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return None
 
 def capture_screen(mode: str = "fullscreen") -> bytes:
@@ -68,6 +72,19 @@ def capture_screen(mode: str = "fullscreen") -> bytes:
             raise RuntimeError(f"Falha ao capturar tela com grim: {res.stderr.decode('utf-8', errors='ignore')}")
         raw_bytes = res.stdout
 
+        # grim já entrega JPEG com qualidade desejada - só redimensiona se necessário
+        img = Image.open(io.BytesIO(raw_bytes))
+        w, h = img.size
+        max_dim = config.IMAGE_MAX_DIMENSION
+        if max(w, h) > max_dim:
+            scale = max_dim / float(max(w, h))
+            new_w, new_h = int(w * scale), int(h * scale)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=config.IMAGE_JPEG_QUALITY, optimize=True)
+            raw_bytes = buf.getvalue()
+        return raw_bytes
+
     else:
         # Fallback para X11 com import/scrot ou PIL ImageGrab
         try:
@@ -76,18 +93,23 @@ def capture_screen(mode: str = "fullscreen") -> bytes:
                 monitor = sct.monitors[0]  # Monitor 0 cobre toda a área de trabalho
                 sct_img = sct.grab(monitor)
                 img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=config.IMAGE_JPEG_QUALITY)
-                raw_bytes = buf.getvalue()
         except ImportError:
             from PIL import ImageGrab
             img = ImageGrab.grab()
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=config.IMAGE_JPEG_QUALITY)
-            raw_bytes = buf.getvalue()
 
-    # Otimização final de resolução e peso se necessário
-    return optimize_image_bytes(raw_bytes)
+        # Redimensiona se necessário, senão salva JPEG direto
+        w, h = img.size
+        max_dim = config.IMAGE_MAX_DIMENSION
+        if max(w, h) > max_dim:
+            scale = max_dim / float(max(w, h))
+            new_w, new_h = int(w * scale), int(h * scale)
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        buf = io.BytesIO()
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        img.save(buf, format="JPEG", quality=config.IMAGE_JPEG_QUALITY, optimize=True)
+        return buf.getvalue()
 
 def optimize_image_bytes(image_bytes: bytes) -> bytes:
     """Redimensiona para no máximo IMAGE_MAX_DIMENSION mantendo a proporção."""

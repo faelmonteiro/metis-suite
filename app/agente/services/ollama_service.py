@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import re
 
@@ -34,8 +36,8 @@ def listar_modelos() -> list:
         if res.status_code == 200:
             return [m.get("name", "") for m in res.json().get("models", [])]
 
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     return []
 
@@ -125,6 +127,7 @@ def _sanitizar_json_tools_do_texto(texto: str) -> str:
 
 class OllamaService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or config.OLLAMA_MODEL
 
     @property
@@ -132,11 +135,11 @@ class OllamaService(BaseService):
         return f"OLLAMA ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)
 
-def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
+def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     from agente.services.tools_defs import OPENAI_TOOLS_DECLARATION
-    import base64
 
     model_name = model or config.OLLAMA_MODEL
     formatted_messages = []
@@ -182,8 +185,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                     from agente.services.media_cache import get_base64_media
                     data = get_base64_media(path)
                     images.append(data)
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         
         if images:
             msg_obj["images"] = images
@@ -213,7 +216,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
         "stream": True,
         "options": {
             "num_ctx": config.OLLAMA_NUM_CTX,
-            "num_thread": getattr(config, "OLLAMA_NUM_THREADS", 10),
+            "num_thread": config.OLLAMA_NUM_THREADS,
             "temperature": temp_efetiva
         }
     }
@@ -234,74 +237,92 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     try:
         from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
+        client = get_http_client()
         with client.stream(
             "POST",
             f"{config.OLLAMA_HOST}/api/chat",
-            json=payload
+            json=payload,
+            timeout=timeout
         ) as res:
-            if res.status_code != 200:
-                body = res.read().decode("utf-8")
-                raise RuntimeError(f"Erro do Ollama: {body}")
+            if service:
+                service._active_stream = res
+            try:
+                if res.status_code != 200:
+                    body = res.read().decode("utf-8")
+                    raise RuntimeError(f"Erro do Ollama: {body}")
 
-            for line in res.iter_lines():
-                if line:
+                for line in res.iter_lines():
+                    if service and getattr(service, "_aborted", False):
+                        break
+                    if not line:
+                        continue
                     try:
                         data = json.loads(line)
-                        msg = data.get("message", {})
-
-                        if "content" in msg and msg["content"]:
-                            content_chunk = msg["content"]
-                            if is_action:
-                                # Em modo AÇÃO: emite direto
-                                yield content_chunk
-                            else:
-                                # Em modo CONSULTA: acumula para sanitizar vazamento de JSON de tools
-                                buffered_text.append(content_chunk)
-                                # Emite texto acumulado que não pareça início de JSON
-                                texto_acumulado = "".join(buffered_text)
-                                if "```json" not in texto_acumulado and '{"name":' not in texto_acumulado:
-                                    # Seguro emitir chunks liberados
-                                    while len(buffered_text) > 1:
-                                        yield buffered_text.pop(0)
-
-                        if "tool_calls" in msg and msg["tool_calls"]:
-                            for tool_call in msg["tool_calls"]:
-                                if "function" in tool_call:
-                                    function_calls_detected.append({
-                                        "name": tool_call["function"]["name"],
-                                        "args": tool_call["function"].get("arguments", {})
-                                    })
                     except json.JSONDecodeError:
-                        pass
+                        continue
+
+                    if data.get("error"):
+                        raise RuntimeError(f"Erro do Ollama: {data['error']}")
+
+                    msg = data.get("message", {})
+
+                    if "content" in msg and msg["content"]:
+                        content_chunk = msg["content"]
+                        if is_action:
+                            # Em modo AÇÃO: emite direto
+                            yield content_chunk
+                        else:
+                            # Em modo CONSULTA: acumula para sanitizar vazamento de JSON de tools
+                            buffered_text.append(content_chunk)
+                            # Emite texto acumulado que não pareça início de JSON
+                            texto_acumulado = "".join(buffered_text)
+                            if "```json" not in texto_acumulado and '{"name":' not in texto_acumulado:
+                                # Seguro emitir chunks liberados
+                                while len(buffered_text) > 1:
+                                    yield buffered_text.pop(0)
+
+                    if "tool_calls" in msg and msg["tool_calls"]:
+                        for tool_call in msg["tool_calls"]:
+                            if "function" in tool_call:
+                                function_calls_detected.append({
+                                    "name": tool_call["function"]["name"],
+                                    "args": tool_call["function"].get("arguments", {})
+                                })
+            finally:
+                if service:
+                    service._active_stream = None
+                res.close()
     except httpx.RequestError as e:
+        if service and getattr(service, "_aborted", False):
+            return
         raise RuntimeError(f"Não foi possível conectar ao Ollama: {e}")
 
-    # Flush final do buffer em modo CONSULTA (com sanitização)
+    # Flush residual do buffer em modo CONSULTA (com sanitização).
+    # Roda SEMPRE antes de qualquer return (inclusive abort/break),
+    # para não perder a parte da resposta ainda retida no buffer.
     if buffered_text:
         texto_restante = "".join(buffered_text)
         texto_limpo = _sanitizar_json_tools_do_texto(texto_restante)
         if texto_limpo:
             yield texto_limpo
 
+    if service and getattr(service, "_aborted", False):
+        return
+
     if function_calls_detected:
         if iteration >= max_iterations:
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
-        import uuid
         from agente.services.tool_executor import executar_tool
         ultimo_resultado = ""
         for fc in function_calls_detected:
             name = fc["name"]
             args = fc.get("args", {})
-            call_id = fc.get("id") or f"call_ollama_{iteration}_{uuid.uuid4().hex[:8]}"
-            fc_dict = dict(fc)
-            fc_dict["id"] = call_id
             
             mensagens.append({
                 "role": "functionCall",
-                "functionCall": fc_dict
+                "functionCall": fc
             })
             
             result = executar_tool(name, args)
@@ -309,13 +330,12 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                 
             mensagens.append({
                 "role": "functionResponse",
-                "id": call_id,
                 "name": name,
                 "content": result
             })
         
         teve_chunk = False
-        for chunk in gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name):
+        for chunk in gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name, service=service):
             if chunk:
                 teve_chunk = True
                 yield chunk

@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import base64
 import json
 import os
@@ -11,33 +13,17 @@ from agente import config
 from agente.colors import (
     RESET,
     BOLD,
-    DIM,
-    ITALIC,
-    UNDERLINE,
-    RED,
-    GREEN,
-    YELLOW,
-    BLUE,
-    MAGENTA,
-    CYAN,
-    WHITE,
-    GRAY,
     METIS_GOLD,
     METIS_GOLD_BRIGHT,
-    METIS_GOLD_MUTED,
-    METIS_AMBER,
     METIS_CYAN,
     METIS_CYAN_SOFT,
-    METIS_BLUE,
     METIS_GREEN,
     METIS_RED,
     METIS_WHITE,
     METIS_GRAY,
-    METIS_GRAY_LIGHT,
     METIS_GRAY_DARK,
     METIS_BORDER,
     METIS_BORDER_BRIGHT,
-    METIS_BG_CARD,
 )
 from agente.services import searxng_service
 
@@ -111,8 +97,8 @@ def _obter_icone_kitty() -> str:
                 with open(icon_path, "rb") as f:
                     b64 = base64.b64encode(f.read()).decode("ascii")
                 return f"\x1b_Ga=T,f=100,c=2,r=1;{b64}\x1b\\"
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return ""
 
 
@@ -133,10 +119,10 @@ def _contar_registros_memoria(hm=None) -> int:
                             total += len(dados)
                         elif isinstance(dados, dict):
                             total += len(dados.get("historico", []))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return total
 
 
@@ -149,10 +135,10 @@ def exibir_painel(history_manager=None):
     def_prov = getattr(config, "DEFAULT_PROVIDER", "ollama").strip().lower()
     if def_prov == "gemini" and config.GEMINI_API_KEY:
         provedor = "Gemini (Google)"
-        modelo = getattr(config, "GEMINI_MODEL", "gemini-2.0-flash")
+        modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
     elif def_prov == "groq" and config.GROQ_API_KEY:
         provedor = "Groq Cloud"
-        modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
+        modelo = config.GROQ_MODEL
     elif def_prov == "nvidia" and config.NVIDIA_API_KEY:
         provedor = "NVIDIA NIM"
         modelo = getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
@@ -166,10 +152,10 @@ def exibir_painel(history_manager=None):
         # Fallback inteligente se DEFAULT_PROVIDER for genérico
         if config.GEMINI_API_KEY:
             provedor = "Gemini (Google)"
-            modelo = getattr(config, "GEMINI_MODEL", "gemini-2.0-flash")
+            modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
         elif config.GROQ_API_KEY:
             provedor = "Groq Cloud"
-            modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
+            modelo = config.GROQ_MODEL
         elif config.NVIDIA_API_KEY:
             provedor = "NVIDIA NIM"
             modelo = getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
@@ -234,16 +220,16 @@ def exibir_painel(history_manager=None):
         f" {METIS_GOLD_BRIGHT}{BOLD}› 01{RESET}  🦉 {METIS_WHITE}{BOLD}CONSULTAR METIS{RESET}      {METIS_GRAY}IA avançada com pesquisa web{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}02{RESET}  🌐 {METIS_WHITE}{BOLD}VISÃO DO MUNDO{RESET}       {METIS_GRAY}Pesquisa e informações da web{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}03{RESET}  🔮 {METIS_WHITE}{BOLD}OUTROS ORÁCULOS{RESET}      {METIS_GRAY}Modelos externos (Gemini, Groq){RESET}",
-        f"",
+        "",
         f" {METIS_GOLD}{BOLD}> MEMÓRIA E HISTÓRICO{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}04{RESET}  📐 {METIS_WHITE}{BOLD}BUSCAR CONHECIMENTO{RESET}  {METIS_GRAY}Pesquisa direta sem usar IA{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}05{RESET}  ⇄  {METIS_WHITE}{BOLD}ESCOLHER ORÁCULO{RESET}     {METIS_GRAY}Trocar modelo local ou remoto{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}06{RESET}  🔥 {METIS_WHITE}{BOLD}PURIFICAR MEMÓRIA{RESET}    {METIS_GRAY}Limpar todo o histórico e sessões{RESET}",
         f"   {METIS_CYAN_SOFT}{BOLD}07{RESET}  📜  {METIS_WHITE}{BOLD}TÁBULA DE MÉTIS{RESET}      {METIS_GRAY}Gerenciar e editar turnos salvos{RESET}",
-        f"",
+        "",
         f"   {METIS_RED}{BOLD}08{RESET}  🗝️  {METIS_RED}{BOLD}ENCERRAR SISTEMA{RESET}     {METIS_GRAY}Encerrar aplicação com segurança{RESET}",
-        f"",
-        f"",
+        "",
+        "",
     ]
 
     # Coluna Direita: Caixa de Informações

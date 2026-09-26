@@ -1,12 +1,14 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import os
 import shutil
-import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from agente import config
-from agente.colors import *
+from agente.colors import BOLD, METIS_BORDER, METIS_BORDER_BRIGHT, METIS_CYAN_SOFT, METIS_GOLD, METIS_GRAY, METIS_GREEN, METIS_RED, RED, RESET, YELLOW
 from agente.history import HistoryManager
 from agente.ui.panel import exibir_painel
 from agente.ui.help import exibir_ajuda
@@ -15,16 +17,25 @@ from agente.menu_config import limpar_tela, configurar_modelo_dinamico, trocar_m
 from agente.menu_history import gerenciar_historico
 from agente.services.ollama_service import OllamaService
 from agente.sessions import chat_session, direct_search
-from agente.utils import limitar_texto, configurar_api_key, safe_input, sanitizar_nome_sessao, hyprctl
+from agente.utils import configurar_api_key, safe_input, hyprctl
 
 
 def salvar_estado_chat(estado: dict):
     try:
         state_file = Path(config.HISTORICO_DIR) / ".last_chat_state.json"
-        with open(state_file, "w", encoding="utf-8") as f:
-            json.dump(estado, f)
-    except Exception:
-        pass
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=str(state_file.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(estado, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, str(state_file))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+            raise
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def carregar_estado_chat() -> dict:
@@ -221,7 +232,7 @@ def iniciar_menu():
 
             elif sub_api == "4":
                 try:
-                    import g4f  # noqa: F401
+                    __import__("g4f")
                     modelo_sel = configurar_modelo_dinamico("G4F", "G4F_MODEL")
                     from agente.services.g4f_service import G4FService
                     salvar_estado_chat({"escolha": "3", "sub_api": "4", "g4f_model": modelo_sel})
@@ -295,7 +306,7 @@ def iniciar_menu():
 
         elif escolha.lower() == "/g4f":
             try:
-                import g4f  # noqa: F401
+                __import__("g4f")  # valida dependência instalada
                 modelo_sel = configurar_modelo_dinamico("G4F", "G4F_MODEL")
                 from agente.services.g4f_service import G4FService
                 chat_session.iniciar(history_manager, G4FService(model=modelo_sel))

@@ -1,9 +1,12 @@
+import logging
+logger = logging.getLogger(__name__)
 import atexit
 import os
 import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from agente import config
@@ -90,17 +93,16 @@ _PALAVRAS_CHAVE_BUSCA = [
     r"notícia", r"noticia", r"último", r"ultimo", r"última", r"ultima",
     r"aconteceu", r"resultado", r"placar", r"eleição", r"eleicao",
     r"lançamento", r"lancamento", r"estreia",
-    r"2024", r"2025", r"2026", r"2027", r"tempo real",
+    r"tempo real",
     r"quem é", r"quem e",
     r"pesquise", r"busque", r"procure", r"pesquisar", r"buscar", r"procurar"
-]
+] + [str(ano) for ano in range(datetime.now().year - 2, datetime.now().year + 2)]
 _PADRAO_BUSCA = re.compile(r"\b(?:{})\b".format("|".join(_PALAVRAS_CHAVE_BUSCA)), re.IGNORECASE)
 
 _PADRAO_SISTEMA_LOCAL = re.compile(
     r"(?i)\b(?:mem[oó]ria|ram|disco|armazenamento|cpu|processador|processo|processos|hyprland|waybar|"
     r"meu\s+pc|meu\s+computador|meu\s+sistema|meu\s+arquivo|minha\s+pasta|meus?\s+arquivos?|"
-    r"meu\s+desktop|meu\s+workspace|meu\s+monitor|meu\s+volume|meu\s+áudio|meu\s+audio|"
-    r"meu\s+ip|meu\s+dns|ip\s+p[uú]blico|servidores?\s+dns|portas?\s+abertas?|minha\s+rede|minha\s+conex[aã]o|meu\s+ping)\b"
+    r"meu\s+desktop|meu\s+workspace|meu\s+monitor|meu\s+volume|meu\s+áudio|meu\s+audio)\b"
 )
 
 def detectar_intencao_busca(texto: str) -> bool:
@@ -118,7 +120,11 @@ def _stdin_e_tty() -> bool:
         return False
 
 
+_atexit_teclado_registrado = False
+
+
 def bloquear_teclado():
+    global _atexit_teclado_registrado
     if not _stdin_e_tty():
         return
     try:
@@ -127,9 +133,11 @@ def bloquear_teclado():
         attr = termios.tcgetattr(fd)
         attr[3] = attr[3] & ~termios.ECHO
         termios.tcsetattr(fd, termios.TCSADRAIN, attr)
-        atexit.register(desbloquear_teclado)
-    except Exception:
-        pass
+        if not _atexit_teclado_registrado:
+            atexit.register(desbloquear_teclado)
+            _atexit_teclado_registrado = True
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def desbloquear_teclado():
@@ -142,8 +150,8 @@ def desbloquear_teclado():
         attr[3] = attr[3] | termios.ECHO
         termios.tcsetattr(fd, termios.TCSADRAIN, attr)
         termios.tcflush(sys.stdin, termios.TCIFLUSH)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def hyprctl(command: str):
@@ -155,8 +163,8 @@ def hyprctl(command: str):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        except FileNotFoundError:
-            pass
+        except FileNotFoundError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def mover_janela_canto_superior_direito(fallback_w: int = 860, fallback_h: int = 550) -> tuple[int, int]:
@@ -210,8 +218,8 @@ def mover_janela_canto_superior_direito(fallback_w: int = 860, fallback_h: int =
                     else:
                         hyprctl(f"dispatch moveactive exact {target_x} {target_y}")
                     return target_x, target_y
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return (max(10, 1920 - fallback_w - 10), 56)
 
 def _register_enhanced_terminal_sequences():
@@ -258,8 +266,8 @@ def _register_enhanced_terminal_sequences():
                 ANSI_SEQUENCES[f"\x1b[{k};{mod}~"] = target_key
 
         _IS_PREFIX_OF_LONGER_MATCH_CACHE.clear()
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 _register_enhanced_terminal_sequences()
 
@@ -292,8 +300,8 @@ def _apply_word_wrap(buffer, prompt_len: int = 3) -> None:
                     new_text = full_text[:global_space_idx] + '\n' + full_text[global_space_idx + 1:]
                     from prompt_toolkit.document import Document
                     buffer.set_document(Document(new_text, buffer.cursor_position), bypass_readonly=True)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def safe_input(prompt_text: str, multiline: bool = True) -> str:
@@ -389,7 +397,7 @@ def normalizar_prompt_enviado(texto: str) -> str:
 
 def configurar_api_key(chave_nome: str) -> bool:
     from agente.colors import YELLOW, RESET, BOLD, GREEN
-    from agente.providers_manager import sincronizar_config
+    from agente.providers_manager import salvar_variavel_env
 
     print(f"\n{YELLOW}A chave {chave_nome} não está configurada ou é inválida.{RESET}")
     nova_chave = input(f"{BOLD}Cole sua {chave_nome} (ou Enter para cancelar): {RESET}").strip()
@@ -398,8 +406,16 @@ def configurar_api_key(chave_nome: str) -> bool:
         print("Operação cancelada.")
         return False
 
-    sincronizar_config(chave_nome, nova_chave)
-    print(f"{GREEN}Chave salva com sucesso no arquivo .env e sincronizada em memória!{RESET}")
+    salvar_variavel_env(chave_nome, nova_chave)
+
+    env_path = config.PROJECT_ROOT / ".env"
+    try:
+        os.chmod(env_path, 0o600)
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+
+    setattr(config, chave_nome, nova_chave)
+    print(f"{GREEN}Chave salva com sucesso no arquivo .env!{RESET}")
     return True
 
 

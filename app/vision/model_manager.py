@@ -1,298 +1,325 @@
 """
-Gerenciador de Modelos e Provedores do Metis / ScreenAI.
-Permite carregar, salvar, adicionar, editar e remover modelos por categoria com persistência em JSON.
+Gerenciador de Modelos e Provedores do Metis Vision.
+Wrapper fino que re-exporta do módulo centralizado agente.models.
 """
+
+import logging
+logger = logging.getLogger(__name__)
 
 import json
 import os
+import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / "config_models.json"
-METIS_CONFIG_PATHS = [
-    Path.home() / "Metis" / "config_models.json",
-    Path.home() / ".ZSH" / "ai" / "config_models.json"
-]
+# Adiciona path do Metis principal para importar agente.models
+metis_root = Path(__file__).parent.parent
+if str(metis_root) not in sys.path:
+    sys.path.insert(0, str(metis_root))
 
-# Nota de arquitetura: A chave 'builtin_models' armazena tanto modelos nativos quanto
-# modelos adicionados/customizados pelo usuário para garantir compatibilidade.
-DEFAULT_MODELS_DATA = {
-    "schema_version": 1,
-    "builtin_models": {
-        "NVIDIA": [
-            "meta/llama-3.2-11b-vision-instruct",
-            "meta/llama-3.2-90b-vision-instruct",
-            "deepseek-ai/deepseek-r1",
-            "meta/llama-3.1-70b-instruct"
-        ],
-        "Gemini": [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro"
-        ],
-        "OpenRouter": [
-            "liquid/lfm-2.5-2.6b:free",
-            "inclusionai/ling-3.0-flash-fin:free",
-            "minimax/minimax-m3:free",
-            "poolside/laguna-s-2.1:free"
-        ],
-        "Ollama": [
-            "llama3.2-vision:11b",
-            "qwen3.5:9b",
-            "qwen3.5:4b",
-            "llama3.2:3b",
-            "qwen2.5-coder:7b"
-        ],
-        "Groq": [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant"
-        ],
-        "G4F": [
-            "gpt-4o-mini",
-            "gpt-4o",
-            "deepseek-r1",
-            "llama-3.3-70b",
-            "qwen-2.5-coder-32b"
-        ]
-    },
-    "active_provider": "nvidia",
-    "active_model": "meta/llama-3.2-11b-vision-instruct"
+# Re-exporta tudo do módulo centralizado
+from agente.models import (
+    # Storage
+    load_config as load_models_config,
+    save_config as save_models_config,
+    CONFIG_FILE,
+    # Builtin models
+    BUILTIN_MODELS as DEFAULT_MODELS_DATA,
+    get_builtin_models,
+    get_models_for_provider,
+    get_all_providers,
+    _canonical_provider_name,
+    # Custom servers CRUD
+    get_custom_servers,
+    get_custom_server,
+    update_custom_server,
+    add_model_to_server,
+    remove_model_from_server,
+    set_server_active_model,
+    get_server_models,
+    # Preferences & .env
+    get_preference as get_user_setting,
+    set_preference as set_user_setting,
+    get_provider_active_model,
+    set_provider_active_model,
+    get_removed_servers,
+    is_server_removed,
+    remove_server as remove_provider,
+    restore_server as restore_provider,
+    get_env_var,
+    save_env_var,
+    remove_env_var,
+)
+
+# Aliases de compatibilidade
+CONFIG_PATH = CONFIG_FILE
+
+
+def get_config_path() -> str:
+    """Retorna o caminho do arquivo de configuração central (config_models.json)."""
+    return str(CONFIG_FILE)
+
+PROVIDER_ICONS = {
+    "nvidia": "⚡",
+    "gemini": "💎",
+    "openrouter": "🌐",
+    "ollama": "🦙",
+    "groq": "🚀",
+    "g4f": "🤖",
+    "anthropic": "🧠",
+    "openai": "🔮",
+    "mistral": "🌪️",
+    "deepseek": "🐳"
 }
 
-def _canonical_provider_name(name_or_id: str) -> str:
-    """Normaliza nomes/IDs de provedores conhecidos para seu padrão canônico."""
-    val = (name_or_id or "").strip().lower()
-    if "openrouter" in val:
-        return "OpenRouter"
-    if "gemini" in val:
-        return "Gemini"
-    if "groq" in val:
-        return "Groq"
-    if "nvidia" in val:
-        return "NVIDIA"
-    if "ollama" in val:
-        return "Ollama"
-    if "g4f" in val:
-        return "G4F"
-    return (name_or_id or "").strip()
+def get_provider_icon(provider: str) -> str:
+    return PROVIDER_ICONS.get(provider.lower(), "🤖")
 
-def get_config_path() -> Path:
-    """Retorna o caminho canônico do config_models.json (~/.config/metis/config_models.json)."""
-    canonical = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis")) / "config_models.json"
-    if canonical.exists():
-        return canonical
 
-    canonical.parent.mkdir(parents=True, exist_ok=True)
-    # Migração automática se houver cópia em caminho antigo
-    candidates = [
-        Path.home() / ".local/share/metis/app/config_models.json",
-        Path(__file__).resolve().parent.parent / "config_models.json",
-        Path.home() / "Metis" / "config_models.json",
-    ]
-    for leg in candidates:
-        if leg.exists() and leg.is_file():
-            try:
-                import shutil
-                shutil.copy2(leg, canonical)
-                return canonical
-            except Exception:
-                pass
+def get_active_model() -> Tuple[str, str]:
+    """Retorna (provedor_ativo, modelo_ativo) sincronizado com o Metis.
 
-    return canonical
+    Prioridade: estado da GUI do Metis (last_active_*), depois o modelo global
+    compartilhado (active_model/active_models) e por fim variáveis de ambiente.
+    """
+    cfg = load_models_config()
+    prefs = cfg.get("preferences", {}) or {}
 
-def ensure_config_exists() -> Path:
-    """Garante que o arquivo de configuração existe, inicializando ou mesclando se necessário."""
-    target_path = get_config_path()
-    if not target_path.exists():
-        save_models_config(DEFAULT_MODELS_DATA)
-    return target_path
+    def _find_provider(model_id: str) -> str:
+        if not model_id:
+            return "nvidia"
+        for p, models in get_builtin_models().items():
+            if model_id in models:
+                return _canonical_provider_name(p).lower()
+        am = prefs.get("active_models") or {}
+        for prov, mod in am.items():
+            if str(prov).lower() != "default_provider" and mod == model_id:
+                return str(prov).lower()
+        return "nvidia"
 
-_CONFIG_CACHE: Optional[dict] = None
+    # 1. Estado gravado pela GUI do Metis (sincronização bidirecional)
+    prov = str(prefs.get("last_active_provider") or "").strip().lower().replace("custom:", "")
+    model = str(prefs.get("last_active_model") or "").strip()
 
-def load_models_config(force_reload: bool = False) -> dict:
-    """Carrega o JSON de modelos com cache in-memory para alto desempenho."""
-    global _CONFIG_CACHE
-    if _CONFIG_CACHE is not None and not force_reload:
-        return _CONFIG_CACHE
-    p = ensure_config_exists()
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        if "builtin_models" not in data:
-            data["builtin_models"] = DEFAULT_MODELS_DATA["builtin_models"]
-        _CONFIG_CACHE = data
-        return data
-    except Exception:
-        _CONFIG_CACHE = dict(DEFAULT_MODELS_DATA)
-        return _CONFIG_CACHE
+    # 2. Fallback: modelo global compartilhado
+    if not prov or not model:
+        global_model = str(prefs.get("active_model") or "").strip()
+        if global_model:
+            model = global_model
+            prov = _find_provider(global_model)
 
-def save_models_config(data: dict):
-    """Salva a configuração no arquivo JSON compartilhado e atualiza cache."""
-    global _CONFIG_CACHE
-    p = get_config_path()
-    
-    # Preserva chaves existentes no JSON do Metis (como custom_servers, removed_models, preferences)
-    if p.exists():
+    # 3. Fallback: provedor por variável de ambiente (ignorando valores numéricos)
+    if not prov:
+        env_prov = os.getenv("DEFAULT_PROVIDER", "").strip().lower().replace("custom:", "")
+        if env_prov and env_prov not in {"1", "2", "3", "4", "5", "6"}:
+            prov = env_prov
+
+    if not model:
         try:
-            existing = json.loads(p.read_text(encoding="utf-8"))
-            if isinstance(existing, dict):
-                for k, v in existing.items():
-                    if k not in data:
-                        data[k] = v
+            from . import config
+            model = config.DEFAULT_MODELS.get(prov, "meta/llama-3.2-11b-vision-instruct")
         except Exception:
-            pass
+            model = "meta/llama-3.2-11b-vision-instruct"
 
-    _CONFIG_CACHE = data
-    content = json.dumps(data, indent=2, ensure_ascii=False)
-    p.write_text(content, encoding="utf-8")
+    return (prov or "nvidia"), (model or "meta/llama-3.2-11b-vision-instruct")
 
-    # Mantém réplicas existentes sincronizadas
-    replicas = [
-        Path.home() / ".local/share/metis/app/config_models.json",
-        Path.home() / "Metis" / "config_models.json",
-        Path(__file__).resolve().parent.parent / "config_models.json",
-    ]
-    for rep in replicas:
-        if rep != p and rep.exists() and rep.is_file():
-            try:
-                rep.write_text(content, encoding="utf-8")
-            except Exception:
-                pass
 
-def get_providers() -> List[str]:
-    """Retorna a lista de provedores/categorias disponíveis sem duplicações (incluindo servidores customizados)."""
-    cfg = load_models_config(force_reload=True)
-    provs = []
-    seen_lower = set()
+def set_active_model(provider: str, model_id: str) -> None:
+    """Salva o modelo ativo selecionado no config compartilhado com o Metis.
 
-    for p in cfg.get("builtin_models", {}).keys():
-        norm = _canonical_provider_name(p)
-        key = norm.lower()
-        if key not in seen_lower:
-            seen_lower.add(key)
-            provs.append(norm)
+    Grava o mesmo conjunto de chaves usadas pela GUI do Metis
+    (last_active_*, active_model, active_models) para manter a sincronização.
+    """
+    cfg = load_models_config()
+    prefs = cfg.setdefault("preferences", {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+        cfg["preferences"] = prefs
+    prefs["active_model"] = model_id
+    prefs.setdefault("active_models", {})[provider.strip().lower()] = model_id
+    prefs["last_active_provider"] = provider.strip().lower()
+    prefs["last_active_model"] = model_id
+    save_models_config(cfg)
 
-    for srv in cfg.get("custom_servers", []):
-        nome = (srv.get("nome") or "").strip()
-        srv_id = (srv.get("id") or "").strip()
-        base_url = (srv.get("base_url") or "").strip().lower()
 
-        # Identifica se é OpenRouter ou outra IA nativa mapeada em servidores customizados
-        if "openrouter" in srv_id.lower() or "openrouter" in nome.lower() or "openrouter.ai" in base_url:
-            canonical = "OpenRouter"
+def get_grouped_model_list() -> List[Dict]:
+    """
+    Retorna lista estruturada de provedores com seus respectivos modelos.
+    Garante deduplicação estrita (ex: OpenRouter nunca duplicado).
+    """
+    cfg = load_models_config()
+    grouped = []
+    grouped_by_key = {}
+    removed = [str(s).strip().lower() for s in get_removed_servers()]
+
+    # 1. Provedores reais em builtin_models do config
+    cfg_builtin = cfg.get("builtin_models", {})
+    for prov_name, models_list in cfg_builtin.items():
+        canon_name = _canonical_provider_name(prov_name)
+        prov_key = canon_name.lower()
+        if prov_key in removed or prov_name.lower() in removed:
+            continue
+        icon = get_provider_icon(prov_key)
+
+        if prov_key not in grouped_by_key:
+            grp = {
+                "provider": canon_name,
+                "key": prov_key,
+                "icon": icon,
+                "models": list(models_list)
+            }
+            grouped.append(grp)
+            grouped_by_key[prov_key] = grp
         else:
-            canonical = _canonical_provider_name(nome or srv_id)
+            cur_models = grouped_by_key[prov_key]["models"]
+            for m in models_list:
+                if m not in cur_models:
+                    cur_models.append(m)
 
-        if canonical and canonical.lower() not in seen_lower:
-            seen_lower.add(canonical.lower())
-            provs.append(canonical)
-
-    return provs
-
-def get_models_for_provider(provider: str) -> List[str]:
-    """Retorna a lista de modelos de uma categoria específica (mesclando builtin e custom_servers se aplicável)."""
-    cfg = load_models_config(force_reload=True)
-    prov_canon = _canonical_provider_name(provider)
-    prov_lower = prov_canon.lower()
-
-    models = []
-    seen = set()
-
-    # 1. Procura em builtin_models
-    builtin = cfg.get("builtin_models", {})
-    for k, v in builtin.items():
-        if _canonical_provider_name(k).lower() == prov_lower:
-            for m in v:
-                if m not in seen:
-                    seen.add(m)
-                    models.append(m)
-
-    # 2. Procura em custom_servers (mescla para OpenRouter e outros servidores mapeados)
-    for srv in cfg.get("custom_servers", []):
-        srv_nome = (srv.get("nome") or "").strip()
-        srv_id = (srv.get("id") or "").strip().lower()
+    # 2. Modelos em custom_servers (sempre incluídos conforme cadastrados pelo usuário)
+    for srv in get_custom_servers():
+        srv_nome = (srv.get("nome") or "Custom").strip()
+        srv_id = (srv.get("id") or srv_nome).strip().lower()
         srv_url = (srv.get("base_url") or "").strip().lower()
-        is_match = False
-        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
-            is_match = True
-        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
-            is_match = True
 
-        if is_match:
-            for m in srv.get("modelos", []):
-                if m not in seen:
-                    seen.add(m)
-                    models.append(m)
+        if "openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url:
+            canon_key = "openrouter"
+            canon_name = "OpenRouter"
+        else:
+            canon_name = _canonical_provider_name(srv_nome)
+            canon_key = canon_name.lower()
 
-    return models
+        icon = get_provider_icon(canon_key)
+        srv_models = list(srv.get("modelos", []))
+
+        if canon_key in grouped_by_key:
+            # Já existe esse provedor: mescla modelos sem duplicar o menu
+            existing_models = grouped_by_key[canon_key]["models"]
+            for m in srv_models:
+                if m not in existing_models:
+                    existing_models.append(m)
+        else:
+            grp = {
+                "provider": canon_name,
+                "key": canon_key,
+                "icon": icon,
+                "models": srv_models
+            }
+            grouped.append(grp)
+            grouped_by_key[canon_key] = grp
+
+    return grouped
+
+
+def get_flat_model_list() -> List[Tuple[str, str, str]]:
+    """
+    Retorna lista plana de todos os modelos para retrocompatibilidade:
+    [(Nome Exibição, provedor_key, model_id), ...]
+    """
+    grouped = get_grouped_model_list()
+    items = []
+    for g in grouped:
+        prov_name = g["provider"]
+        prov_key = g["key"]
+        icon = g["icon"]
+        for m in g["models"]:
+            short_name = m.split("/")[-1]
+            display_name = f"{icon} {prov_name} • {short_name}"
+            items.append((display_name, prov_key, m))
+    return items
+
+
+def get_removed_providers() -> List[str]:
+    return get_removed_servers()
+
+
+# Funções de sincronização com o Metis
+def sync_with_metis() -> dict:
+    """
+    Sincroniza a Vision com o Metis no arquivo canônico.
+
+    O config compartilhado (~/.config/metis/config_models.json) é a fonte única.
+    NÃO mescla mais o config legado da Vision aqui — isso ressuscitava modelos
+    que o usuário já tinha excluído. O arquivo legado obsoleto é removido, e só
+    os modelos do Ollama local (novos) são sincronizados.
+    """
+    cfg = load_models_config()
+
+    # 1. Remove o config legado da Vision (schema v1, obsoleto): se ficar no
+    #    disco pode voltar a "reviver" modelos excluídos. A fonte única agora é
+    #    o config compartilhado do Metis.
+    legacy = Path(__file__).parent / "config_models.json"
+    if legacy.exists():
+        try:
+            legacy.unlink()
+        except OSError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+
+    # 2. Sincroniza modelos do Ollama local (apenas modelos novos instalados)
+    merged = False
+    ollama_synced = False
+    try:
+        import urllib.request
+        host = get_env_var("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+        with urllib.request.urlopen(f"{host}/api/tags", timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        ollama_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+        if ollama_models:
+            canon = _canonical_provider_name("Ollama")
+            cur = cfg.setdefault("builtin_models", {}).setdefault(canon, [])
+            for m in ollama_models:
+                if m not in cur:
+                    cur.append(m)
+                    merged = True
+            ollama_synced = True
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+
+    if merged:
+        save_models_config(cfg)
+
+    return {
+        "custom_servers_count": len(get_custom_servers()),
+        "servers_count": len(get_custom_servers()),
+        "providers_count": len(get_all_providers()),
+        "ollama_synced": ollama_synced,
+    }
+
+
+# Compatibilidade: funções que a Vision usa
+def get_providers() -> List[str]:
+    return [g["provider"] for g in get_grouped_model_list()]
+
 
 def add_model_to_provider(provider: str, model_id: str) -> bool:
-    """Adiciona um novo modelo a uma categoria (builtin ou custom_servers)."""
-    model_id = model_id.strip()
-    if not model_id:
-        return False
-    cfg = load_models_config(force_reload=True)
+    """Adiciona um modelo à lista de um provedor no config compartilhado com o Metis."""
+    cfg = load_models_config()
     if "builtin_models" not in cfg:
         cfg["builtin_models"] = {}
-
-    prov_canon = _canonical_provider_name(provider)
-    prov_lower = prov_canon.lower()
-    added = False
-
-    # 1. Verifica se existe em builtin_models
-    matched_prov = None
-    for k in cfg["builtin_models"].keys():
-        if _canonical_provider_name(k).lower() == prov_lower:
-            matched_prov = k
-            break
-
-    if matched_prov:
-        if model_id not in cfg["builtin_models"][matched_prov]:
-            cfg["builtin_models"][matched_prov].append(model_id)
-            added = True
-
-    # 2. Verifica se é um servidor customizado (ou se OpenRouter está em ambos)
-    for srv in cfg.get("custom_servers", []):
-        srv_nome = (srv.get("nome") or "").strip()
-        srv_id = (srv.get("id") or "").strip().lower()
-        srv_url = (srv.get("base_url") or "").strip().lower()
-        is_match = False
-        if prov_lower == "openrouter" and ("openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url):
-            is_match = True
-        elif _canonical_provider_name(srv_nome).lower() == prov_lower or srv_id == prov_lower:
-            is_match = True
-
-        if is_match:
-            if "modelos" not in srv:
-                srv["modelos"] = []
-            if model_id not in srv["modelos"]:
-                srv["modelos"].append(model_id)
-                added = True
-
-    # 3. Se não existe em nenhum lugar, cria em builtin_models
-    if not matched_prov and not added:
-        cfg["builtin_models"][prov_canon] = [model_id]
-        added = True
-
-    if added:
+    canon = _canonical_provider_name(provider)
+    if canon not in cfg["builtin_models"]:
+        cfg["builtin_models"][canon] = []
+    if model_id not in cfg["builtin_models"][canon]:
+        cfg["builtin_models"][canon].append(model_id)
         save_models_config(cfg)
         return True
     return False
 
+
 def remove_model_from_provider(provider: str, model_id: str) -> bool:
-    """Remove um modelo de uma categoria (builtin ou custom_servers) e ajusta o modelo ativo se necessário."""
-    cfg = load_models_config(force_reload=True)
+    """Remove um modelo de um provedor e de servidores customizados correspondentes."""
+    cfg = load_models_config()
     prov_canon = _canonical_provider_name(provider)
     prov_lower = prov_canon.lower()
     removed = False
 
-    # 1. Tenta remover de builtin_models
+    # 1. builtin_models
     for k, mlist in cfg.get("builtin_models", {}).items():
         if _canonical_provider_name(k).lower() == prov_lower and model_id in mlist:
             mlist.remove(model_id)
             removed = True
 
-    # 2. Tenta remover de custom_servers
+    # 2. custom_servers
     for srv in cfg.get("custom_servers", []):
         srv_nome = (srv.get("nome") or "").strip()
         srv_id = (srv.get("id") or "").strip().lower()
@@ -310,34 +337,37 @@ def remove_model_from_provider(provider: str, model_id: str) -> bool:
                 removed = True
 
     if removed:
-        # Se o modelo removido era o ativo, escolhe o próximo modelo disponível
-        active_mod = cfg.get("active_model", "")
-        if active_mod == model_id:
-            # Tenta pegar outro modelo deste provedor
-            remaining = get_models_for_provider(provider)
-            if remaining:
-                cfg["active_model"] = remaining[0]
-            else:
-                # Tenta qualquer outro modelo
-                flat = get_flat_model_list()
-                if flat:
-                    cfg["active_provider"] = flat[0][1]
-                    cfg["active_model"] = flat[0][2]
         save_models_config(cfg)
-        return True
-    return False
+        try:
+            from agente.models.storage import purge_model_from_legacy_files
+            purge_model_from_legacy_files(model_id)
+        except ImportError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+    return removed
+
+
+def get_models_for_provider_vision(provider: str) -> List[str]:
+    """Wrapper com nome diferente para evitar conflito com importação."""
+    return get_models_for_provider(provider)
+
+
+def add_model_to_provider_vision(provider: str, model_id: str) -> bool:
+    """Alias de retrocompatibilidade."""
+    return add_model_to_provider(provider, model_id)
+
+
+def remove_model_from_provider_vision(provider: str, model_id: str) -> bool:
+    """Alias de retrocompatibilidade."""
+    return remove_model_from_provider(provider, model_id)
+
 
 def edit_model_in_provider(provider: str, old_model_id: str, new_model_id: str) -> bool:
-    """Edita um modelo existente (builtin ou custom_servers)."""
-    new_model_id = new_model_id.strip()
-    if not new_model_id:
-        return False
-    cfg = load_models_config(force_reload=True)
+    cfg = load_models_config()
     prov_canon = _canonical_provider_name(provider)
     prov_lower = prov_canon.lower()
     edited = False
 
-    # 1. Tenta editar em builtin_models
+    # 1. builtin_models
     for k, mlist in cfg.get("builtin_models", {}).items():
         if _canonical_provider_name(k).lower() == prov_lower and old_model_id in mlist:
             idx = mlist.index(old_model_id)
@@ -345,7 +375,7 @@ def edit_model_in_provider(provider: str, old_model_id: str, new_model_id: str) 
             edited = True
             break
 
-    # 2. Tenta editar em custom_servers
+    # 2. custom_servers
     for srv in cfg.get("custom_servers", []):
         srv_nome = (srv.get("nome") or "").strip()
         srv_id = (srv.get("id") or "").strip().lower()
@@ -365,134 +395,55 @@ def edit_model_in_provider(provider: str, old_model_id: str, new_model_id: str) 
                 break
 
     if edited:
-        if cfg.get("active_model") == old_model_id:
-            cfg["active_model"] = new_model_id
+        if cfg.get("preferences", {}).get("active_model") == old_model_id:
+            cfg["preferences"]["active_model"] = new_model_id
         save_models_config(cfg)
         return True
     return False
 
-def get_active_model() -> Tuple[str, str]:
-    """Retorna (provedor_ativo, modelo_ativo)."""
-    cfg = load_models_config()
-    prov = cfg.get("active_provider", "nvidia")
-    mod = cfg.get("active_model", "meta/llama-3.2-11b-vision-instruct")
-    return prov, mod
 
-def set_active_model(provider: str, model_id: str):
-    """Salva o modelo ativo selecionado."""
-    cfg = load_models_config(force_reload=True)
-    cfg["active_provider"] = provider.lower()
-    cfg["active_model"] = model_id
-    save_models_config(cfg)
-
-def get_user_setting(key: str, default=None):
-    """Obtém uma preferência persistida do usuário."""
-    cfg = load_models_config()
-    return cfg.get("user_settings", {}).get(key, default)
-
-def set_user_setting(key: str, value):
-    """Salva uma preferência do usuário no arquivo de configuração."""
-    cfg = load_models_config(force_reload=True)
-    if "user_settings" not in cfg or not isinstance(cfg["user_settings"], dict):
-        cfg["user_settings"] = {}
-    cfg["user_settings"][key] = value
-    save_models_config(cfg)
-
-PROVIDER_ICONS = {
-    "nvidia": "⚡",
-    "gemini": "💎",
-    "openrouter": "🌐",
-    "ollama": "🦙",
-    "groq": "🚀",
-    "g4f": "🤖",
-    "anthropic": "🧠",
-    "openai": "🔮",
-    "mistral": "🌪️",
-    "deepseek": "🐳"
-}
-
-def get_provider_icon(provider: str) -> str:
-    """Retorna o ícone amigável associado a um provedor."""
-    return PROVIDER_ICONS.get(provider.lower(), "🤖")
-
-def get_grouped_model_list() -> List[Dict]:
-    """
-    Retorna lista estruturada de provedores com seus respectivos modelos e metadados.
-    Garante deduplicação estrita de provedores (ex: OpenRouter nunca duplicado).
-    """
-    cfg = load_models_config(force_reload=True)
-    grouped = []
-    grouped_by_key = {}
-
-    # 1. Provedores em builtin_models
-    for prov_name, models_list in cfg.get("builtin_models", {}).items():
-        canon_name = _canonical_provider_name(prov_name)
-        prov_key = canon_name.lower()
-        icon = get_provider_icon(prov_key)
-        
-        if prov_key not in grouped_by_key:
-            grp = {
-                "provider": canon_name,
-                "key": prov_key,
-                "icon": icon,
-                "models": list(models_list)
-            }
-            grouped.append(grp)
-            grouped_by_key[prov_key] = grp
-        else:
-            cur_models = grouped_by_key[prov_key]["models"]
-            for m in models_list:
-                if m not in cur_models:
-                    cur_models.append(m)
-
-    # 2. Modelos em custom_servers
-    for srv in cfg.get("custom_servers", []):
-        srv_nome = (srv.get("nome") or "Custom").strip()
-        srv_id = (srv.get("id") or srv_nome).strip().lower()
-        srv_url = (srv.get("base_url") or "").strip().lower()
-
-        if "openrouter" in srv_id or "openrouter" in srv_nome.lower() or "openrouter.ai" in srv_url:
-            canon_key = "openrouter"
-            canon_name = "OpenRouter"
-        else:
-            canon_name = _canonical_provider_name(srv_nome)
-            canon_key = canon_name.lower()
-
-        icon = get_provider_icon(canon_key)
-        srv_models = list(srv.get("modelos", []))
-
-        if canon_key in grouped_by_key:
-            # Já existe esse provedor (ex: OpenRouter builtin): mescla modelos sem duplicar o menu!
-            existing_models = grouped_by_key[canon_key]["models"]
-            for m in srv_models:
-                if m not in existing_models:
-                    existing_models.append(m)
-        else:
-            grp = {
-                "provider": canon_name,
-                "key": canon_key,
-                "icon": icon,
-                "models": srv_models
-            }
-            grouped.append(grp)
-            grouped_by_key[canon_key] = grp
-
-    return grouped
-
-def get_flat_model_list() -> List[Tuple[str, str, str]]:
-    """
-    Retorna lista plana de todos os modelos para retrocompatibilidade:
-    [(Nome Exibição, provedor_key, model_id), ...]
-    """
-    grouped = get_grouped_model_list()
-    items = []
-    for g in grouped:
-        prov_name = g["provider"]
-        prov_key = g["key"]
-        icon = g["icon"]
-        for m in g["models"]:
-            short_name = m.split("/")[-1]
-            display_name = f"{icon} {prov_name} • {short_name}"
-            items.append((display_name, prov_key, m))
-    return items
-
+# Exporta tudo
+__all__ = [
+    "load_models_config",
+    "save_models_config",
+    "get_config_path",
+    "CONFIG_PATH",
+    "DEFAULT_MODELS_DATA",
+    "get_builtin_models",
+    "get_models_for_provider",
+    "get_models_for_provider_vision",
+    "get_all_providers",
+    "get_providers",
+    "_canonical_provider_name",
+    "get_custom_servers",
+    "get_custom_server",
+    "add_model_to_provider",
+    "add_model_to_provider_vision",
+    "remove_model_from_provider",
+    "remove_model_from_provider_vision",
+    "update_custom_server",
+    "add_model_to_server",
+    "remove_model_from_server",
+    "set_server_active_model",
+    "get_server_models",
+    "get_user_setting",
+    "set_user_setting",
+    "get_active_model",
+    "set_active_model",
+    "get_provider_active_model",
+    "set_provider_active_model",
+    "get_removed_servers",
+    "get_removed_providers",
+    "is_server_removed",
+    "remove_provider",
+    "restore_provider",
+    "get_env_var",
+    "save_env_var",
+    "remove_env_var",
+    "get_provider_icon",
+    "get_grouped_model_list",
+    "get_flat_model_list",
+    "sync_with_metis",
+    "edit_model_in_provider",
+    "PROVIDER_ICONS",
+]

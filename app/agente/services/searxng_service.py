@@ -3,8 +3,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 
-import httpx
-
 from agente import config
 from agente.utils import limitar_texto
 
@@ -126,7 +124,8 @@ def extrair_conteudo_url(url: str, timeout: int = 8, max_chars: int = 2000) -> s
         parser.feed(resp.text)
         texto = parser.get_text()
         return texto[:max_chars]
-    except Exception:
+    except Exception as e:
+        logger.debug("extrair_conteudo_url falhou para %s: %s", url, e)
         return ""
 
 
@@ -260,10 +259,10 @@ def buscar_web(pergunta: str) -> str:
                             c = f.result()
                             if c:
                                 conteudos_paginas[idx] = c
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     partes = []
     for idx, r in enumerate(resultados, 1):

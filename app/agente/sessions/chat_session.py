@@ -4,7 +4,7 @@ import time
 logger = logging.getLogger(__name__)
 
 from agente import config
-from agente.colors import *
+from agente.colors import BOLD, CYAN, GRAY, GREEN, RED, RESET, YELLOW
 from agente.history import HistoryManager
 from agente.services.base import BaseService
 from agente.services import searxng_service
@@ -14,7 +14,6 @@ from agente.utils import (
     desbloquear_teclado,
     detectar_intencao_busca,
     limitar_texto,
-    hyprctl,
     mover_janela_canto_superior_direito,
     safe_input,
     configurar_api_key
@@ -118,9 +117,8 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
 
     resposta_completa = ""
     erro = False
-    tempo_inicio = time.time()
+    tempo_inicio = time.monotonic()
 
-    tamanho_inicial = len(mensagens)
     try:
         print(f"\033[K{BOLD}Assistente:{RESET}")
         resposta_completa = imprimir_stream_colorido(service.gerar_resposta_stream(mensagens))
@@ -157,14 +155,8 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
 
     finally:
         desbloquear_teclado()
-        tempo_fim = time.time()
+        tempo_fim = time.monotonic()
         duracao = tempo_fim - tempo_inicio
-
-    # Persiste no histórico todas as chamadas de ferramentas geradas no processo
-    if len(mensagens) > tamanho_inicial:
-        for extra_msg in mensagens[tamanho_inicial:]:
-            if isinstance(extra_msg, dict) and extra_msg.get("role") in {"functionCall", "functionResponse", "tool"}:
-                hm.adicionar_raw(extra_msg)
 
     if resposta_completa.strip():
         print(f"\n\x1b[38;5;240m[⏱️ {duracao:.2f}s]\x1b[0m")

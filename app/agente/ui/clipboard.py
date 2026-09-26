@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import shutil
 import subprocess
 import sys
@@ -35,8 +37,8 @@ def _copiar_clipboard(texto: str) -> bool:
         import pyperclip
         pyperclip.copy(texto)
         return True
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     return False
 

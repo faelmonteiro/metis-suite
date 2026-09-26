@@ -2,16 +2,14 @@ from agente import config
 from agente.services.base import BaseService
 
 MODELOS_DISPONIVEIS = {
-    "1": ("llama-3.1-70b", "Llama 3.1 70B (Mais estável - Recomendado)"),
-    "2": ("gpt-4o-mini", "GPT-4o Mini (OpenAI Web)"),
-    "3": ("gpt-4o", "GPT-4o Completo (OpenAI Web)"),
-    "4": ("deepseek-r1", "DeepSeek R1 (Raciocínio Web)")
+    "1": ("gpt-4o-mini", "GPT-4o Mini (OpenAI Nuvem Gratuita)"),
+    "2": ("gpt-4o", "GPT-4o Completo (OpenAI Nuvem Gratuita)")
 }
 
 
 def gerar_resposta(mensagens: list, model: str = None) -> str:
     if not model:
-        model = getattr(config, "G4F_MODEL", "llama-3.1-70b") or "llama-3.1-70b"
+        model = getattr(config, "G4F_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
 
     try:
         from g4f.client import Client
@@ -35,57 +33,34 @@ def gerar_resposta(mensagens: list, model: str = None) -> str:
     try:
         client = Client()
         max_toks = getattr(config, "MAX_OUTPUT_TOKENS", 4096)
-        response = None
 
-        # 1. Tenta o modelo principal
         try:
-            try:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=clean_messages,
-                    max_tokens=max_toks
-                )
-            except TypeError:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=clean_messages
-                )
-        except Exception:
-            # 2. Se falhar, tenta alternativas estáveis
-            for fb_model in ["llama-3.1-70b", "llama-3.3-70b", "deepseek-r1"]:
-                if fb_model == model:
-                    continue
-                try:
-                    response = client.chat.completions.create(
-                        model=fb_model,
-                        messages=clean_messages
-                    )
-                    if hasattr(response, "choices") and response.choices:
-                        break
-                except Exception:
-                    continue
+            response = client.chat.completions.create(
+                model=model,
+                messages=clean_messages,
+                max_tokens=max_toks
+            )
+        except TypeError:
+            response = client.chat.completions.create(
+                model=model,
+                messages=clean_messages
+            )
 
-        if response and hasattr(response, "choices") and response.choices:
+        if hasattr(response, "choices") and response.choices:
             message = getattr(response.choices[0], "message", None)
             conteudo = getattr(message, "content", None)
+
             if conteudo:
                 return str(conteudo)
 
         return "[Sem resposta]"
 
     except Exception as e:
-        err_str = str(e)
-        if "executable not found" in err_str or "Chrome" in err_str or "RetryProvider" in err_str:
-            raise RuntimeError(
-                "Provedores gratuitos Web (G4F) indisponíveis no momento para este modelo.\n"
-                "💡 Dicas para resolver:\n"
-                "   1. Instale o Chromium: sudo apt install -y chromium-browser\n"
-                "   2. Ou use Groq / Gemini / Ollama com chaves gratuitas em [Ctrl + G]."
-            )
         raise RuntimeError(f"Erro no provedor g4f ({model}): {e}")
 
 class G4FService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or getattr(config, "G4F_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
 
     @property
@@ -93,5 +68,11 @@ class G4FService(BaseService):
         return f"G4F ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        # G4F currently doesn't stream well, so we yield the full response
-        yield gerar_resposta(mensagens, self.model)
+        # G4F currently doesn't stream well, so we yield the full response.
+        # As chamadas são síncronas e não interrompíveis no meio; se o usuário
+        # abortar durante a geração, o resultado completo é descartado.
+        self._aborted = False
+        texto = gerar_resposta(mensagens, self.model)
+        if self._aborted:
+            return
+        yield texto

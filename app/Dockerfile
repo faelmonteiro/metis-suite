@@ -15,7 +15,8 @@ ENV PYTHONUNBUFFERED=1
 COPY --from=builder /install /usr/local
 
 COPY app.py .
-
+COPY config_models.json .
+COPY assets ./assets
 COPY agente ./agente
 
 RUN mkdir -p /app/historico && useradd -m appuser && chown -R appuser:appuser /app

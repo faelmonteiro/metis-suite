@@ -1,13 +1,17 @@
-import json
 import logging
+logger = logging.getLogger(__name__)
+import json
 import re
 
 import httpx
 
 from agente import config
-from agente.services.base import BaseService
-
-logger = logging.getLogger(__name__)
+from agente.services.base import (
+    BaseService,
+    NonRetriableAPIError,
+    RetriableAPIError,
+    calcular_espera_retry_after,
+)
 
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -21,98 +25,17 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
         "Content-Type": "application/json"
     }
 
+    from agente.services.base import format_openai_messages
     from agente.services.tools_defs import OPENAI_TOOLS_DECLARATION
-    import base64
-    import mimetypes
 
-    formatted_messages = []
-    last_call_id = None
-    
-    for m in mensagens:
-        role_raw = m.get("role", "")
-
-        if role_raw == "system":
-            formatted_messages.append({"role": "system", "content": m.get("content", "")})
-            continue
-
-        if role_raw == "functionCall":
-            import uuid
-            args_data = m["functionCall"].get("args", {})
-            args_str = json.dumps(args_data) if isinstance(args_data, dict) else str(args_data)
-            call_id = m["functionCall"].get("id") or f"call_{len(formatted_messages)}_{uuid.uuid4().hex[:8]}"
-            m["functionCall"]["id"] = call_id
-            last_call_id = call_id
-            tc_obj = {
-                "id": call_id,
-                "type": "function",
-                "function": {
-                    "name": m["functionCall"]["name"],
-                    "arguments": args_str
-                }
-            }
-            if formatted_messages and formatted_messages[-1].get("role") == "assistant" and "tool_calls" in formatted_messages[-1]:
-                formatted_messages[-1]["tool_calls"].append(tc_obj)
-            else:
-                formatted_messages.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [tc_obj]
-                })
-            continue
-            
-        if role_raw == "functionResponse":
-            import uuid
-            call_id = m.get("id") or last_call_id or f"call_{len(formatted_messages)}_{uuid.uuid4().hex[:8]}"
-            formatted_messages.append({
-                "role": "tool",
-                "tool_call_id": call_id,
-                "name": m["name"],
-                "content": str(m["content"])
-            })
-            continue
-
-        role = "user" if role_raw == "user" else "assistant"
-        
-        content = []
-        text_content = str(m.get("content", ""))
-        if text_content:
-            content.append({"type": "text", "text": text_content})
-            
-        if "media_paths" in m:
-            for path in m["media_paths"]:
-                try:
-                    from agente.services.media_cache import get_base64_media
-                    data = get_base64_media(path)
-                    mime, _ = mimetypes.guess_type(path)
-                    if not mime:
-                        mime = "application/octet-stream"
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime};base64,{data}"
-                        }
-                    })
-                except Exception as e:
-                    logger.error(f"Falha ao ler midia {path}: {e}")
-
-        if len(content) == 1 and content[0]["type"] == "text":
-            final_content = content[0]["text"]
-        elif not content:
-            continue
-        else:
-            final_content = content
-
-        formatted_messages.append({
-            "role": role,
-            "content": final_content
-        })
+    formatted_messages = format_openai_messages(mensagens)
 
     payload = {
         "model": model or config.GROQ_MODEL,
         "messages": formatted_messages,
         "stream": stream,
         "max_tokens": getattr(config, "MAX_OUTPUT_TOKENS", 4096),
-        "temperature": getattr(config, "OLLAMA_TEMPERATURE", 0.7),
+        "temperature": getattr(config, "GROQ_TEMPERATURE", getattr(config, "DEFAULT_TEMPERATURE", 0.7)),
         "tools": OPENAI_TOOLS_DECLARATION,
         "tool_choice": "auto"
     }
@@ -142,69 +65,97 @@ def _handle_error(res, model: str = None):
         m_name = model or config.GROQ_MODEL
         if "content must be a string" in msg.lower():
             msg = f"{msg}\n[Dica] O modelo atual do Groq ({m_name}) é de texto puro e não suporta imagens. Use '/modelo gemini' para visão multimodal."
-        raise RuntimeError(f"Groq API ({res.status_code}): {msg}")
+        if res.status_code == 429 or 500 <= res.status_code < 600:
+            raise RetriableAPIError(f"Groq API ({res.status_code}): {msg}")
+        raise NonRetriableAPIError(f"Groq API ({res.status_code}): {msg}")
 
 
 
 
 from agente.services.base import parse_openai_sse_stream, process_tool_calls_map
 
-def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
+def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     """Gera resposta via streaming SSE da Groq API (formato OpenAI)."""
     model_name = model or config.GROQ_MODEL
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
 
     from agente.services.http_client import get_http_client
+    import time
     retries = 5
-    tool_calls_map = {}
-    yielded_any = False
-    last_429_wait = None
+    tentativas_deadline = time.monotonic() + 90.0
+
+    def _espera_retry(espera: float, motivo: str, attempt: int) -> None:
+        restante = tentativas_deadline - time.monotonic()
+        if espera >= restante:
+            espera = max(restante, 0.0)
+        if espera > 0:
+            logger.info("Groq: %s (tentativa %d/%d) — aguardando %.1fs", motivo, attempt + 1, retries, espera)
+            time.sleep(espera)
+        else:
+            logger.debug("Groq: teto de 90s de retentativas atingido")
+            raise RuntimeError("Groq: teto de 90s de retentativas atingido")
 
     for attempt in range(retries):
+        if service and getattr(service, "_aborted", False):
+            return
+        tool_calls_map = {}
         try:
             client = get_http_client()
             with client.stream("POST", API_URL, headers=headers, json=payload) as res:
-                if res.status_code == 429 and attempt < retries - 1:
-                    import time
-                    espera = 3.0
-                    try:
-                        corpo = res.read().decode("utf-8")
-                        m = re.search(r"try again in ([\d\.]+)s", corpo)
-                        if m:
-                            espera = max(float(m.group(1)) + 1.0, 3.0)
-                    except Exception:
-                        pass
-                    last_429_wait = espera
-                    time.sleep(espera)
-                    continue
-                _handle_error(res, model=model_name)
+                if service:
+                    service._active_stream = res
+                try:
+                    if res.status_code == 429 and attempt < retries - 1:
+                        espera = calcular_espera_retry_after(res, padrao=3.0)
+                        try:
+                            corpo = res.read().decode("utf-8")
+                            m = re.search(r"try again in ([\d\.]+)s", corpo)
+                            if m:
+                                espera = max(espera, float(m.group(1)) + 1.0)
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                            # Corpo não consumido: descarta a conexão em vez de devolvê-la ao pool.
+                            try:
+                                res.close()
+                            except Exception:
+                                pass
+                        try:
+                            ra_raw = res.headers.get("Retry-After", "").strip()
+                            if ra_raw.isdigit() and float(ra_raw) > 90.0:
+                                logger.debug("Groq: Retry-After=%ss excede o teto de 90s", ra_raw)
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                        _espera_retry(espera, "rate-limit (429)", attempt)
+                        continue
+                    _handle_error(res, model=model_name)
 
-                for chunk in parse_openai_sse_stream(res.iter_lines(), tool_calls_map):
-                    yielded_any = True
-                    yield chunk
+                    yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                finally:
+                    if service:
+                        service._active_stream = None
             break
-        except httpx.RequestError as e:
+        except (httpx.RequestError, RetriableAPIError) as e:
+            if service and getattr(service, "_aborted", False):
+                return
             if attempt == retries - 1:
+                if isinstance(e, RetriableAPIError):
+                    raise
                 raise RuntimeError(f"Erro de conexão com Groq API: {e}")
-            import time
-            time.sleep(1.5)
-
-    if not yielded_any and not tool_calls_map and last_429_wait is not None:
-        raise RuntimeError(
-            f"Groq: limite de requisições (429) persistente após {retries} tentativas "
-            f"(última espera: {last_429_wait:.1f}s). Tente novamente em instantes."
-        )
+            _espera_retry(1.5, "falha de conexão/retry", attempt)
 
     if tool_calls_map:
+        if service and getattr(service, "_aborted", False):
+            return
         if iteration >= max_iterations:
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
         process_tool_calls_map(tool_calls_map, mensagens, iteration=iteration)
-        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name)
+        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name, service=service)
 
 class GroqService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or config.GROQ_MODEL
 
     @property
@@ -212,4 +163,5 @@ class GroqService(BaseService):
         return f"GROQ ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)

@@ -1,6 +1,8 @@
-"""Módulo principal do agente Llama + SearXNG."""
+"""Módulo principal do agente Llama + SearXNG.
 
-try:
-    import readline
-except ImportError:
-    pass
+readline/histórico do terminal é carregado e configurado em agente/completer
+(configurar_readline, chamado por main). Imports duplicados aqui seriam
+redundantes e silenciados como "unused" — mantemos a responsabilidade única lá.
+"""
+import logging
+logger = logging.getLogger(__name__)

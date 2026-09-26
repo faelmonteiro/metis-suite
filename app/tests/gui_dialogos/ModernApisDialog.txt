@@ -1,0 +1,66 @@
+QVBoxLayout||ModernApisDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 660, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 469, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 467, 660, 31)||True||||||
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🔑|background: transparent;||||
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(54, 16, 469, 24)|True|True|GERENCIAMENTO DE CHAVES DE API & SERVIÇOS|color: #fad094; background: transparent;||||
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(54, 42, 469, 17)|True|True|As configurações são salvas com segurança no arquivo .env com permissão restrita|color: #94a3b8; background: transparent;||||
+QFrame||ModernApisDialog:|PyQt6.QtCore.QRect(20, 71, 660, 1)|True|True||background-color: #162234;||||
+QScrollArea||ModernApisDialog:|PyQt6.QtCore.QRect(20, 84, 660, 371)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 653, 371)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 653, 432)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect()||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 653, 99)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 167, 17)|True|True|✨  GOOGLE GEMINI API KEY|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GEMINI_API_KEY...||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Obtenha gratuitamente no Google AI Studio (aistudio.google.com)|color: #64748b; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 111, 653, 99)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 148, 17)|True|True|⚡  GROQ CLOUD API KEY|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GROQ_API_KEY...||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Obtenha gratuitamente no console da Groq (console.groq.com)|color: #64748b; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 222, 653, 99)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 141, 17)|True|True|🟢  NVIDIA NIM API KEY|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua NVIDIA_API_KEY...||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Chave de inferência da NVIDIA (build.nvidia.com)|color: #64748b; background: transparent;||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 333, 653, 99)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 150, 17)|True|True|🌐  OPENROUTER API KEY|color: #f0a85d; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua OPENROUTER_API_KEY...||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Chave unificada para centenas de modelos comerciais e gratuitos (openrouter.ai/keys)|color: #64748b; background: transparent;||||
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(653, 0, 7, 371)|True|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)|True|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)||True||||||
+QPushButton||ModernApisDialog:|PyQt6.QtCore.QRect(410, 467, 101, 31)|True|True|Cancelar (ESC)||||SecondaryBtn|
+QPushButton||ModernApisDialog:|PyQt6.QtCore.QRect(523, 468, 157, 29)|True|True|💾 Salvar Configurações||||PrimaryBtn|

@@ -1,0 +1,82 @@
+QVBoxLayout||ModernRemoveModelDialog:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 600, 43)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 16, 392, 43)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 473, 600, 31)||True||||||
+QLabel||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|⚙️|background: transparent;||||
+QLabel||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(52, 16, 392, 24)|True|True|GERENCIAMENTO • GROQ|color: #fad094; background: transparent;||||
+QLabel||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(52, 42, 392, 17)|True|True|Configure a chave de API e gerencie a lista de modelos do perfil Groq:|color: #94a3b8; background: transparent;||||
+QFrame||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 69, 600, 1)|True|True||background-color: #162234;||||
+QFrame||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 80, 600, 84)|True|True|||||ApiCard|
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 570, 21)||True||||||
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 40, 570, 33)||True||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 280, 21)|True|True|🔑 Chave de Conexão (GROQ_API_KEY)|color: #fad094; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(488, 11, 97, 21)|True|True|● Configurada||||StatusPillActive|
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 40, 410, 33)|True|True|<CHAVE_MASCARADA>|||Cole sua chave ou URL para GROQ_API_KEY...||EchoMode.Password
+QObject||QLineEdit:|||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(431, 46, 36, 20)|True|True|👁️||||ActionChip|
+QPushButton||QFrame:|PyQt6.QtCore.QRect(473, 42, 112, 29)|True|True|💾 Salvar Chave||||PrimaryBtn|
+QLabel||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 174, 600, 25)|True|True|🤖 MODELOS SALVOS NESTE PERFIL:|color: #67e8f9; margin-top: 4px;||||
+QScrollArea||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 209, 600, 254)|True|True||||||
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 593, 254)|True|True||||||
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 593, 464)|True|True||||||
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect()||True||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|qwen/qwen3.8-27b|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 59, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|openai/gpt-oss-120b|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 118, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|openai/gpt-oss-20b|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 177, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|groq/compound|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 236, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|llama-3.3-70b-versatile|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 295, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|llama-3.1-8b-instant|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 354, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|mixtral-8x7b-32768|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 413, 593, 51)|True|True|||||TurnCard|
+QHBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 591, 49)||True||||||
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 11, 441, 29)||True||||||
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(13, 14, 29, 22)|True|True||QCheckBox::indicator { width: 18px; height: 18px; }||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(52, 11, 441, 29)|True|True|gemma2-9b-it|color: #67e8f9; background: transparent;||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(503, 11, 77, 29)|True|True|🗑️ Excluir||||DangerBtn|
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True||||||
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(593, 0, 7, 254)|True|True||||||
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 254)|True|True||||||
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 254)||True||||||
+QPushButton||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(20, 474, 151, 29)|True|True|🗑️ Excluir Selecionados||||DangerBtn|
+QPushButton||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(181, 473, 209, 31)|True|True|🗑️ Excluir Servidor Definitivamente|color: #f87171; border: 1px solid #7f1d1d;|Exclui permanentemente o servidor Groq dos arquivos de configuração||SecondaryBtn|
+QPushButton||ModernRemoveModelDialog:|PyQt6.QtCore.QRect(508, 474, 112, 29)|True|True|Concluído (ESC)||||PrimaryBtn|

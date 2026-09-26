@@ -3,14 +3,15 @@ Módulo de Análise e Varredura de Pastas e Arquivos Locais.
 Gera árvore de diretórios inteligente, lê arquivos-chave (README, configs) e prepara contexto para a IA.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-try:
-    import config
-except ImportError:
-    from . import config
+from . import config
 
 IGNORE_DIRS = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", ".cache",
@@ -79,8 +80,8 @@ def generate_folder_tree(dir_path: Path, max_depth: int = 3, max_entries: int = 
                         with open(item, encoding="utf-8", errors="ignore") as f:
                             content = f.read(2500)
                         key_contents[item.name] = content
-                    except Exception:
-                        pass
+                    except Exception as _silent_e:
+                        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     walk(dir_path)
     tree_str = "\n".join(lines)
@@ -157,18 +158,18 @@ def get_active_window_cwd() -> Optional[Path]:
                         for c_pid in children_res.stdout.splitlines():
                             if c_pid.strip():
                                 pids_to_check.insert(0, int(c_pid.strip()))
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
                 for p in pids_to_check:
                     try:
                         cwd_link = os.readlink(f"/proc/{p}/cwd")
                         if os.path.exists(cwd_link):
                             return Path(cwd_link)
-                    except Exception:
-                        pass
-    except Exception:
-        pass
+                    except Exception as _silent_e:
+                        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return None
 
 def detect_and_attach_local_files(prompt: str, extra_cwd: Optional[Path] = None) -> Tuple[Optional[str], list[Path]]:
@@ -341,8 +342,8 @@ def detect_save_target_path(prompt: str, extra_cwd: Optional[Path] = None) -> Op
                     base = extra_cwd or Path.cwd()
                     p = (base / raw_path).resolve()
                 return p
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return None
 
 if __name__ == "__main__":

@@ -89,15 +89,9 @@ def imprimir_stream_colorido(stream_chunks):
         return resposta_completa
 
     # ── Terminal width ─────────────────────────────────────
-    try:
-        TERM_WIDTH = shutil.get_terminal_size().columns
-    except Exception:
-        TERM_WIDTH = 80
-
     # ── Paleta de cores ──────────────────────────────────────
     RST   = "\x1b[0m"
     BOLD  = "\x1b[1m"
-    DIM   = "\x1b[2m"
     C_CODE_BLOCK  = "\x1b[38;5;78m"
     C_CODE_INLINE = "\x1b[38;5;214m"
     C_BORDER      = "\x1b[38;5;240m"

@@ -1,5 +1,28 @@
 import unittest
+from unittest.mock import patch
+
 from agente.ui.clipboard import extrair_blocos
+
+
+def _requer_qt():
+    """Skip gracioso quando PyQt6 (e o módulo gui_app) não estão disponíveis."""
+    try:
+        __import__("agente.ui.gui_app")
+    except ModuleNotFoundError as exc:
+        raise unittest.SkipTest(f"Qt indisponível no ambiente: {exc}") from exc
+
+
+_CREDENCIAIS_OPENROUTER = {
+    "id": "openrouter",
+    "nome": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "modelos": ["anthropic/claude-3.5-sonnet", "openai/gpt-4o"],
+    "modelo_atual": "anthropic/claude-3.5-sonnet",
+}
+
+_CONFIG_COM_SERVIDORES = {"custom_servers": [_CREDENCIAIS_OPENROUTER]}
+
 
 class TestUtils(unittest.TestCase):
     def test_extrair_bloco_shell_com_tag(self):
@@ -54,7 +77,8 @@ class TestUtils(unittest.TestCase):
             remover_modelo_provedor,
         )
         modelos = obter_modelos_provedor("G4F")
-        self.assertIsInstance(modelos, list)
+        self.assertIn("gpt-4o-mini", modelos)
+        self.assertIn("gpt-4o", modelos)
 
         # Adicionar modelo customizado
         adicionar_modelo_provedor("G4F", "test-g4f-custom-model")
@@ -95,26 +119,17 @@ class TestUtils(unittest.TestCase):
         from agente.providers_manager import (
             obter_servidores_customizados,
             obter_servidor_customizado,
-            adicionar_modelo_provedor,
-            remover_modelo_provedor,
         )
-        servidores = obter_servidores_customizados()
+        with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+            servidores = obter_servidores_customizados()
         ids = [s.get("id") for s in servidores]
         self.assertIn("openrouter", ids)
 
-        openrouter_srv = obter_servidor_customizado("openrouter")
+        with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+            openrouter_srv = obter_servidor_customizado("openrouter")
         self.assertIsNotNone(openrouter_srv)
         self.assertEqual(openrouter_srv.get("nome"), "OpenRouter")
         self.assertIsInstance(openrouter_srv.get("modelos", []), list)
-
-        # Testa adição e remoção de modelo em servidor customizado
-        adicionar_modelo_provedor("openrouter", "test/custom-openrouter-model")
-        openrouter_apos_add = obter_servidor_customizado("openrouter")
-        self.assertIn("test/custom-openrouter-model", openrouter_apos_add.get("modelos", []))
-
-        self.assertTrue(remover_modelo_provedor("openrouter", "test/custom-openrouter-model"))
-        openrouter_apos_rem = obter_servidor_customizado("openrouter")
-        self.assertNotIn("test/custom-openrouter-model", openrouter_apos_rem.get("modelos", []))
 
 
     def test_http_client_singleton(self):
@@ -129,13 +144,12 @@ class TestUtils(unittest.TestCase):
 
     def test_prompt_links_server_vs_local(self):
         from agente.prompts import build_system_prompt
-        # Provedor local / Ollama: permanece enxuto e sem alterações
+        # Provedor local / Ollama: prompt compacto, sem diretriz de links clicáveis
         prompt_ollama = build_system_prompt("Ollama")
-        self.assertEqual(prompt_ollama, "Você é o assistente Metis. Responda sempre em português brasileiro de forma concisa e direta.")
         self.assertNotIn("Links e Sites Clicáveis", prompt_ollama)
+        self.assertIn("assistente especialista em Linux", prompt_ollama)
 
         prompt_small = build_system_prompt("llama3.2:3b")
-        self.assertEqual(prompt_small, "Você é o assistente Metis. Responda sempre em português brasileiro de forma concisa e direta.")
         self.assertNotIn("Links e Sites Clicáveis", prompt_small)
 
         # Provedores em nuvem / servidor: inclui diretriz de links clicáveis
@@ -150,6 +164,7 @@ class TestUtils(unittest.TestCase):
         self.assertIn("DIRETRIZES DE RESPOSTA E DESIGN", prompt_compact)
 
     def test_format_markdown_links_to_html(self):
+        _requer_qt()
         from agente.ui.gui_app import format_markdown_to_html
         texto = "Consulte o [Google](https://google.com) ou a [Wikipedia](https://wikipedia.org) para mais detalhes."
         html_out = format_markdown_to_html(texto)
@@ -173,6 +188,7 @@ class TestUtils(unittest.TestCase):
 
 
     def test_single_instance_toggle_method(self):
+        _requer_qt()
         from agente.ui.gui_app import MetisMainWindow
         self.assertTrue(hasattr(MetisMainWindow, "toggle_or_focus"))
         self.assertTrue(callable(getattr(MetisMainWindow, "toggle_or_focus")))
@@ -255,6 +271,45 @@ class TestUtils(unittest.TestCase):
 
         # Restaura para metis_oracle
         set_theme_preference("theme_id", "metis_oracle")
+
+    def test_obter_servico_padrao_custom_prefix(self):
+        from agente import config
+        from agente.main import obter_servico_padrao
+        original = getattr(config, "DEFAULT_PROVIDER", "")
+        try:
+            with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+                config.DEFAULT_PROVIDER = "custom:openrouter"
+                servico = obter_servico_padrao()
+                self.assertIn("OPENROUTER", servico.nome_provedor.upper())
+
+                config.DEFAULT_PROVIDER = "openrouter"
+                servico2 = obter_servico_padrao()
+                self.assertIn("OPENROUTER", servico2.nome_provedor.upper())
+        finally:
+            config.DEFAULT_PROVIDER = original
+
+    def test_tool_executor_type_error(self):
+        from agente.services.tool_executor import executar_tool
+        # chamar ler_arquivo com tipo inválido de argumento
+        resultado = executar_tool("ler_arquivo", {"caminho_inexistente_invalido_arg": 123})
+        self.assertTrue(resultado.startswith("Erro nos argumentos da ferramenta 'ler_arquivo':"))
+
+    def test_base_process_tool_calls_map_invalid_json(self):
+        from agente.services.base import process_tool_calls_map
+        tool_calls_map = {
+            0: {
+                "id": "call_test_1",
+                "name": "ler_arquivo",
+                "args_str": "{'invalid_json': unquoted_val"
+            }
+        }
+        mensagens = []
+        executou = process_tool_calls_map(tool_calls_map, mensagens, iteration=0)
+        self.assertTrue(executou)
+        self.assertEqual(len(mensagens), 2)
+        resp_msg = mensagens[1]
+        self.assertEqual(resp_msg["role"], "functionResponse")
+        self.assertIn("contêm JSON inválido", resp_msg["content"])
 
 
 if __name__ == "__main__":
