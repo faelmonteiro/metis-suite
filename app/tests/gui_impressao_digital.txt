@@ -125,7 +125,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect()||True||||||
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|← Voltar||||SecondaryBtn|
 QLabel||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|CONFIGURAÇÃO DE ORÁCULOS|color: #fad094;||||
 QLabel||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|Selecione um provedor na barra lateral para ver seus modelos e gerenciar chaves|color: #94a3b8;||||
-QLabel|OracleActiveBadge|QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🧠 Ativo: Ollama (qwen3.5:4b)||||OracleActiveBadge|
+QLabel|OracleActiveBadge|QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🧠 Ativo: Ollama (llama3.2:3b)||||OracleActiveBadge|
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|⚙️ Opções ▾||Cadastrar novo servidor, gerenciar chaves de API e diagnóstico||SecondaryBtn|
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|💬 Chat ↵||||PrimaryBtn|
 QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 1)|False|True||background-color: #162234;||||
@@ -161,7 +161,7 @@ QVBoxLayout||QWidget:|PyQt6.QtCore.QRect()||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect()||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect()||True||||||
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|← Voltar||||SecondaryBtn|
-QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🧠 Ollama • qwen3.5:4b ▾||Clique para abrir o painel de Oráculos e trocar de modelo||ModelBtn|
+QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🧠 Ollama • llama3.2:3b ▾||Clique para abrir o painel de Oráculos e trocar de modelo||ModelBtn|
 QCheckBox||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🌐 Web|color: #fad094; font-weight: bold; padding-left: 4px;|Ativar ou desativar pesquisa web automática|||
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|🤖 Opções do Agente||Opções do Agente (Terminal, Busca Web Profunda)||SecondaryBtn|
 QPushButton||QWidget:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|⚙️ Opções ▾||Configurações, Chaves, Histórico, Exportação e Ações||SecondaryBtn|
@@ -290,7 +290,7 @@ QFrame|InfoPanel|QWidget:|PyQt6.QtCore.QRect(561, 67, 263, 364)|True|True||||||
 QVBoxLayout||QFrame:InfoPanel|PyQt6.QtCore.QRect(1, 1, 261, 362)||True||||||
 QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 11, 237, 17)|True|True|INFORMAÇÕES|color: #f0a85d;||||
 QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 33, 237, 15)|True|True|🦉  ORÁCULO ATUAL|color: #f0a85d; background: transparent;||||
-QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 53, 237, 17)|True|True|  qwen3.5:4b|color: #67e8f9; background: transparent;||||
+QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 53, 237, 17)|True|True|  llama3.2:3b|color: #67e8f9; background: transparent;||||
 QFrame||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 75, 237, 1)|True|True||background-color: #142030;||||
 QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 81, 237, 19)|True|True|🖧   PROVEDOR|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:InfoPanel|PyQt6.QtCore.QRect(13, 105, 237, 17)|True|True|  Ollama|color: #67e8f9; background: transparent;||||

@@ -1,19 +1,7 @@
 {
+  "active_model": "gpt-4o",
+  "active_provider": "g4f",
   "builtin_models": {
-    "Groq": [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant"
-    ],
-    "Gemini": [
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-2.5-pro"
-    ],
-    "NVIDIA": [
-      "meta/llama-3.2-11b-vision-instruct",
-      "meta/llama-3.2-90b-vision-instruct"
-    ],
     "G4F": [
       "gpt-4o-mini",
       "gpt-4o",
@@ -21,11 +9,19 @@
       "llama-3.3-70b",
       "qwen-2.5-coder-32b"
     ],
-    "OpenRouter": [
-      "liquid/lfm-2.5-2.6b:free",
-      "inclusionai/ling-3.0-flash-fin:free",
-      "minimax/minimax-m3:free",
-      "poolside/laguna-s-2.1:free"
+    "Gemini": [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro"
+    ],
+    "Groq": [
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant"
+    ],
+    "NVIDIA": [
+      "meta/llama-3.2-11b-vision-instruct",
+      "meta/llama-3.2-90b-vision-instruct"
     ],
     "Ollama": [
       "llama3.2-vision:11b",
@@ -33,37 +29,12 @@
       "qwen3.5:4b",
       "llama3.2:3b",
       "qwen2.5-coder:7b"
+    ],
+    "OpenAI": [
+      "gpt-4o-mini",
+      "gpt-4o"
     ]
   },
-  "removed_models": {
-    "Groq": [
-      "mixtral-8x7b-32768",
-      "deepseek-r1-distill-llama-70b"
-    ],
-    "Gemini": [
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-2.0-flash-lite-preview-02-05"
-    ],
-    "NVIDIA": [
-      "meta/llama-3.3-70b-instruct",
-      "nvidia/llama-3.1-nemotron-70b-instruct"
-    ],
-    "G4F": [
-      "claude-3-5-sonnet",
-      "gemini-2.0-flash"
-    ],
-    "OpenRouter": [
-      "openrouter/auto",
-      "openai/gpt-oss-20b:free",
-      "google/gemma-4-31b-it:free",
-      "cohere/north-mini-code:free",
-      "z-ai/glm-5.2:free",
-      "stealth/ox-alpha"
-    ],
-    "Ollama": []
-  },
-  "removed_servers": [],
   "custom_servers": [
     {
       "id": "openrouter",
@@ -71,7 +42,7 @@
       "base_url": "https://openrouter.ai/api/v1/chat/completions",
       "api_key_env": "OPENROUTER_API_KEY",
       "api_key": "",
-      "modelo_atual": "inclusionai/ling-3.0-flash-fin:free",
+      "modelo_atual": "poolside/laguna-s-2.1:free",
       "modelos": [
         "liquid/lfm-2.5-2.6b:free",
         "inclusionai/ling-3.0-flash-fin:free",
@@ -81,23 +52,58 @@
     }
   ],
   "preferences": {
+    "active_models": {
+      "g4f": "gpt-4o",
+      "gemini": "gemini-2.0-flash",
+      "groq": "llama-3.3-70b-versatile",
+      "nvidia": "meta/llama-3.2-11b-vision-instruct",
+      "ollama": "llama3.2:3b",
+      "openrouter": "poolside/laguna-s-2.1:free"
+    },
+    "copy_btn_enabled": true,
+    "font_family": "default",
+    "font_size": "medium",
+    "last_active_model": "gpt-4o",
+    "last_active_provider": "g4f",
+    "neon_glow": false,
+    "theme_id": "metis_oracle",
     "web_search_enabled": false,
-    "last_active_provider": "groq",
-    "last_active_model": "llama-3.3-70b-versatile",
+    "window_opacity": 60,
     "window_size": [
       860,
       550
-    ],
-    "theme_id": "metis_oracle",
-    "window_opacity": 60,
-    "font_size": "medium",
-    "font_family": "default",
-    "neon_glow": false,
-    "copy_btn_enabled": true
+    ]
   },
+  "removed_models": {
+    "G4F": [
+      "claude-3-5-sonnet",
+      "gemini-2.0-flash"
+    ],
+    "Gemini": [
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-lite-preview-02-05"
+    ],
+    "Groq": [
+      "mixtral-8x7b-32768",
+      "deepseek-r1-distill-llama-70b"
+    ],
+    "NVIDIA": [
+      "meta/llama-3.3-70b-instruct",
+      "nvidia/llama-3.1-nemotron-70b-instruct"
+    ],
+    "Ollama": [],
+    "OpenRouter": [
+      "openrouter/auto",
+      "openai/gpt-oss-20b:free",
+      "google/gemma-4-31b-it:free",
+      "cohere/north-mini-code:free",
+      "z-ai/glm-5.2:free",
+      "stealth/ox-alpha"
+    ]
+  },
+  "removed_servers": [],
   "user_settings": {
     "is_sidebar_collapsed": true
-  },
-  "active_provider": "groq",
-  "active_model": "llama-3.3-70b-versatile"
+  }
 }

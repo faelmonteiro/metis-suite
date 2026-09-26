@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import atexit
 import os
 import sys
 from pathlib import Path
@@ -10,6 +11,9 @@ if _venv_python.exists() and sys.executable != str(_venv_python):
     os.execv(str(_venv_python), [str(_venv_python)] + sys.argv)
 
 from agente.ui.gui_app import main
+from agente.services.http_client import close_http_client
+
+atexit.register(close_http_client)
 
 if __name__ == "__main__":
     main()

@@ -18,7 +18,6 @@ from PIL import Image
 try:
     import vtracer
     from fontTools.ttLib import TTFont, newTable
-    from fontTools.ttLib.tables._g_l_y_f import Glyph
     from fontTools.pens.ttGlyphPen import TTGlyphPen
     from fontTools.pens.transformPen import TransformPen
     from fontTools.pens.boundsPen import BoundsPen

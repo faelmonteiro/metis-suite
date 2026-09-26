@@ -83,10 +83,10 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.2-11b-vision-instruct").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "moonshotai/kimi-k3").strip()
 NVIDIA_MAX_TOKENS = _env_int("NVIDIA_MAX_TOKENS", 4096, minimum=256)
-G4F_MODEL = os.getenv("G4F_MODEL", "gpt-4o-mini").strip()
+G4F_MODEL = os.getenv("G4F_MODEL", "gpt-4o").strip()
 # Modelos válidos da Groq (verifique https://console.groq.com/docs/models):
 # - llama-3.3-70b-versatile (recomendado, bom equilíbrio)
 # - llama-3.1-8b-instant (rápido, menos preciso)

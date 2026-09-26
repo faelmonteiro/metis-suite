@@ -22,7 +22,7 @@ QLabel||QFrame:|PyQt6.QtCore.QRect(578, 34, 40, 17)|True|True|Online|color: #4ad
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 57, 28, 17)|True|True|Host|color: #94a3b8; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(490, 57, 128, 17)|True|True|http://127.0.0.1:11434|color: #cbd5e1; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 80, 75, 17)|True|True|Modelo Ativo|color: #94a3b8; background: transparent;||||
-QLabel||QFrame:|PyQt6.QtCore.QRect(550, 80, 68, 17)|True|True|qwen3.5:4b|color: #67e8f9; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(549, 80, 69, 17)|True|True|llama3.2:3b|color: #67e8f9; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 103, 108, 17)|True|True|Contexto / Threads|color: #94a3b8; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(472, 103, 146, 17)|True|True|4096 tokens / 10 threads|color: #94a3b8; background: transparent;||||
 QFrame||QWidget:|PyQt6.QtCore.QRect(0, 141, 633, 108)|True|True|||||HelpCard|
@@ -55,7 +55,7 @@ QLabel||QFrame:|PyQt6.QtCore.QRect(544, 80, 74, 17)|True|True|Configurado|color:
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 103, 106, 17)|True|True|Servidores Custom|color: #94a3b8; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(544, 103, 74, 17)|True|True|OpenRouter|color: #67e8f9; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 126, 113, 17)|True|True|Oráculo Ativo Agora|color: #94a3b8; background: transparent;||||
-QLabel||QFrame:|PyQt6.QtCore.QRect(488, 126, 130, 17)|True|True|OLLAMA (qwen3.5:4b)|color: #fad094; background: transparent;||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(487, 126, 131, 17)|True|True|OLLAMA (llama3.2:3b)|color: #fad094; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 149, 72, 17)|True|True|Sessão Atual|color: #94a3b8; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(485, 149, 133, 17)|True|True|chat_<T>|color: #67e8f9; background: transparent;||||
 QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||

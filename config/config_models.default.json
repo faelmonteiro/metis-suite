@@ -1,14 +1,42 @@
 {
+  "active_model": "gpt-4o",
+  "active_provider": "g4f",
   "builtin_models": {
-    "Groq": [],
-    "Gemini": [],
-    "NVIDIA": [],
-    "G4F": [],
-    "OpenRouter": [],
-    "Ollama": []
+    "G4F": [
+      "gpt-4o-mini",
+      "gpt-4o",
+      "deepseek-r1",
+      "llama-3.3-70b",
+      "qwen-2.5-coder-32b"
+    ],
+    "Gemini": [
+      "gemini-2.0-flash",
+      "gemini-2.0-pro-exp-02-05",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro"
+    ],
+    "Groq": [
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant"
+    ],
+    "NVIDIA": [
+      "moonshotai/kimi-k3",
+      "meta/llama-3.2-11b-vision-instruct",
+      "meta/llama-3.2-90b-vision-instruct"
+    ],
+    "Ollama": [
+      "llama3.2-vision:11b",
+      "qwen3.5:9b",
+      "qwen3.5:4b",
+      "llama3.2:3b",
+      "qwen2.5-coder:7b"
+    ],
+    "OpenAI": [
+      "gpt-4o-mini",
+      "gpt-4o"
+    ]
   },
-  "removed_models": {},
-  "removed_servers": [],
   "custom_servers": [
     {
       "id": "openrouter",
@@ -16,26 +44,41 @@
       "base_url": "https://openrouter.ai/api/v1/chat/completions",
       "api_key_env": "OPENROUTER_API_KEY",
       "api_key": "",
-      "modelo_atual": "",
-      "modelos": []
+      "modelo_atual": "inclusionai/ling-3.0-flash-fin:free",
+      "modelos": [
+        "liquid/lfm-2.5-2.6b:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "minimax/minimax-m3:free",
+        "poolside/laguna-s-2.1:free"
+      ]
     }
   ],
   "preferences": {
-    "web_search_enabled": false,
-    "last_active_provider": "",
-    "last_active_model": "",
+    "active_models": {
+      "g4f": "gpt-4o",
+      "gemini": "gemini-2.0-flash",
+      "groq": "openai/gpt-oss-120b",
+      "nvidia": "moonshotai/kimi-k3",
+      "ollama": "llama3.2:3b",
+      "openrouter": "inclusionai/ling-3.0-flash-fin:free"
+    },
+    "copy_btn_enabled": true,
+    "font_family": "default",
+    "font_size": "medium",
+    "last_active_model": "gpt-4o",
+    "last_active_provider": "g4f",
+    "neon_glow": false,
     "theme_id": "metis_oracle",
+    "web_search_enabled": false,
+    "window_opacity": 60,
     "window_size": [
       860,
       550
-    ],
-    "window_opacity": 80,
-    "font_size": "medium",
-    "font_family": "default",
-    "neon_glow": false,
-    "copy_btn_enabled": true
+    ]
   },
+  "removed_models": {},
+  "removed_servers": [],
   "user_settings": {
-    "is_sidebar_collapsed": false
+    "is_sidebar_collapsed": true
   }
 }
