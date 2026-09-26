@@ -10,7 +10,15 @@ _ai_render_formatted() {
 
   # 1. Glow se instalado no sistema
   if command -v glow >/dev/null 2>&1; then
-    print -r -- "$text" | glow -
+    local glow_style="${AI_GLOW_STYLE:-}"
+    if [[ -z "$glow_style" ]]; then
+      if [[ -f "$HOME/.config/glow/metis.json" ]]; then
+        glow_style="$HOME/.config/glow/metis.json"
+      else
+        glow_style="dracula"
+      fi
+    fi
+    print -r -- "$text" | glow -s "$glow_style" -
     return 0
   fi
 

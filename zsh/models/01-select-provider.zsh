@@ -18,7 +18,6 @@ _ai_menu_selecionar_modelo() {
   local -a model_lines=() parts=()
 
   local ACTION_NOVO="✍️  [ Digitar novo modelo manualmente ]"
-  local ACTION_REMOVER="🗑️  [ Remover modelo salvo da lista ]"
   local ACTION_SYNC="🔄  [ Sincronizar com Metis ]"
   local ACTION_VOLTAR="↩️  Voltar"
 
@@ -58,7 +57,6 @@ _ai_menu_selecionar_modelo() {
     done
 
     fzf_entries+="$ACTION_NOVO"$'\n'
-    fzf_entries+="$ACTION_REMOVER"$'\n'
     fzf_entries+="$ACTION_SYNC"$'\n'
     fzf_entries+="$ACTION_VOLTAR"$'\n'
 
@@ -69,8 +67,6 @@ _ai_menu_selecionar_modelo() {
 \033[1;33m➕ Para Adicionar um Novo Modelo:\033[0m
 • Digite o nome/ID do modelo no campo de busca e aperte Enter.
 • Ou selecione: ✍️ [ Digitar novo modelo manualmente ].
-\033[1;33m🗑️ Para Remover um Modelo:\033[0m
-• Selecione: 🗑️ [ Remover modelo salvo da lista ].
 \033[1;33m🔄 Para Sincronizar:\033[0m
 • Selecione: 🔄 [ Sincronizar com Metis ].
 \033[1;33m💡 Para Escolher / Ativar um Modelo:\033[0m
@@ -108,9 +104,6 @@ _ai_menu_selecionar_modelo() {
         break
       fi
       continue
-    elif [[ "$selected_line" == "$ACTION_REMOVER" ]]; then
-      _ai_menu_remover_modelo_salvo "$prov_name"
-      continue
     elif [[ "$selected_line" == "$ACTION_SYNC" ]]; then
       clear
 
@@ -121,9 +114,8 @@ _ai_menu_selecionar_modelo() {
 
       _ai_reload_all_envs
 
-      printf '\n\033[36mPressione ENTER para continuar (ou aguarde 3s)...\033[0m'
-      stty sane 2>/dev/null
-      read -t 3 -k 1 _ </dev/tty 2>/dev/null || read -t 3 -r _ </dev/tty 2>/dev/null || true
+      printf '\n\033[36mPressione ENTER para continuar...\033[0m'
+      read -r _ </dev/tty || true
       continue
     else
       if [[ "$selected_line" != "$user_query" && -n "$selected_line" ]]; then

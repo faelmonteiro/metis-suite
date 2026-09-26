@@ -61,13 +61,13 @@ _ai_menu_get_default_model() {
       cur_model="${GEMINI_MODEL:-gemini-2.0-flash}"
       ;;
     GROQ)
-      cur_model="${GROQ_MODEL:-llama-3.3-70b-versatile}"
+      cur_model="${GROQ_MODEL:-openai/gpt-oss-120b}"
       ;;
     NVIDIA)
-      cur_model="${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}"
+      cur_model="${NVIDIA_MODEL:-moonshotai/kimi-k3}"
       ;;
     OPENROUTER)
-      cur_model="${OPENROUTER_MODEL:-minimax/minimax-m3:free}"
+      cur_model="${OPENROUTER_MODEL:-inclusionai/ling-3.0-flash-fin:free}"
       ;;
     G4F|WEB)
       cur_model="${G4F_MODEL:-gpt-4o}"

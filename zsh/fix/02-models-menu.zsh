@@ -41,16 +41,16 @@ _ai_fix_get_active_ia_label() {
   local raw_conf="$(cat "$conf_file" 2>/dev/null)"
 
   if [[ "$raw_conf" == *"Groq"* ]]; then
-    print -r -- "Groq (${GROQ_MODEL:-llama-3.3-70b-versatile})"
+    print -r -- "Groq (${GROQ_MODEL:-openai/gpt-oss-120b})"
   elif [[ "$raw_conf" == *"Gemini"* ]]; then
     print -r -- "Gemini (${GEMINI_MODEL:-gemini-2.0-flash})"
   elif [[ "$raw_conf" == *"NVIDIA"* ]]; then
-    print -r -- "NVIDIA (${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct})"
+    print -r -- "NVIDIA (${NVIDIA_MODEL:-moonshotai/kimi-k3})"
   elif [[ "$raw_conf" == *"OpenRouter"* ]]; then
-    print -r -- "OpenRouter (${OPENROUTER_MODEL:-minimax/minimax-m3:free})"
+    print -r -- "OpenRouter (${OPENROUTER_MODEL:-inclusionai/ling-3.0-flash-fin:free})"
   elif [[ "$raw_conf" == *"Web"* || "$raw_conf" == *"G4F"* ]]; then
     print -r -- "Web (${G4F_MODEL:-gpt-4o})"
   else
-    print -r -- "Local (${OLLAMA_MODEL:-qwen2.5-coder:7b})"
+    print -r -- "Local (${OLLAMA_MODEL:-llama3.2:3b})"
   fi
 }

@@ -71,12 +71,15 @@ def parse_messages(prompt: str):
     return messages
 
 def main():
-    if len(sys.argv) < 3:
-        print("Uso: python g4f_ask.py <modelo> <prompt>", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print("Uso: python g4f_ask.py <modelo> [prompt ou stdin]", file=sys.stderr)
         sys.exit(1)
 
     modelo = sys.argv[1]
-    prompt = " ".join(sys.argv[2:]).strip()
+    if len(sys.argv) >= 3:
+        prompt = " ".join(sys.argv[2:]).strip()
+    else:
+        prompt = sys.stdin.read().strip()
 
     try:
         messages = parse_messages(prompt)

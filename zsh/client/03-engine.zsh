@@ -6,6 +6,7 @@
 
 _ai_get_current_provider_info() {
   _ai_reload_all_envs
+  _ai_reload_provider_state
 
   local conf_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.fix_ia_selected"
   local last_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider"
@@ -35,35 +36,53 @@ _ai_get_current_provider_info() {
     esac
   fi
 
+  # Busca modelo ativo do provedor via Python CLI (lê do config canônico)
+  local py_bin="$(_ai_get_python)"
+  local zsh_ai_dir="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}"
+  local manage_script="$zsh_ai_dir/manage_models.py"
+  [[ ! -f "$manage_script" && -f "$HOME/.ZSH/ai/manage_models.py" ]] && manage_script="$HOME/.ZSH/ai/manage_models.py"
+  local active_model=""
+
+  if [[ -n "$py_bin" && -f "$manage_script" ]]; then
+    case "$selected" in
+      GROQ) active_model="$("$py_bin" "$manage_script" get_active "Groq" 2>/dev/null)" ;;
+      GEMINI) active_model="$("$py_bin" "$manage_script" get_active "Gemini" 2>/dev/null)" ;;
+      NVIDIA) active_model="$("$py_bin" "$manage_script" get_active "NVIDIA" 2>/dev/null)" ;;
+      OPENROUTER) active_model="$("$py_bin" "$manage_script" get_active "OpenRouter" 2>/dev/null)" ;;
+      G4F) active_model="$("$py_bin" "$manage_script" get_active "G4F" 2>/dev/null)" ;;
+      OLLAMA) active_model="$("$py_bin" "$manage_script" get_active "Ollama" 2>/dev/null)" ;;
+    esac
+  fi
+
   case "$selected" in
     GROQ)
       AI_ACTIVE_PROVIDER="GROQ"
-      AI_ACTIVE_MODEL="${GROQ_MODEL:-llama-3.3-70b-versatile}"
+      AI_ACTIVE_MODEL="${active_model:-${GROQ_MODEL:-openai/gpt-oss-120b}}"
       AI_ACTIVE_LABEL="Groq (${AI_ACTIVE_MODEL})"
       ;;
     GEMINI)
       AI_ACTIVE_PROVIDER="GEMINI"
-      AI_ACTIVE_MODEL="${GEMINI_MODEL:-gemini-2.0-flash}"
+      AI_ACTIVE_MODEL="${active_model:-${GEMINI_MODEL:-gemini-2.0-flash}}"
       AI_ACTIVE_LABEL="Gemini (${AI_ACTIVE_MODEL})"
       ;;
     NVIDIA)
       AI_ACTIVE_PROVIDER="NVIDIA"
-      AI_ACTIVE_MODEL="${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}"
+      AI_ACTIVE_MODEL="${active_model:-${NVIDIA_MODEL:-moonshotai/kimi-k3}}"
       AI_ACTIVE_LABEL="NVIDIA (${AI_ACTIVE_MODEL})"
       ;;
     OPENROUTER)
       AI_ACTIVE_PROVIDER="OPENROUTER"
-      AI_ACTIVE_MODEL="${OPENROUTER_MODEL:-minimax/minimax-m3:free}"
+      AI_ACTIVE_MODEL="${active_model:-${OPENROUTER_MODEL:-inclusionai/ling-3.0-flash-fin:free}}"
       AI_ACTIVE_LABEL="OpenRouter (${AI_ACTIVE_MODEL})"
       ;;
     G4F)
       AI_ACTIVE_PROVIDER="G4F"
-      AI_ACTIVE_MODEL="${G4F_MODEL:-gpt-4o}"
+      AI_ACTIVE_MODEL="${active_model:-${G4F_MODEL:-gpt-4o}}"
       AI_ACTIVE_LABEL="Web G4F (${AI_ACTIVE_MODEL})"
       ;;
     *)
       AI_ACTIVE_PROVIDER="OLLAMA"
-      AI_ACTIVE_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:7b}"
+      AI_ACTIVE_MODEL="${active_model:-${OLLAMA_MODEL:-llama3.2:3b}}"
       AI_ACTIVE_LABEL="Ollama Local (${AI_ACTIVE_MODEL})"
       ;;
   esac

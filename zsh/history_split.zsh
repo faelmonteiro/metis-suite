@@ -207,23 +207,32 @@ zshaddhistory() {
 }
 
 # 6. Widget interativo para buscar no histórico de IA com FZF (Alt + H)
+# Funciona tanto como widget ZLE (Alt+H) quanto como comando no terminal (iah/ai-history)
 ai-history-widget() {
   if [[ ! -f "${AI_HISTFILE}" ]]; then
-    zle -M "Histórico de IA ainda está vazio."
+    if [[ -n "$WIDGET" ]]; then
+      zle -M "Histórico de IA ainda está vazio."
+    else
+      print "Histórico de IA ainda está vazio."
+    fi
     return
   fi
 
   local selected
   if command -v fzf >/dev/null 2>&1; then
-    selected=$(tac "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --no-mouse --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts [Alt+H] > " --header="Selecione um prompt:")
+    selected=$(tac "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//' | awk '!seen[$0]++' | fzf --height 40% --reverse --prompt="🤖 Histórico de IA & Prompts [Alt+H] > " --header="Selecione um prompt:")
   else
     selected=$(tail -n 20 "${AI_HISTFILE}" | sed 's/^: [0-9]*:[0-9]*;//')
   fi
 
   if [[ -n "$selected" ]]; then
-    LBUFFER="$selected"
+    if [[ -n "$WIDGET" ]]; then
+      LBUFFER="$selected"
+      zle reset-prompt
+    else
+      print -z "$selected"
+    fi
   fi
-  zle reset-prompt
 }
 
 # 7. Widget interativo para consultar o Registro de Downloads e Repositórios

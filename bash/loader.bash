@@ -69,6 +69,16 @@ aiman() {
     fi
 }
 
+# Modo Ensine-me Direto (aith)
+aith() {
+    _metis_record_ai_history "aith $*"
+    if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then
+        zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; aith "$@"' _ "$METIS_INSTALL_DIR" "$@"
+    else
+        "$METIS_INSTALL_DIR/venv/bin/python" "$METIS_INSTALL_DIR/app/app.py" "$@"
+    fi
+}
+
 # Gerador automático de Commits via IA (gca / git-ai / ai git)
 git_commit_ai() {
     if command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]]; then

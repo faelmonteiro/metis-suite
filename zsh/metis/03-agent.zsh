@@ -134,149 +134,171 @@ comando_para_executar
   local step=1
   local resp=""
   local metis_timeout="${METIS_TIMEOUT:-120}"
+  local continue_loop=1
 
-  while (( step <= max_steps )); do
-    resp="$(_ai_query "$current_context" 360)"
-    local status_query=$?
+  while (( continue_loop )); do
+    while (( step <= max_steps )); do
+      resp="$(_ai_query "$current_context" 360)"
+      local status_query=$?
 
-    if (( status_query == 130 )) || [[ "$resp" == *"KeyboardInterrupt"* ]]; then
-      printf '\n\033[33m⚠️ Operação cancelada pelo usuário (Ctrl+C).\033[0m\n'
-      return 130
-    fi
-
-    if (( status_query != 0 )) || [[ -z "$resp" ]]; then
-      if [[ -n "$resp" ]]; then
-        printf '\n\033[31m%s\033[0m\n' "$resp"
-      else
-        printf '\n\033[31m⚠️ Falha ao obter resposta de %s. Verifique conexão, credenciais ou provedor ativo.\033[0m\n' "$active_label"
-      fi
-      return 1
-    fi
-
-    local cmd="$(_metis_extract_cmd "$resp")"
-
-    if [[ -n "$cmd" ]]; then
-      printf '\033[1;34m⚡ [Passo %d/%d]:\033[0m \033[36m❯ \033[1;38;5;214m' "$step" "$max_steps"
-      _metis_type_live "$cmd" 0.006
-      printf '\033[0m'
-
-      local should_confirm=0
-
-      if [[ "${METIS_CONFIRM_ALL:-0}" == "1" ]]; then
-        should_confirm=1
-      elif _metis_is_destructive "$cmd"; then
-        should_confirm=1
+      if (( status_query == 130 )) || [[ "$resp" == *"KeyboardInterrupt"* ]]; then
+        printf '\n\033[33m⚠️ Operação cancelada pelo usuário (Ctrl+C).\033[0m\n'
+        return 130
       fi
 
-      if (( should_confirm )); then
-        printf '\033[33m⚠️  A Metis quer executar um comando de alteração/risco:\033[0m \033[1;38;5;214m%s\033[0m\n' "$cmd"
-        printf '\033[33mDeseja confirmar a execução? (s/N): \033[0m'
+      if (( status_query != 0 )) || [[ -z "$resp" ]]; then
+        if [[ -n "$resp" ]]; then
+          printf '\n\033[31m%s\033[0m\n' "$resp"
+        else
+          printf '\n\033[31m⚠️ Falha ao obter resposta de %s. Verifique conexão, credenciais ou provedor ativo.\033[0m\n' "$active_label"
+        fi
+        return 1
+      fi
 
-        local ans=""
-        read -r ans </dev/tty
+      local cmd="$(_metis_extract_cmd "$resp")"
 
-        case "${ans:l}" in
-          s|sim|y|yes) ;;
-          *)
-            printf '\033[31m❌ Ação cancelada pelo usuário.\033[0m\n'
+      if [[ -n "$cmd" ]]; then
+        printf '\033[1;34m⚡ [Passo %d/%d]:\033[0m \033[36m❯ \033[1;38;5;214m' "$step" "$max_steps"
+        _metis_type_live "$cmd" 0.006
+        printf '\033[0m'
 
-            current_context="$current_context
+        local should_confirm=0
+
+        if [[ "${METIS_CONFIRM_ALL:-0}" == "1" ]]; then
+          should_confirm=1
+        elif _metis_is_destructive "$cmd"; then
+          should_confirm=1
+        fi
+
+        if (( should_confirm )); then
+          printf '\033[33m⚠️  A Metis quer executar um comando de alteração/risco:\033[0m \033[1;38;5;214m%s\033[0m\n' "$cmd"
+          printf '\033[33mDeseja confirmar a execução? (s/N): \033[0m'
+
+          local ans=""
+          read -r ans </dev/tty
+
+          case "${ans:l}" in
+            s|sim|y|yes) ;;
+            *)
+              printf '\033[31m❌ Ação cancelada pelo usuário.\033[0m\n'
+
+              current_context="$current_context
 [Assistente]: $resp
 <tool_result exit_code=\"130\">
 Ação '$cmd' cancelada pelo usuário. Tente outra abordagem segura ou finalize.
 </tool_result>"
 
-            current_context="$(_metis_trim_context "$current_context")"
-            (( step++ ))
-            continue
-            ;;
-        esac
-      fi
-
-      local tmp_out=""
-      tmp_out="$(mktemp -t metis.XXXXXX 2>/dev/null || mktemp 2>/dev/null)"
-
-      if [[ -z "$tmp_out" ]]; then
-        printf '\033[31m[Metis] Falha ao criar arquivo temporário.\033[0m\n'
-        return 1
-      fi
-
-      local -a run_prefix
-      run_prefix=()
-
-      if command -v timeout >/dev/null 2>&1; then
-        run_prefix=(timeout -s INT "$metis_timeout")
-      elif command -v gtimeout >/dev/null 2>&1; then
-        run_prefix=(gtimeout -s INT "$metis_timeout")
-      fi
-
-      # Suporte transparente para sudo: se o comando contiver 'sudo', mantém
-      # stdin aberto para digitar a senha caso o sudo solicite; caso contrário,
-      # fecha o stdin (</dev/null) para evitar travamentos de comandos interativos.
-      if [[ "$cmd" == *sudo* ]]; then
-        if (( ${#run_prefix} )); then
-          "${run_prefix[@]}" zsh -c "$cmd" 2>&1 | tee "$tmp_out"
-        else
-          zsh -c "$cmd" 2>&1 | tee "$tmp_out"
+              current_context="$(_metis_trim_context "$current_context")"
+              (( step++ ))
+              continue
+              ;;
+          esac
         fi
-      else
-        if (( ${#run_prefix} )); then
-          "${run_prefix[@]}" zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
-        else
-          zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
+
+        local tmp_out=""
+        tmp_out="$(mktemp -t metis.XXXXXX 2>/dev/null || mktemp 2>/dev/null)"
+
+        if [[ -z "$tmp_out" ]]; then
+          printf '\033[31m[Metis] Falha ao criar arquivo temporário.\033[0m\n'
+          return 1
         fi
-      fi
 
-      local -a _ps=("${pipestatus[@]}")
-      local cmd_code="${_ps[1]:-$?}"
+        local -a run_prefix
+        run_prefix=()
 
-      if (( cmd_code == 130 )); then
+        if command -v timeout >/dev/null 2>&1; then
+          run_prefix=(timeout -s INT "$metis_timeout")
+        elif command -v gtimeout >/dev/null 2>&1; then
+          run_prefix=(gtimeout -s INT "$metis_timeout")
+        fi
+
+        # Suporte transparente para sudo: se o comando contiver 'sudo', mantém
+        # stdin aberto para digitar a senha caso o sudo solicite; caso contrário,
+        # fecha o stdin (</dev/null) para evitar travamentos de comandos interativos.
+        if [[ "$cmd" == *sudo* ]]; then
+          if (( ${#run_prefix} )); then
+            "${run_prefix[@]}" zsh -c "$cmd" 2>&1 | tee "$tmp_out"
+          else
+            zsh -c "$cmd" 2>&1 | tee "$tmp_out"
+          fi
+        else
+          if (( ${#run_prefix} )); then
+            "${run_prefix[@]}" zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
+          else
+            zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
+          fi
+        fi
+
+        local -a _ps=("${pipestatus[@]}")
+        local cmd_code="${_ps[1]:-$?}"
+
+        if (( cmd_code == 130 )); then
+          rm -f "$tmp_out" 2>/dev/null
+          printf '\n\033[33m⚠️ Execução cancelada pelo usuário.\033[0m\n'
+          return 130
+        fi
+
+        local cmd_output=""
+        cmd_output="$(_metis_summarize_output "$tmp_out" 20000)"
         rm -f "$tmp_out" 2>/dev/null
-        printf '\n\033[33m⚠️ Execução cancelada pelo usuário.\033[0m\n'
-        return 130
-      fi
 
-      local cmd_output=""
-      cmd_output="$(_metis_summarize_output "$tmp_out" 20000)"
-      rm -f "$tmp_out" 2>/dev/null
+        [[ -z "$cmd_output" ]] && cmd_output="[Comando executado com código $cmd_code sem saída]"
 
-      [[ -z "$cmd_output" ]] && cmd_output="[Comando executado com código $cmd_code sem saída]"
+        # Sanitização contra Prompt Injection Indireto em saídas de comandos
+        cmd_output="${cmd_output//\<tool_call/<escaped_tool_call}"
+        cmd_output="${cmd_output//\<\/tool_call/<\\/escaped_tool_call}"
 
-      # Sanitização contra Prompt Injection Indireto em saídas de comandos
-      cmd_output="${cmd_output//\<tool_call/<escaped_tool_call}"
-      cmd_output="${cmd_output//\<\/tool_call/<\\/escaped_tool_call}"
-
-      current_context="$current_context
+        current_context="$current_context
 [Assistente]: $resp
 <tool_result exit_code=\"$cmd_code\">
 $cmd_output
 </tool_result>"
 
-      current_context="$(_metis_trim_context "$current_context")"
-      (( step++ ))
-    else
-      local final_msg="$(_metis_clean_final_msg "$resp")"
+        current_context="$(_metis_trim_context "$current_context")"
+        (( step++ ))
+      else
+        local final_msg="$(_metis_clean_final_msg "$resp")"
 
-      if [[ -z "$final_msg" ]]; then
-        printf '\n\033[33m⚠️ A IA respondeu sem comando executável e sem mensagem final clara.\033[0m\n'
-        return 1
+        if [[ -z "$final_msg" ]]; then
+          printf '\n\033[33m⚠️ A IA respondeu sem comando executável e sem mensagem final clara.\033[0m\n'
+          return 1
+        fi
+
+        printf '\n\033[1;32m%s\033[0m\n' "$final_msg"
+        return 0
       fi
+    done
 
-      printf '\n\033[1;32m%s\033[0m\n' "$final_msg"
-      return 0
+    printf '\n\033[33m⚠️ Limite de %d passos atingido sem conclusão final.\033[0m\n' "$max_steps"
+
+    if [[ -n "$resp" ]]; then
+      local final_msg="$(_metis_clean_final_msg "$resp")"
+      if [[ -n "$final_msg" ]]; then
+        printf '\033[90mÚltima resposta limpa:\033[0m\n\033[1;32m%s\033[0m\n' "$final_msg"
+      fi
     fi
+
+    printf '\033[33mDeseja continuar com mais passos? (s/N ou número de passos): \033[0m'
+    local ans=""
+    read -r ans </dev/tty
+
+    case "${ans:l}" in
+      s|sim|y|yes|"")
+        max_steps=$((max_steps + 3))
+        printf '\033[32m✓ Continuando com mais 3 passos (total: %d)\033[0m\n' "$max_steps"
+        step=1
+        ;;
+      <->)
+        max_steps=$((max_steps + ans))
+        printf '\033[32m✓ Continuando com mais %d passos (total: %d)\033[0m\n' "$ans" "$max_steps"
+        step=1
+        ;;
+      *)
+        printf '\033[31m❌ Encerrando.\033[0m\n'
+        return 2
+        ;;
+    esac
   done
-
-  printf '\n\033[33m⚠️ Limite de %d passos atingido sem conclusão final.\033[0m\n' "$max_steps"
-
-  if [[ -n "$resp" ]]; then
-    local final_msg="$(_metis_clean_final_msg "$resp")"
-    if [[ -n "$final_msg" ]]; then
-      printf '\033[90mÚltima resposta limpa:\033[0m\n\033[1;32m%s\033[0m\n' "$final_msg"
-    fi
-  fi
-
-  return 2
 }
 
 # Aliases de compatibilidade

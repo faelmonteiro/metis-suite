@@ -30,6 +30,7 @@ fi
 [[ -f "$ZSH_AI_DIR/git-ai.zsh" ]] && source "$ZSH_AI_DIR/git-ai.zsh"
 [[ -f "$ZSH_AI_DIR/metis.zsh" ]] && source "$ZSH_AI_DIR/metis.zsh"
 [[ -f "$ZSH_AI_DIR/history_split.zsh" ]] && source "$ZSH_AI_DIR/history_split.zsh"
+[[ -f "$ZSH_AI_DIR/aith.zsh" ]] && source "$ZSH_AI_DIR/aith.zsh"
 
 # Aliases úteis
 alias ai="ia"
@@ -40,16 +41,20 @@ else
 fi
 
 
-alias screen-explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
-alias explain_screen="source \"$ZSH_AI_DIR/explain_screen.zsh\""
-alias explain="source \"$ZSH_AI_DIR/explain_screen.zsh\""
+alias screen-explain="metis-screen"
+alias explain_screen="metis-screen"
+alias explain="metis-screen"
 
-# Widget interativo para acionar o explain_screen direto no ZSH
+# Widget interativo para acionar o explain/metis-screen direto no ZSH
 _metis_explain_screen_widget() {
     zle -I
     local cmd_file="${XDG_RUNTIME_DIR:-/tmp}/metis_bash_cmd.$UID"
     rm -f "$cmd_file" 2>/dev/null
-    source "$ZSH_AI_DIR/explain_screen.zsh"
+    if command -v metis-screen >/dev/null 2>&1; then
+        metis-screen </dev/tty >/dev/tty
+    elif [[ -x "$ZSH_AI_DIR/explain_screen.zsh" ]]; then
+        source "$ZSH_AI_DIR/explain_screen.zsh"
+    fi
     if [[ -f "$cmd_file" ]]; then
         local cmd="$(cat "$cmd_file" 2>/dev/null)"
         rm -f "$cmd_file" 2>/dev/null

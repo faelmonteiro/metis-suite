@@ -68,60 +68,80 @@ _ai_load_env_file() {
 }
 
 _ai_reload_all_envs() {
-  [[ -f "$HOME/Metis/.env" ]] && _ai_load_env_file "$HOME/Metis/.env"
-  [[ -n "$ZSH_AI_DIR" && -f "${ZSH_AI_DIR:h}/.env" ]] && _ai_load_env_file "${ZSH_AI_DIR:h}/.env"
   _ai_load_env_file "${METIS_CONFIG_DIR:-$HOME/.config/metis}/.env"
+}
+
+# Recarrega estado do provedor ativo do arquivo canônico (útil após mudanças no Metis GUI/CLI)
+_ai_reload_provider_state() {
+  local conf_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.fix_ia_selected"
+  local last_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider"
+  local theme_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_theme"
+
+  [[ -f "$conf_file" ]] && AI_FIX_SELECTED_LABEL="$(_ai_trim "$(cat "$conf_file" 2>/dev/null)")"
+  [[ -f "$last_file" ]] && AI_LAST_PROVIDER_NUM="$(_ai_trim "$(cat "$last_file" 2>/dev/null)")"
+  [[ -f "$theme_file" ]] && AI_LAST_THEME="$(_ai_trim "$(cat "$theme_file" 2>/dev/null)")"
+
+  # Re-aplica variáveis de ambiente baseadas no provedor salvo
+  _ai_reload_all_envs
 }
 
 _ai_save_provider_state() {
   local prov="$(_ai_trim "$1")"
+  local zsh_ai_dir="${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}"
   local file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.fix_ia_selected"
   local last_file="${METIS_CONFIG_DIR:-$HOME/.config/metis}/.last_provider"
+  local metis_dir="${METIS_CONFIG_DIR:-$HOME/.config/metis}"
 
   mkdir -p "${file:h}" 2>/dev/null || return 1
+  mkdir -p "$metis_dir" 2>/dev/null
 
-  local default_prov=""
+  local default_prov="" label="" num=""
 
   case "${(U)prov}" in
     OLLAMA|1|LOCAL)
-      print -r -- "Local: Ollama" > "$file"
-      print -r -- "1" > "$last_file" 2>/dev/null
+      label="Local: Ollama"
+      num="1"
       default_prov="ollama"
       ;;
     G4F|2|WEB)
-      print -r -- "Web: G4F" > "$file"
-      print -r -- "2" > "$last_file" 2>/dev/null
+      label="Web: G4F"
+      num="2"
       default_prov="g4f"
       ;;
     GEMINI|3)
-      print -r -- "API: Gemini" > "$file"
-      print -r -- "3" > "$last_file" 2>/dev/null
+      label="API: Gemini"
+      num="3"
       default_prov="gemini"
       ;;
     GROQ|4)
-      print -r -- "API: Groq" > "$file"
-      print -r -- "4" > "$last_file" 2>/dev/null
+      label="API: Groq"
+      num="4"
       default_prov="groq"
       ;;
     NVIDIA|5)
-      print -r -- "API: NVIDIA" > "$file"
-      print -r -- "5" > "$last_file" 2>/dev/null
+      label="API: NVIDIA"
+      num="5"
       default_prov="nvidia"
       ;;
     OPENROUTER|6)
-      print -r -- "API: OpenRouter" > "$file"
-      print -r -- "6" > "$last_file" 2>/dev/null
+      label="API: OpenRouter"
+      num="6"
       default_prov="custom:openrouter"
       ;;
     *)
-      print -r -- "API: $prov" > "$file"
-      print -r -- "$prov" > "$last_file" 2>/dev/null
+      label="API: $prov"
+      num="$prov"
       default_prov="custom:${(L)prov}"
       ;;
   esac
 
-  local py_b="$(_ai_get_python 2>/dev/null)"
-  if [[ -n "$py_b" && -n "$default_prov" ]]; then
-    "$py_b" "${ZSH_AI_DIR:-$HOME/.local/share/metis/zsh}/manage_models.py" set_active "DEFAULT_PROVIDER" "$default_prov" 2>/dev/null || true
-  fi
+  print -r -- "$label" > "$file"
+  print -r -- "$num" > "$last_file" 2>/dev/null
+  [[ -d "$zsh_ai_dir" ]] && print -r -- "$label" > "$zsh_ai_dir/.fix_ia_selected" 2>/dev/null
+  [[ -d "$zsh_ai_dir" ]] && print -r -- "$num" > "$zsh_ai_dir/.last_provider" 2>/dev/null
+  [[ -d "$HOME/.ZSH/ai" ]] && print -r -- "$label" > "$HOME/.ZSH/ai/.fix_ia_selected" 2>/dev/null
+  [[ -d "$HOME/.ZSH/ai" ]] && print -r -- "$num" > "$HOME/.ZSH/ai/.last_provider" 2>/dev/null
+
+  # Python save_provider_state already handles this when set_active <provider> <model> is called
+  # No need to call Python again - it would incorrectly set DEFAULT_PROVIDER
 }

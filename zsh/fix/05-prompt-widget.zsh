@@ -94,7 +94,7 @@ ${cg}⭐ Modelo Ativo:${cr} ${G4F_MODEL:-gpt-4o}
       fi
 
       if [[ -z "$api_lines" ]]; then
-        api_lines="🟢 NVIDIA:      ${NVIDIA_MODEL:-meta/llama-3.2-11b-vision-instruct}"$'\n'"🚀 Groq:        ${GROQ_MODEL:-llama-3.3-70b-versatile}"$'\n'
+        api_lines="🟢 NVIDIA:      ${NVIDIA_MODEL:-moonshotai/kimi-k3}"$'\n'"🚀 Groq:        ${GROQ_MODEL:-openai/gpt-oss-120b}"$'\n'
         api_names_summary="NVIDIA, Groq"
       fi
 
