@@ -392,7 +392,7 @@ def validar_comando_seguro(comando: str) -> tuple[bool, str]:
 
 def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not config.ENABLE_COMMAND_TOOL:
-        return "Erro: a ferramenta executar_comando está desabilitada. Defina ENABLE_COMMAND_TOOL=1 no .env somente se você realmente precisar executar comandos."
+        return "Erro: a ferramenta executar_comando está desabilitada. Para reativá-la, defina ENABLE_COMMAND_TOOL=1 no .env."
 
     comando = normalizar_comando(comando)
 
