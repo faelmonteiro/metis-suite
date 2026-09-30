@@ -7,6 +7,12 @@ import api_ask
 import g4f_ask
 import manage_models
 
+# manage_models.py é um delegador para agente.models.cli e, no import, coloca a
+# raiz do Metis no sys.path (é ele que o .zshrc e o loader invocam). Os módulos
+# da suíte do agente são importados aqui, depois dele, por causa disso.
+from agente.models import builtin
+from agente.models import cli
+
 def test_suite():
     print("🧪 Executando Testes da Suíte ZSH AI...")
     
@@ -34,11 +40,22 @@ def test_suite():
     print("  ✓ extract_tool_from_json() [JSON balancer] OK")
 
     # 4. Teste de chaves de provedor
-    assert manage_models.get_provider_key("gemini") == "Gemini"
-    assert manage_models.get_provider_key("GROQ") == "Groq"
-    assert manage_models.get_provider_key("nvidia") == "NVIDIA"
-    assert manage_models.get_provider_key("OpenRouter") == "OpenRouter"
-    print("  ✓ get_provider_key() [manage_models] OK")
+    # O get_provider_key() que este teste usava foi removido quando
+    # manage_models.py virou delegador para agente.models.cli. A tabela de nomes
+    # canônicos foi para agente/models/builtin.py, consumida por
+    # vision/model_manager.py.
+    canon = builtin._canonical_provider_name
+    assert canon("gemini") == "Gemini", "Falha no nome canônico de gemini"
+    assert canon("GROQ") == "Groq", "Falha no nome canônico de GROQ"
+    assert canon("nvidia") == "NVIDIA", "Falha no nome canônico de nvidia"
+    assert canon("OpenRouter") == "OpenRouter", "Falha no nome canônico de OpenRouter"
+    print("  ✓ _canonical_provider_name() [agente.models.builtin] OK")
+
+    # 5. O delegador tem que continuar expondo o main, que é o que o alias
+    # ai-sync e o .zshrc executam.
+    assert callable(manage_models.main), "manage_models.main deveria ser chamável"
+    assert callable(cli.main), "agente.models.cli.main deveria ser chamável"
+    print("  ✓ delegador manage_models -> agente.models.cli OK")
 
     # 5. Teste de formatação de tool calls limpas sem CDATA
     tool_formatted = api_ask.format_tool_call_xml("bash", {"cmd": "ip -4 addr show"})

@@ -3,9 +3,17 @@
 # METIS AI SUITE - MASTER LOADER FOR ZSH
 # =============================================================================
 
-# Diretório base do módulo ZSH
-export ZSH_AI_DIR="${0:A:h}"
-export METIS_ROOT="${ZSH_AI_DIR:h}"
+# Raiz de instalação: o venv e os assets vivem ao lado do loader, NÃO dentro de
+# ZSH_AI_DIR. Precisa ser resolvida antes de trocar ZSH_AI_DIR, senão o
+# venv/bin sai do PATH.
+export METIS_ROOT="${0:A:h:h}"
+[[ -d "$METIS_ROOT/venv" ]] || export METIS_ROOT="$HOME/.local/share/metis"
+
+# Diretório base dos módulos ZSH. A árvore instalada em ~/.local/share/metis é
+# apenas uma cópia de distribuição; a pasta real do usuário tem precedência,
+# para que atalhos e módulos venham sempre do código que se edita.
+export ZSH_AI_DIR="$HOME/.ZSH/ai"
+[[ -f "$ZSH_AI_DIR/loader.zsh" ]] || ZSH_AI_DIR="${0:A:h}"
 
 # Adiciona o executável do venv e binários locais ao PATH se existirem
 if [[ -d "$METIS_ROOT/venv/bin" ]]; then
@@ -52,8 +60,8 @@ _metis_explain_screen_widget() {
     rm -f "$cmd_file" 2>/dev/null
     if command -v metis-screen >/dev/null 2>&1; then
         metis-screen </dev/tty >/dev/tty
-    elif [[ -x "$ZSH_AI_DIR/explain_screen.zsh" ]]; then
-        source "$ZSH_AI_DIR/explain_screen.zsh"
+    else
+        print -u2 "Metis: metis-screen não encontrado no PATH."
     fi
     if [[ -f "$cmd_file" ]]; then
         local cmd="$(cat "$cmd_file" 2>/dev/null)"

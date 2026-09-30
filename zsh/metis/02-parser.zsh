@@ -4,42 +4,32 @@
 # Parser de ferramentas XML/Bash, captura de tela Kitty e buffer de contexto.
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# Parser de tool_call.
+#
+# Havia duas implementações — Perl e Python — com a mesma lógica (~150 linhas
+# duplicadas), e a de Perl era preferida sempre que o Perl existisse, o que
+# tornava o Python código morto em qualquer máquina normal. Duas cópias da
+# mesma regra divergem: basta um dia alguém consertar uma.
+#
+# Ficou só o Python, e por três motivos:
+#   - Python já é dependência obrigatória. `_metis_require_deps` (00-config.zsh)
+#     aborta sem `_metis_get_python`, e `api_ask.py`/`manage_models.py` já são
+#     Python. O fallback de "e se não tiver Perl?" era uma garantia que o
+#     projeto nunca precisou.
+#   - `html.unescape` resolve a lista de entidades corretamente, contra as
+#     sete substituições manuais (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`,
+#     `&#x27;`, `&apos;`) que a versão Perl mantinha à mão.
+#   - `re` com `re.DOTALL` faz o `(?:</tool_call>|$)` — tag aberta, comum em
+#     resposta truncada — sem o `-0777` e o `/s` do Perl.
+#
+# O comportamento é coberto por test_metis.zsh, que antes exercitava só o Perl
+# e agora exercita o Python com os mesmos casos.
+# -----------------------------------------------------------------------------
+
 _metis_extract_cmd() {
   local text="$1"
   [[ -z "$text" ]] && return 0
-
-  if command -v perl >/dev/null 2>&1; then
-    local res
-    res="$(print -r -- "$text" | perl -0777 -ne '
-      if (/<tool_call\b([^>]*)>(.*?)(?:<\/tool_call>|$)/is) {
-        my $attrs = $1 || "";
-        my $content = $2 || "";
-        if ($attrs =~ /\bname\s*=\s*(?:"([^"]+)"|([^\s>]+))/i) {
-          my $name = lc($1 || $2 || "");
-          next if $name ne "bash";
-        }
-        $content =~ s/<!\[CDATA\[(.*?)\]\]>/$1/gis;
-        $content =~ s/<!\[CDATA\[//gi;
-        $content =~ s/\]\]>//g;
-        $content =~ s/<\/?(?:cmd|command|bash|sh|exec|tool_call)[^>]*>//gi;
-        $content =~ s/^\s*```(?:bash|sh|zsh)?\s*//i;
-        $content =~ s/\s*```\s*$//;
-        $content =~ s/&amp;/&/g;
-        $content =~ s/&lt;/</g;
-        $content =~ s/&gt;/>/g;
-        $content =~ s/&quot;/"/g;
-        $content =~ s/&#39;/\x27/g;
-        $content =~ s/&#x27;/\x27/g;
-        $content =~ s/&apos;/\x27/g;
-        $content =~ s/^\s+|\s+$//g;
-        print $content if $content;
-      }
-    ' 2>/dev/null)"
-    if [[ -n "$res" ]]; then
-      print -r -- "$res"
-      return 0
-    fi
-  fi
 
   local py_bin="$(_metis_get_python)"
   [[ -z "$py_bin" ]] && return 1
@@ -51,7 +41,9 @@ text = sys.stdin.read()
 if not text:
     sys.exit(0)
 
-# Aceita somente tool_call com name="bash".
+# Aceita somente tool_call com name="bash". O grupo final é `|$` e não a tag
+# fechada: resposta truncada no meio do stream ainda precisa de comando
+# executável, senão a rodada se perde.
 m = re.search(r"<tool_call\b([^>]*)>(.*?)(?:</tool_call>|$)", text, re.DOTALL | re.IGNORECASE)
 if not m:
     sys.exit(0)
@@ -93,17 +85,6 @@ _metis_clean_final_msg() {
   local text="$1"
   [[ -z "$text" ]] && return 0
 
-  if command -v perl >/dev/null 2>&1; then
-    local res
-    res="$(print -r -- "$text" | perl -0777 -pe '
-      s/<tool_call\b[^>]*>.*?(?:<\/tool_call>|$)//gis;
-      s/<\/?(?:tool_call|cmd|command|bash|sh|exec)[^>]*>//gi;
-      s/^\s+|\s+$//g;
-    ' 2>/dev/null)"
-    print -r -- "$res"
-    return 0
-  fi
-
   local py_bin="$(_metis_get_python)"
   [[ -z "$py_bin" ]] && return 1
 
@@ -117,6 +98,13 @@ if not text:
 # Remove tool_call fechado ou mal fechado.
 text = re.sub(r"<tool_call\b[^>]*>.*?(?:</tool_call>|$)", "", text, flags=re.DOTALL | re.IGNORECASE)
 text = re.sub(r"</?(?:tool_call|cmd|command|bash|sh|exec)[^>]*>", "", text, flags=re.IGNORECASE)
+
+# Remove blocos de raciocínio: <think>...</think>, <think> sem fechamento
+# (o modelo foi cortado) e tags </think> soltas. Sem isso, uma resposta que
+# contém só pensamento passava pelo teste de "mensagem final clara" e era
+# impressa literal no terminal.
+text = re.sub(r"<think>.*?(?:</think>|$)", "", text, flags=re.DOTALL | re.IGNORECASE)
+text = re.sub(r"</?think[^>]*>", "", text, flags=re.IGNORECASE)
 
 print(text.strip())
 ' <<< "$text" 2>/dev/null
@@ -180,12 +168,90 @@ _metis_trim_context() {
   local context="$1"
   local max_chars="${2:-60000}"
 
-  if (( ${#context} > max_chars )); then
-    {
-      print '[Contexto anterior truncado]'
-      print -r -- "$context" | tail -c "$max_chars"
-    }
-  else
+  if (( ${#context} <= max_chars )); then
     print -r -- "$context"
+    return 0
   fi
+
+  # O corte é por turno, não por byte, e é do MEIO para fora.
+  #
+  # A versão antiga fazia `tail -c`: guardava o fim e descartava o começo. Só
+  # que o system prompt — as DIRETRIZES com a sintaxe obrigatória
+  # <tool_call name="bash"> — é justamente o PRIMEIRO bloco. Com 3 passos de
+  # saída grande ele saía pela janela, e do passo 4 em diante o modelo já não
+  # recebia instrução de formato: respondia texto puro, o loop caía no ramo
+  # "respondeu sem comando executável" e encerrava com passos sobrando.
+  #
+  # O extremo oposto também é erro: cortar no meio de um <tool_result> deixa a
+  # tag aberta no histórico, e o modelo copia o padrão. Turno entra inteiro ou
+  # não entra.
+
+  # Por LINHAS, e não por separador. Duas surpresas do zsh 5.9, ambas
+  # custaram uma tentativa cada:
+  #   - `s` exige argumento aqui; `${(@ps)x}` é erro, apesar de a doc prometer
+  #     que sem argumento ele quebra em newlines.
+  #   - o argumento é delimitado por ponto: `${(@ps.\n.)x}` quebra em newline.
+  #     `${(@ps:$sep)x}` — separador de variável — é erro de sintaxe.
+  local -a linhas
+  linhas=("${(@ps.\n.)context}")
+  local total=${#linhas[@]}
+
+  # Onde começam os turnos do assistente. O `\[` é escapado de propósito: sem
+  # isso o zsh lê [Assistente] como classe de caracteres e casa com qualquer
+  # letra isolada, esterlando o corte.
+  local -a inicios
+  local i j
+  for (( i = 1; i <= total; i++ )); do
+    [[ "${linhas[i]}" == \[Assistente\]:* ]] && inicios+=($i)
+  done
+
+  # Cabeça: tudo antes do primeiro turno. São as DIRETRIZES — a parte que o
+  # corte antigo comia primeiro. Sem turnos ainda, devolve como está.
+  if (( ${#inicios[@]} == 0 )); then
+    print -r -- "$context"
+    return 0
+  fi
+
+  local -a cabeca=("${(@)linhas[1,$inicios[1]-1]}")
+  local usado=0
+  for (( i = 1; i <= ${#cabeca[@]}; i++ )); do
+    usado=$(( usado + ${#cabeca[i]} + 1 ))
+  done
+
+  # Do turno mais novo para o mais antigo, enquanto couber.
+  local -a mantidos
+  local tam linha
+  for (( i = ${#inicios[@]}; i >= 1; i-- )); do
+    j=$total
+    (( i < ${#inicios[@]} )) && j=$(( inicios[i+1] - 1 ))
+
+    # Um turno que não fecha </tool_result> é saída de comando que parecia
+    # cabeçalho de turno, partida ao meio. Descarta em vez de carregar tag
+    # aberta para o histórico.
+    [[ "${linhas[j]}" == *'</tool_result>' ]] || continue
+
+    tam=0
+    for (( linha = inicios[i]; linha <= j; linha++ )); do
+      tam=$(( tam + ${#linhas[linha]} + 1 ))
+    done
+
+    # O turno corrente nunca é descartado: sem ele o modelo perde o estado do
+    # que acabou de rodar. Estourar o teto em alguns milhares é melhor.
+    (( usado + tam > max_chars && ${#mantidos[@]} > 0 )) && break
+
+    usado=$(( usado + tam ))
+    mantidos=("$i" "${mantidos[@]}")
+  done
+
+  local novo="${(pj:\n:)cabeca}"
+  if (( ${#mantidos[@]} < ${#inicios[@]} )); then
+    novo="$novo"$'\n'"[Contexto anterior truncado]"
+  fi
+  for (( i = 1; i <= ${#mantidos[@]}; i++ )); do
+    j=$total
+    (( mantidos[i] < ${#inicios[@]} )) && j=$(( inicios[mantidos[i]+1] - 1 ))
+    novo="$novo"$'\n'"${(pj:\n:)linhas[inicios[mantidos[i]],j]}"
+  done
+
+  print -r -- "$novo"
 }

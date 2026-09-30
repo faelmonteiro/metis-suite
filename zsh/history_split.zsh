@@ -243,7 +243,7 @@ downloads-log-widget() {
   fi
 
   if command -v fzf >/dev/null 2>&1; then
-    local selected=$(grep -v '^#' "${DOWNLOADS_LOG}" | grep -v '^[[:space:]]*$' | tac | fzf --no-mouse --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione para colar no terminal:")
+    local selected=$(grep -v '^#' "${DOWNLOADS_LOG}" | grep -v '^[[:space:]]*$' | tac | fzf --height 40% --reverse --prompt="🌐 Downloads & Repositórios > " --header="Selecione para colar no terminal:")
     if [[ -n "$selected" ]]; then
       local cmd_to_paste=$(echo "$selected" | sed 's/^\[[^]]*\] //')
       print -z "$cmd_to_paste"
@@ -277,12 +277,18 @@ _metis_track_preexec() {
   print -r -- "$1" > "/tmp/metis_cmd_${win}" 2>/dev/null
   # Grava ambiente Kitty para Metis Screen
   [[ -n "$KITTY_LISTEN_ON" ]] && print -r -- "$KITTY_LISTEN_ON" > "/tmp/orig_kitty_listen.${UID}" 2>/dev/null
-  [[ -n "$KITTY_LISTEN_ON" ]] && print -r -- "$KITTY_LISTEN_ON" > "/tmp/orig_kitty_listen" 2>/dev/null
   [[ -n "$KITTY_WINDOW_ID" ]] && print -r -- "$KITTY_WINDOW_ID" > "/tmp/orig_kitty_id.${UID}" 2>/dev/null
-  [[ -n "$KITTY_WINDOW_ID" ]] && print -r -- "$KITTY_WINDOW_ID" > "/tmp/orig_kitty_id" 2>/dev/null
   [[ -n "$KITTY_PID" ]] && print -r -- "$KITTY_PID" > "/tmp/orig_kitty_pid.${UID}" 2>/dev/null
-  [[ -n "$KITTY_PID" ]] && print -r -- "$KITTY_PID" > "/tmp/orig_kitty_pid" 2>/dev/null
 }
+
+# _metis_write_status mora em metis/04-screen-hook.zsh, que o loader e o .zshrc
+# carregam antes deste arquivo. A guarda existe porque este hook roda em todo
+# precmd: sem ela, uma ordem de carga divergente quebraria o prompt a cada
+# comando. O fallback é no-op de propósito — degradar para uma escrita insegura
+# seria pior do que não publicar status.
+if (( ! $+functions[_metis_write_status] )); then
+  _metis_write_status() { return 1 }
+fi
 
 _metis_track_precmd() {
   local exit_code=$?
@@ -297,14 +303,16 @@ _metis_track_precmd() {
   fi
   [[ -z "$cmd" ]] && return 0
 
-  {
-    print -r -- "CMD: $cmd"
-    print -r -- "EXIT_CODE: $exit_code"
-    print -r -- "TIME: ${EPOCHSECONDS:-$(date +%s)}"
-    print -r -- "WIN: $win"
-  } > "/tmp/metis_status_${win}" 2>/dev/null
+  # O nome não pode ser `status`: no zsh isso é parâmetro especial, somente
+  # leitura, ligado ao `?` — usá-lo como local aborta o hook a cada prompt.
+  local status_text
+  status_text="CMD: $cmd
+EXIT_CODE: $exit_code
+TIME: ${EPOCHSECONDS:-$(date +%s)}
+WIN: $win"
 
-  cp -f "/tmp/metis_status_${win}" "/tmp/metis_last_status" 2>/dev/null
+  _metis_write_status "/tmp/metis_status_${win}" "$status_text"
+  _metis_write_status "/tmp/metis_last_status" "$status_text"
 }
 
 add-zsh-hook preexec _metis_track_preexec

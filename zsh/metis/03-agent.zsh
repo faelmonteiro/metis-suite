@@ -4,6 +4,156 @@
 # Loop autônomo do copiloto Metis, orquestração de comandos e aliases.
 # =============================================================================
 
+# =============================================================================
+
+# Executa um comando, transmite a saída ao terminal e a salva em $tmp_out.
+# Devolve, no return, o código de saída REAL do comando.
+#
+# Existe como função separada por um motivo que só aparece em execução: o
+# código de saída precisa ser lido logo após o pipeline e DENTRO do ramo. No
+# zsh, quando um `if` termina, `$pipestatus` colapsa para um único elemento
+# com o status do próprio `if` — que é 0. Lendo "${pipestatus[@]}" depois do
+# `fi`, todo tool_result dizia exit_code="0" mesmo com o comando falhando, e a
+# IA recebia "deu certo" para um `ls` em diretório inexistente.
+#
+# Suporte transparente para sudo: se o comando contiver 'sudo', mantém stdin
+# aberto para digitar a senha caso o sudo solicite; caso contrário, fecha o
+# stdin (</dev/null) para evitar travamentos de comandos interativos.
+_metis_rodar_comando() {
+  local cmd="$1" tmp_out="$2" rc
+  local -a prefix
+  prefix=()
+
+  if command -v timeout >/dev/null 2>&1; then
+    prefix=(timeout -s INT "$metis_timeout")
+  elif command -v gtimeout >/dev/null 2>&1; then
+    prefix=(gtimeout -s INT "$metis_timeout")
+  fi
+
+  if [[ "$cmd" == *sudo* ]]; then
+    if (( ${#prefix} )); then
+      "${prefix[@]}" zsh -c "$cmd" 2>&1 | tee "$tmp_out"
+      rc=$pipestatus[1]
+    else
+      zsh -c "$cmd" 2>&1 | tee "$tmp_out"
+      rc=$pipestatus[1]
+    fi
+  else
+    if (( ${#prefix} )); then
+      "${prefix[@]}" zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
+      rc=$pipestatus[1]
+    else
+      zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
+      rc=$pipestatus[1]
+    fi
+  fi
+
+  [[ "$rc" == <-> ]] || rc=0
+  return "$rc"
+}
+
+# O passo decide sozinho se precisa de confirmação: METIS_CONFIRM_ALL força
+# tudo, e na falta disso basta o comando ser destrutivo.
+_metis_precisa_confirmar() {
+  [[ "${METIS_CONFIRM_ALL:-0}" == "1" ]] && return 0
+  _metis_is_destructive "$1" && return 0
+  return 1
+}
+
+# Pergunta e lê a confirmação. Devolve 0 só para s/sim/y/yes: qualquer outra
+# coisa, Enter incluído, cancela — é a leitura segura para comando de risco.
+_metis_confirmar_execucao() {
+  printf '\033[33m⚠️  A Metis quer executar um comando de alteração/risco:\033[0m \033[1;38;5;214m%s\033[0m\n' "$1"
+  printf '\033[33mDeseja confirmar a execução? (s/N): \033[0m'
+
+  local ans=""
+  read -r ans </dev/tty
+
+  case "${ans:l}" in
+    s|sim|y|yes) return 0 ;;
+    *)           return 1 ;;
+  esac
+}
+
+# Executa o comando e devolve o código de saída REAL em `return`, deixando a
+# saída já resumida e higienizada em $METIS_PASSO_SAIDA.
+#
+# Duas variáveis em vez de eco porque o comando precisa rodar no shell atual:
+# dentro de $( ) o tee da saída do comando deixaria de chegar ao terminal, e o
+# 130 do Ctrl+C se perderia.
+#
+# $METIS_PASSO_ERRO é separado do return de propósito: um comando que termina
+# com código 1 é resultado legítimo e entra no contexto da IA, enquanto "não
+# consegui nem criar o arquivo temporário" aborta o metis. Colapsar os dois
+# num código só deixaria um dos dois sem tratamento.
+METIS_PASSO_SAIDA=""
+METIS_PASSO_ERRO=0
+_metis_executar_passo() {
+  local cmd="$1" tmp_out="" cmd_output=""
+
+  METIS_PASSO_ERRO=0
+  METIS_PASSO_SAIDA=""
+
+  tmp_out="$(mktemp -t metis.XXXXXX 2>/dev/null || mktemp 2>/dev/null)"
+
+  if [[ -z "$tmp_out" ]]; then
+    METIS_PASSO_ERRO=1
+    return 1
+  fi
+
+  _metis_rodar_comando "$cmd" "$tmp_out"
+  local rc=$?
+
+  if (( rc == 130 )); then
+    rm -f "$tmp_out" 2>/dev/null
+    return 130
+  fi
+
+  cmd_output="$(_metis_summarize_output "$tmp_out" 20000)"
+  rm -f "$tmp_out" 2>/dev/null
+
+  [[ -z "$cmd_output" ]] && cmd_output="[Comando executado com código $rc sem saída]"
+
+  # Sanitização contra Prompt Injection Indireto em saídas de comandos
+  cmd_output="${cmd_output//\<tool_call/<escaped_tool_call}"
+  cmd_output="${cmd_output//\<\/tool_call/<\\/escaped_tool_call}"
+
+  METIS_PASSO_SAIDA="$cmd_output"
+  return "$rc"
+}
+
+# Pergunta se quer mais passos e devolve a quantidade em $METIS_PASSOS_EXTRAS,
+# string vazia significando "encerra". Variável em vez de stdout porque o prompt
+# é impresso no meio: dentro de $( ) o texto da pergunta seria capturado junto
+# com a resposta.
+#
+# Enter não decide nada: repergunta até vir s, n ou um número, para que um Enter
+# acidental não vire +3 passos de execução autônoma e para que encerrar exija
+# "n" digitado.
+METIS_PASSOS_EXTRAS=""
+_metis_perguntar_continuacao() {
+  local ans=""
+
+  METIS_PASSOS_EXTRAS=""
+
+  while :; do
+    printf '\033[33mDeseja continuar com mais passos? (s = +3, número = N passos, n = encerrar): \033[0m'
+
+    if ! read -r ans </dev/tty; then
+      ans="n"
+    fi
+
+    [[ -z "${ans//[[:space:]]/}" ]] || break
+    printf '\033[33mDigite s, n ou um número de passos.\033[0m\n'
+  done
+
+  case "${ans:l}" in
+    s|sim|y|yes) METIS_PASSOS_EXTRAS=3 ;;
+    <->)         METIS_PASSOS_EXTRAS="$ans" ;;
+    *)           return 0 ;;   # vazio = encerrar
+  esac
+}
+
 metis() {
   _metis_require_deps || return 1
 
@@ -134,9 +284,15 @@ comando_para_executar
   local step=1
   local resp=""
   local metis_timeout="${METIS_TIMEOUT:-120}"
-  local continue_loop=1
 
-  while (( continue_loop )); do
+  # Laço infinito, e não `while (( continue_loop ))`: a flag nunca mudava de
+  # 1, e o laço não é decoração — é ele que recebe as continuações depois de
+  # `max_steps` crescer. (Remover este `while` parece limpo e quebra a
+  # continuação em silêncio: a execução cai fora da função.)
+  #
+  # Toda saída é explícita: erro, Ctrl+C, mensagem final e recusa do prompt
+  # dão `return`. Chegar ao fim do corpo é o único jeito de continuar.
+  while :; do
     while (( step <= max_steps )); do
       resp="$(_ai_query "$current_context" 360)"
       local status_query=$?
@@ -162,97 +318,38 @@ comando_para_executar
         _metis_type_live "$cmd" 0.006
         printf '\033[0m'
 
-        local should_confirm=0
+        if _metis_precisa_confirmar "$cmd" && ! _metis_confirmar_execucao "$cmd"; then
+          printf '\033[31m❌ Ação cancelada pelo usuário.\033[0m\n'
 
-        if [[ "${METIS_CONFIRM_ALL:-0}" == "1" ]]; then
-          should_confirm=1
-        elif _metis_is_destructive "$cmd"; then
-          should_confirm=1
+          current_context="$current_context
+  [Assistente]: $resp
+  <tool_result exit_code=\"130\">
+  Ação '$cmd' cancelada pelo usuário. Tente outra abordagem segura ou finalize.
+  </tool_result>"
+
+          current_context="$(_metis_trim_context "$current_context")"
+          (( step++ ))
+          continue
         fi
 
-        if (( should_confirm )); then
-          printf '\033[33m⚠️  A Metis quer executar um comando de alteração/risco:\033[0m \033[1;38;5;214m%s\033[0m\n' "$cmd"
-          printf '\033[33mDeseja confirmar a execução? (s/N): \033[0m'
+        _metis_executar_passo "$cmd"
+        local cmd_code=$?
 
-          local ans=""
-          read -r ans </dev/tty
-
-          case "${ans:l}" in
-            s|sim|y|yes) ;;
-            *)
-              printf '\033[31m❌ Ação cancelada pelo usuário.\033[0m\n'
-
-              current_context="$current_context
-[Assistente]: $resp
-<tool_result exit_code=\"130\">
-Ação '$cmd' cancelada pelo usuário. Tente outra abordagem segura ou finalize.
-</tool_result>"
-
-              current_context="$(_metis_trim_context "$current_context")"
-              (( step++ ))
-              continue
-              ;;
-          esac
-        fi
-
-        local tmp_out=""
-        tmp_out="$(mktemp -t metis.XXXXXX 2>/dev/null || mktemp 2>/dev/null)"
-
-        if [[ -z "$tmp_out" ]]; then
+        if (( METIS_PASSO_ERRO )); then
           printf '\033[31m[Metis] Falha ao criar arquivo temporário.\033[0m\n'
           return 1
         fi
 
-        local -a run_prefix
-        run_prefix=()
-
-        if command -v timeout >/dev/null 2>&1; then
-          run_prefix=(timeout -s INT "$metis_timeout")
-        elif command -v gtimeout >/dev/null 2>&1; then
-          run_prefix=(gtimeout -s INT "$metis_timeout")
-        fi
-
-        # Suporte transparente para sudo: se o comando contiver 'sudo', mantém
-        # stdin aberto para digitar a senha caso o sudo solicite; caso contrário,
-        # fecha o stdin (</dev/null) para evitar travamentos de comandos interativos.
-        if [[ "$cmd" == *sudo* ]]; then
-          if (( ${#run_prefix} )); then
-            "${run_prefix[@]}" zsh -c "$cmd" 2>&1 | tee "$tmp_out"
-          else
-            zsh -c "$cmd" 2>&1 | tee "$tmp_out"
-          fi
-        else
-          if (( ${#run_prefix} )); then
-            "${run_prefix[@]}" zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
-          else
-            zsh -c "$cmd" </dev/null 2>&1 | tee "$tmp_out"
-          fi
-        fi
-
-        local -a _ps=("${pipestatus[@]}")
-        local cmd_code="${_ps[1]:-$?}"
-
         if (( cmd_code == 130 )); then
-          rm -f "$tmp_out" 2>/dev/null
           printf '\n\033[33m⚠️ Execução cancelada pelo usuário.\033[0m\n'
           return 130
         fi
 
-        local cmd_output=""
-        cmd_output="$(_metis_summarize_output "$tmp_out" 20000)"
-        rm -f "$tmp_out" 2>/dev/null
-
-        [[ -z "$cmd_output" ]] && cmd_output="[Comando executado com código $cmd_code sem saída]"
-
-        # Sanitização contra Prompt Injection Indireto em saídas de comandos
-        cmd_output="${cmd_output//\<tool_call/<escaped_tool_call}"
-        cmd_output="${cmd_output//\<\/tool_call/<\\/escaped_tool_call}"
-
         current_context="$current_context
-[Assistente]: $resp
-<tool_result exit_code=\"$cmd_code\">
-$cmd_output
-</tool_result>"
+  [Assistente]: $resp
+  <tool_result exit_code=\"$cmd_code\">
+  $METIS_PASSO_SAIDA
+  </tool_result>"
 
         current_context="$(_metis_trim_context "$current_context")"
         (( step++ ))
@@ -278,26 +375,23 @@ $cmd_output
       fi
     fi
 
-    printf '\033[33mDeseja continuar com mais passos? (s/N ou número de passos): \033[0m'
-    local ans=""
-    read -r ans </dev/tty
+    # Enter não decide nada: repergunta até vir s, n ou um número. Um Enter
+    # acidental não pode virar +3 passos de execução autônoma, e "n" precisa
+    # ser digitado para encerrar.
+    _metis_perguntar_continuacao
 
-    case "${ans:l}" in
-      s|sim|y|yes|"")
-        max_steps=$((max_steps + 3))
-        printf '\033[32m✓ Continuando com mais 3 passos (total: %d)\033[0m\n' "$max_steps"
-        step=1
-        ;;
-      <->)
-        max_steps=$((max_steps + ans))
-        printf '\033[32m✓ Continuando com mais %d passos (total: %d)\033[0m\n' "$ans" "$max_steps"
-        step=1
-        ;;
-      *)
-        printf '\033[31m❌ Encerrando.\033[0m\n'
-        return 2
-        ;;
-    esac
+    if [[ -z "$METIS_PASSOS_EXTRAS" ]]; then
+      printf '\033[31m❌ Encerrando.\033[0m\n'
+      return 2
+    fi
+
+    max_steps=$((max_steps + METIS_PASSOS_EXTRAS))
+    printf '\n\033[32m✓ Continuando com mais %d passos (total: %d)\033[0m\n' "$METIS_PASSOS_EXTRAS" "$max_steps"
+    # `step` NÃO volta para 1: o contador é a quantidade de passos já
+    # executados, e o teto é cumulativo. Zerar aqui fazia a contagem recomeçar
+    # a cada "s"/número e o laço rodava `max_steps` passos de novo, em vez dos
+    # `METIS_PASSOS_EXTRAS` pedidos. Agora ele segue (6/8, 7/8, 8/8) e roda
+    # exatamente o que foi pedido.
   done
 }
 

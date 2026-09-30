@@ -38,8 +38,6 @@ elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
         exec "/usr/local/bin/metis-screen" "$@"
     elif [ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]; then
         exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
-    elif command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]; then
-        exec zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
     else
         exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
     fi

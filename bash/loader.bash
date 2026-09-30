@@ -164,8 +164,6 @@ explain() {
         "$METIS_INSTALL_DIR/bin/metis" explain "$@"
     elif [[ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]]; then
         "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
-    elif command -v zsh >/dev/null 2>&1 && [[ -f "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" ]]; then
-        zsh "$METIS_INSTALL_DIR/zsh/explain_screen.zsh" "$@"
     else
         echo "❌ Não foi possível carregar o assistente screen." >&2
         return 1
@@ -388,15 +386,27 @@ if [[ $- == *i* ]]; then
     _metis_bash_track_precmd() {
         local last_exit="$?"
         local last_cmd
+        local status_a status_b
         last_cmd="$(history 1 2>/dev/null | sed -e 's/^[[:space:]]*[0-9]*[[:space:]]*//')"
         if [[ -n "$last_cmd" && "$last_cmd" != "explain"* && "$last_cmd" != "fix"* && "$last_cmd" != "_metis_"* ]]; then
-            {
-                printf 'CMD: %s\n' "$last_cmd"
-                printf 'EXIT_CODE: %s\n' "$last_exit"
-                printf 'TIME: %s\n' "$(date +%s)"
-                printf 'WIN: %s\n' "$$"
-            } > "/tmp/metis_status_$$" 2>/dev/null
-            cp -f "/tmp/metis_status_$$" "/tmp/metis_last_status" 2>/dev/null
+            # Dois temporários porque são dois destinos: cada um precisa ser
+            # alcançado por rename. mv, e não cp: o nome do destino é previsível
+            # num /tmp world-writable, e cp/>/abrem o destino seguindo symlink,
+            # enquanto rename substitui o symlink em vez de escrever nele.
+            status_a="$(mktemp /tmp/.metis_status.XXXXXX 2>/dev/null)"
+            status_b="$(mktemp /tmp/.metis_status.XXXXXX 2>/dev/null)"
+            if [[ -n "$status_a" && -n "$status_b" ]]; then
+                {
+                    printf 'CMD: %s\n' "$last_cmd"
+                    printf 'EXIT_CODE: %s\n' "$last_exit"
+                    printf 'TIME: %s\n' "$(date +%s)"
+                    printf 'WIN: %s\n' "$$"
+                } > "$status_a" 2>/dev/null
+                cp "$status_a" "$status_b" 2>/dev/null
+                mv -f "$status_a" "/tmp/metis_status_$$" 2>/dev/null
+                mv -f "$status_b" "/tmp/metis_last_status" 2>/dev/null
+            fi
+            rm -f "$status_a" "$status_b" 2>/dev/null
         fi
     }
 
