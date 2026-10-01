@@ -3,28 +3,44 @@
 # METIS AI - CLI WRAPPER
 # =============================================================================
 
-METIS_INSTALL_DIR="${METIS_INSTALL_DIR:-$HOME/.local/share/metis}"
-PYTHON_BIN="$METIS_INSTALL_DIR/venv/bin/python3"
-
-if [ ! -f "$PYTHON_BIN" ]; then
-    PYTHON_BIN="$METIS_INSTALL_DIR/venv/bin/python"
-fi
-if [ ! -f "$PYTHON_BIN" ] && [ -f "$HOME/.local/share/metis/venv/bin/python" ]; then
-    PYTHON_BIN="$HOME/.local/share/metis/venv/bin/python"
-fi
-if [ ! -f "$PYTHON_BIN" ]; then
-    PYTHON_BIN="python3"
+# Raiz do código Python: o projeto editável tem o pacote `agente/` e é ele que
+# guarda `gui.py`/`app.py`. A cópia em ~/.local/share/metis é só distribuição e
+# pode não existir; o `app/` dela é usado como fallback para o mesmo layout.
+METIS_ROOT="${METIS_ROOT:-$HOME/Metis}"
+if [ ! -f "$METIS_ROOT/app.py" ] && [ -f "$HOME/.local/share/metis/app/app.py" ]; then
+    METIS_ROOT="$HOME/.local/share/metis/app"
 fi
 
-export PYTHONPATH="$METIS_INSTALL_DIR/app:$PYTHONPATH"
+# O venv chama-se `.venv` no projeto local e `venv` na cópia de distribuição.
+# Sem esta resolução o wrapper caía no `python3` do sistema, que não tem PyQt6,
+# e o `metis gui` abria quebrado.
+PYTHON_BIN=""
+for _metis_cand in "$METIS_ROOT/.venv" "$METIS_ROOT/venv" "$HOME/Metis/.venv"; do
+    if [ -x "$_metis_cand/bin/python" ]; then
+        PYTHON_BIN="$_metis_cand/bin/python"
+        break
+    fi
+done
+unset _metis_cand
+[ -n "$PYTHON_BIN" ] || PYTHON_BIN="python3"
+
+export PYTHONPATH="$METIS_ROOT:$PYTHONPATH"
+
+# Módulos ZSH: a pasta real do usuário tem precedência sobre a cópia instalada.
+METIS_ZSH="${METIS_ZSH:-$HOME/.ZSH/ai}"
+[ -f "$METIS_ZSH/loader.zsh" ] || METIS_ZSH="$HOME/.local/share/metis/zsh"
+
+# update/uninstall vivem no repositório, não no projeto Python.
+METIS_SCRIPTS="${METIS_SCRIPTS:-$HOME/metis-suite}"
+[ -f "$METIS_SCRIPTS/update.sh" ] || METIS_SCRIPTS="$HOME/.local/share/metis"
 
 # Roteamento de comandos
 if [ "$1" = "gui" ]; then
     shift
-    exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/gui.py" "$@"
+    exec "$PYTHON_BIN" "$METIS_ROOT/gui.py" "$@"
 elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     shift
-    exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+    exec "$METIS_ROOT/vision/run.sh" "$@"
 elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
     shift
     if [ "$1" = "screen" ] || [ "$1" = "explain" ] || [ "$1" = "tela" ]; then
@@ -36,30 +52,30 @@ elif [ "$1" = "explain" ] || [ "$1" = "screen" ]; then
         exec "$HOME/.local/bin/metis-screen" "$@"
     elif [ -x "/usr/local/bin/metis-screen" ]; then
         exec "/usr/local/bin/metis-screen" "$@"
-    elif [ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]; then
-        exec "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+    elif [ -x "$METIS_ROOT/vision/run.sh" ]; then
+        exec "$METIS_ROOT/vision/run.sh" "$@"
     else
-        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
+        exec "$PYTHON_BIN" "$METIS_ROOT/app.py" "$@"
     fi
 elif [ "$1" = "fix" ] || [ "$1" = "menu" ]; then
     shift
-    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
-        exec zsh -c "source '$METIS_INSTALL_DIR/zsh/loader.zsh' 2>/dev/null; inteligencia_prompt"
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_ZSH/loader.zsh" ]; then
+        exec zsh -c "source '$METIS_ZSH/loader.zsh' 2>/dev/null; inteligencia_prompt"
     else
         echo "💡 ZSH não instalado. Iniciando menu interativo Metis..." >&2
-        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
+        exec "$PYTHON_BIN" "$METIS_ROOT/app.py" "$@"
     fi
 elif [ "$1" = "aiman" ] || [ "$1" = "man" ]; then
     shift
-    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
-        exec zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; aiman "$@"' _ "$METIS_INSTALL_DIR" "$@"
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_ZSH/loader.zsh" ]; then
+        exec zsh -c 'source "$1/loader.zsh" 2>/dev/null; shift; aiman "$@"' _ "$METIS_ZSH" "$@"
     else
-        exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" --help "$@"
+        exec "$PYTHON_BIN" "$METIS_ROOT/app.py" --help "$@"
     fi
 elif [ "$1" = "commit" ] || [ "$1" = "gca" ] || [ "$1" = "git" ]; then
     shift
-    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_INSTALL_DIR/zsh/loader.zsh" ]; then
-        exec zsh -c 'METIS_DIR="$1"; shift; source "$METIS_DIR/zsh/loader.zsh" 2>/dev/null; git_commit_ai "$@"' _ "$METIS_INSTALL_DIR" "$@"
+    if command -v zsh >/dev/null 2>&1 && [ -f "$METIS_ZSH/loader.zsh" ]; then
+        exec zsh -c 'source "$1/loader.zsh" 2>/dev/null; shift; git_commit_ai "$@"' _ "$METIS_ZSH" "$@"
     else
         echo "⚠️  O ZSH é necessário para executar o git-ai." >&2
         exit 1
@@ -77,9 +93,9 @@ elif [ "$1" = "history" ] || [ "$1" = "iah" ]; then
         tail -n 20 "$HIST_FILE" | sed 's/^: [0-9]*:[0-9]*;//'
     fi
 elif [ "$1" = "uninstall" ]; then
-    exec "$METIS_INSTALL_DIR/uninstall.sh"
+    exec "$METIS_SCRIPTS/uninstall.sh"
 elif [ "$1" = "update" ] || [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
-    exec "$METIS_INSTALL_DIR/update.sh"
+    exec "$METIS_SCRIPTS/update.sh"
 else
-    exec "$PYTHON_BIN" "$METIS_INSTALL_DIR/app/app.py" "$@"
+    exec "$PYTHON_BIN" "$METIS_ROOT/app.py" "$@"
 fi

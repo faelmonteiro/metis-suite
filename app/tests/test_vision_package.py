@@ -48,5 +48,28 @@ class TestVisionPackage(unittest.TestCase):
         self.assertTrue(r.stdout.strip().endswith("config_models.json"))
 
 
+    def test_vision_theme_manager_palette_and_qss(self):
+        from vision import theme_manager
+        palette = theme_manager.get_theme_palette()
+        for required_key in (
+            "accent", "accent_light", "text_primary", "text_muted",
+            "card_bg_rgba", "card_bg_hex", "inner_box_bg", "card_border_style"
+        ):
+            self.assertIn(required_key, palette, f"Chave ausente na paleta: {required_key}")
+
+        main_qss = theme_manager.generate_main_stylesheet(palette)
+        for selector in (
+            "QWidget#MainCard", "QFrame#SidebarContainer", "QTextBrowser#ResponseBrowser",
+            "QFrame#SearchContainer", "QPlainTextEdit#SearchInput"
+        ):
+            self.assertIn(selector, main_qss, f"Seletor ausente no QSS principal: {selector}")
+
+        settings_qss = theme_manager.generate_settings_stylesheet(palette)
+        self.assertIn("QDialog#SettingsDialog", settings_qss)
+
+        menu_qss = theme_manager.generate_menu_stylesheet(palette)
+        self.assertIn("QMenu", menu_qss)
+
+
 if __name__ == "__main__":
     unittest.main()

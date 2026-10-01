@@ -3,11 +3,31 @@
 # METIS AI SUITE - MASTER LOADER FOR ZSH
 # =============================================================================
 
-# Raiz de instalação: o venv e os assets vivem ao lado do loader, NÃO dentro de
-# ZSH_AI_DIR. Precisa ser resolvida antes de trocar ZSH_AI_DIR, senão o
-# venv/bin sai do PATH.
+# Raiz do código Python. `~/.local/share/metis` é só cópia de distribuição;
+# o projeto que se edita tem o pacote `agente/` e por isso tem precedência.
+# Precisa ser resolvida antes de trocar ZSH_AI_DIR, senão o venv sai do PATH.
 export METIS_ROOT="${0:A:h:h}"
-[[ -d "$METIS_ROOT/venv" ]] || export METIS_ROOT="$HOME/.local/share/metis"
+if [[ ! -d "$METIS_ROOT/agente" ]]; then
+  if [[ -d "$HOME/Metis/agente" ]]; then
+    export METIS_ROOT="$HOME/Metis"
+  else
+    export METIS_ROOT="$HOME/.local/share/metis"
+  fi
+fi
+
+# O ambiente Python aparece como `venv` na cópia de distribuição e como `.venv`
+# no projeto local. Aceitar os dois nomes evita depender de um só: sem isso o
+# PATH nunca pegava o interpretador que tem o PyQt6 e o `ai-sync` caía no
+# python do sistema.
+METIS_PYENV=""
+for _metis_cand in "$METIS_ROOT/.venv" "$METIS_ROOT/venv"; do
+  if [[ -x "$_metis_cand/bin/python" ]]; then
+    METIS_PYENV="$_metis_cand"
+    break
+  fi
+done
+unset _metis_cand
+export METIS_PYENV
 
 # Diretório base dos módulos ZSH. A árvore instalada em ~/.local/share/metis é
 # apenas uma cópia de distribuição; a pasta real do usuário tem precedência,
@@ -16,8 +36,8 @@ export ZSH_AI_DIR="$HOME/.ZSH/ai"
 [[ -f "$ZSH_AI_DIR/loader.zsh" ]] || ZSH_AI_DIR="${0:A:h}"
 
 # Adiciona o executável do venv e binários locais ao PATH se existirem
-if [[ -d "$METIS_ROOT/venv/bin" ]]; then
-    export PATH="$METIS_ROOT/venv/bin:$PATH"
+if [[ -n "$METIS_PYENV" && -d "$METIS_PYENV/bin" ]]; then
+    export PATH="$METIS_PYENV/bin:$PATH"
 fi
 if [[ -d "$HOME/.local/bin" ]]; then
     export PATH="$HOME/.local/bin:$PATH"
@@ -42,8 +62,8 @@ fi
 
 # Aliases úteis
 alias ai="ia"
-if [[ -x "$METIS_ROOT/venv/bin/python" ]]; then
-    alias ai-sync="\"$METIS_ROOT/venv/bin/python\" '$ZSH_AI_DIR/manage_models.py' sync"
+if [[ -n "$METIS_PYENV" && -x "$METIS_PYENV/bin/python" ]]; then
+    alias ai-sync="\"$METIS_PYENV/bin/python\" '$ZSH_AI_DIR/manage_models.py' sync"
 else
     alias ai-sync="python3 '$ZSH_AI_DIR/manage_models.py' sync"
 fi

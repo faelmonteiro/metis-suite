@@ -81,6 +81,18 @@ if content:
 ' <<< "$text" 2>/dev/null
 }
 
+# Normaliza um comando para comparação com os já executados: qualquer corrida de
+# espaço, inclusive quebra de linha, vira um espaço só, e as pontas saem.
+#
+# A trava de repetição do loop (03-agent.zsh) compara texto, e o modelo reescreve
+# o mesmo comando de formas diferentes — `ps -eo pid` contra `ps  -eo   pid`, ou
+# com indentação, ou com o pipe quebrado em duas linhas. Sem normalizar, a trava
+# passava batido e o ciclo continuava rodando o mesmo comando.
+_metis_norm_cmd() {
+  [[ -n "${1//[[:space:]]/}" ]] || return 0
+  print -r -- "$1" | tr -s '[:space:]' ' ' | sed -e 's/^ //' -e 's/ $//'
+}
+
 _metis_clean_final_msg() {
   local text="$1"
   [[ -z "$text" ]] && return 0

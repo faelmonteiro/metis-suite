@@ -64,7 +64,7 @@ _metis_precisa_confirmar() {
 # coisa, Enter incluído, cancela — é a leitura segura para comando de risco.
 _metis_confirmar_execucao() {
   printf '\033[33m⚠️  A Metis quer executar um comando de alteração/risco:\033[0m \033[1;38;5;214m%s\033[0m\n' "$1"
-  printf '\033[33mDeseja confirmar a execução? (s/N): \033[0m'
+  printf '\033[33mConfirmar? (s/N): \033[0m'
 
   local ans=""
   read -r ans </dev/tty
@@ -127,32 +127,72 @@ _metis_executar_passo() {
 # é impresso no meio: dentro de $( ) o texto da pergunta seria capturado junto
 # com a resposta.
 #
-# Enter não decide nada: repergunta até vir s, n ou um número, para que um Enter
-# acidental não vire +3 passos de execução autônoma e para que encerrar exija
-# "n" digitado.
+# Opções aceitas:
+#   - 's' ou 'sim' -> executa padrão de +3 passos
+#   - 's -N' ou 's N' (ex: 's -4') -> executa N passos extras
+#   - Número direto (ex: '4' ou '-4') -> executa N passos extras
+#   - 'n', 'nao', 'no' ou Enter vazio -> encerra
 METIS_PASSOS_EXTRAS=""
 _metis_perguntar_continuacao() {
-  local ans=""
+  local ans="" raw=""
+  setopt localoptions extendedglob
 
   METIS_PASSOS_EXTRAS=""
 
   while :; do
-    printf '\033[33mDeseja continuar com mais passos? (s = +3, número = N passos, n = encerrar): \033[0m'
+    printf '\033[33mDeseja continuar com mais passos? [s/n]: \033[0m'
 
     if ! read -r ans </dev/tty; then
-      ans="n"
+      ans=""
     fi
 
-    [[ -z "${ans//[[:space:]]/}" ]] || break
-    printf '\033[33mDigite s, n ou um número de passos.\033[0m\n'
-  done
+    raw="$ans"
+    # Remove espaços do início e do fim
+    ans="${${ans##[[:space:]]#}%%[[:space:]]#}"
 
-  case "${ans:l}" in
-    s|sim|y|yes) METIS_PASSOS_EXTRAS=3 ;;
-    <->)         METIS_PASSOS_EXTRAS="$ans" ;;
-    *)           return 0 ;;   # vazio = encerrar
-  esac
+    # Enter vazio encerra
+    if [[ -z "$ans" ]]; then
+      METIS_PASSOS_EXTRAS=""
+      return 0
+    fi
+
+    local lower="${ans:l}"
+
+    # 'n' ou variações encerram
+    case "$lower" in
+      n|nao|não|no|exit|quit|q)
+        METIS_PASSOS_EXTRAS=""
+        return 0
+        ;;
+      s|sim|y|yes)
+        METIS_PASSOS_EXTRAS=3
+        return 0
+        ;;
+    esac
+
+    # 's -N' ou 's N' (ex: s -4, s-4, s 4, s -p 4, sim -4, y -4)
+    if [[ "$lower" =~ "^(s|sim|y|yes)[[:space:]]*-?[[:space:]]*(p[[:space:]]*)?([0-9]+)$" ]]; then
+      local n="${match[3]}"
+      if [[ -n "$n" ]] && (( n > 0 )); then
+        METIS_PASSOS_EXTRAS="$n"
+        return 0
+      fi
+    fi
+
+    # Número direto ou '-N' (ex: 4, 10, -4, -p 4)
+    if [[ "$lower" =~ "^-?[[:space:]]*(p[[:space:]]*)?([0-9]+)$" ]]; then
+      local n="${match[2]}"
+      if [[ -n "$n" ]] && (( n > 0 )); then
+        METIS_PASSOS_EXTRAS="$n"
+        return 0
+      fi
+    fi
+
+    printf '\033[33m"%s" não é um número ou opção válida. Digite s (+3), s -N (ex: s -4), número de passos, ou n/Enter para parar.\033[0m\n' "$raw"
+    ans=""
+  done
 }
+
 
 metis() {
   _metis_require_deps || return 1
@@ -277,13 +317,27 @@ comando_para_executar
 
 4. Você receberá o resultado da execução do comando e poderá decidir o próximo passo.
 
-5. Quando o problema estiver resolvido e concluído, NÃO envie mais ferramentas. Apenas responda com UMA ÚNICA FRASE direta no formato:
+5. REGRA DE PROGRESSO — NUNCA REPITA UM COMANDO:
+- Cada tool_result é a resposta do terminal ao ÚLTIMO comando enviado. Depois de lê-lo, avance.
+- Está PROIBIDO reenviar um comando idêntico ao que você já enviou: o resultado dele já está no histórico e repetir não traz informação nova.
+- Se a saída anterior já responde ao pedido, finalize em vez de mandar outro comando.
+- Se ela não bastou, mude de abordagem: outro filtro, outro caminho, outra ferramenta. Não repita o mesmo comando esperando resultado diferente.
+
+6. Quando o problema estiver resolvido e concluído, NÃO envie mais ferramentas. Apenas responda com UMA ÚNICA FRASE direta no formato:
 ✔ Resolvido: <resumo de uma linha do que foi verificado ou corrigido>"
 
   local current_context="[Instrução do Agente]: $system_prompt"
   local step=1
   local resp=""
   local metis_timeout="${METIS_TIMEOUT:-120}"
+
+  # Registro da trava de repetição.
+  #
+  # Fora dos laços de propósito: `local -A x=()` dentro do corpo reatribui a cada
+  # volta, e o registro zeraria sozinho — que é justamente o estado que existe
+  # para durar a sessão inteira.
+  local -A cmd_vistos=()
+  local repeticoes=0
 
   # Laço infinito, e não `while (( continue_loop ))`: a flag nunca mudava de
   # 1, e o laço não é decoração — é ele que recebe as continuações depois de
@@ -314,6 +368,53 @@ comando_para_executar
       local cmd="$(_metis_extract_cmd "$resp")"
 
       if [[ -n "$cmd" ]]; then
+        # Trava de repetição.
+        #
+        # O modelo reenviando o mesmo comando é a falha mais comum do loop, e era
+        # silenciosa: o `ps` saía cinco vezes, devolvia cinco vezes a mesma
+        # tabela, e o passo contava como sucesso. Nada no prompt proibia repetir
+        # e nada no loop comparava com o que já tinha rodado.
+        #
+        # Recusado, o comando NÃO é executado — só entra no histórico como
+        # tool_result explicando a recusa, para o modelo ter como mudar de
+        # abordagem em vez de tomar o silêncio por aprovação.
+        #
+        # O passo não é contado: só execuções reais consomem teto. Se recusa
+        # contasse, um modelo travado em repetição queimaria os 5 passos sem
+        # rodar nada.
+        #
+        # A subscript do array associativo precisa das aspas: em zsh,
+        # ${+v[$chave]} sem aspas devolve 0 mesmo com a chave presente — a
+        # trava passaria batido exatamente no caso que existe para pegá-la.
+        local cmd_norm="$(_metis_norm_cmd "$cmd")"
+
+        if [[ -n "$cmd_norm" ]] && (( ${+cmd_vistos["$cmd_norm"]} )); then
+          repeticoes=$(( repeticoes + 1 ))
+          printf '\n\033[33m⚠️  Comando repetido, não executado: %s\033[0m\n' "$cmd"
+
+          current_context="$current_context
+  [Assistente]: $resp
+  <tool_result exit_code=\"0\">
+  Comando NÃO executado: idêntico a um que você já enviou, cujo resultado já está no histórico acima. Repetir não traz informação nova. Envie um comando DIFERENTE (outro filtro, outro caminho, outra ferramenta) ou finalize com '✔ Resolvido:'.
+  </tool_result>"
+
+          current_context="$(_metis_trim_context "$current_context")"
+
+          # Duas recusas seguidas = modelo travado no laço. Sem este teto o
+          # pedido de continuação nunca aparece, porque `step` não avança e
+          # `while (( step <= max_steps ))` não tem como sair.
+          if (( repeticoes >= 2 )); then
+            printf '\n\033[31m❌ A IA repetiu o mesmo comando %d vezes. Encerrando para não entrar em ciclo.\033[0m\n' "$repeticoes"
+            printf '\033[90mDica: reformule o pedido com mais contexto, ou troque de provedor em [Ctrl + G] — este é sintoma comum de modelo fraco.\033[0m\n'
+            return 1
+          fi
+
+          continue
+        fi
+
+        repeticoes=0
+        [[ -n "$cmd_norm" ]] && cmd_vistos["$cmd_norm"]=1
+
         printf '\033[1;34m⚡ [Passo %d/%d]:\033[0m \033[36m❯ \033[1;38;5;214m' "$step" "$max_steps"
         _metis_type_live "$cmd" 0.006
         printf '\033[0m'
@@ -375,9 +476,7 @@ comando_para_executar
       fi
     fi
 
-    # Enter não decide nada: repergunta até vir s, n ou um número. Um Enter
-    # acidental não pode virar +3 passos de execução autônoma, e "n" precisa
-    # ser digitado para encerrar.
+    # Pergunta continuação (s = +3, s -N = N passos, n/Enter = encerra).
     _metis_perguntar_continuacao
 
     if [[ -z "$METIS_PASSOS_EXTRAS" ]]; then
@@ -386,10 +485,10 @@ comando_para_executar
     fi
 
     max_steps=$((max_steps + METIS_PASSOS_EXTRAS))
-    printf '\n\033[32m✓ Continuando com mais %d passos (total: %d)\033[0m\n' "$METIS_PASSOS_EXTRAS" "$max_steps"
+    printf '\n\033[32m✓ +%d passos (total: %d)\033[0m\n' "$METIS_PASSOS_EXTRAS" "$max_steps"
     # `step` NÃO volta para 1: o contador é a quantidade de passos já
     # executados, e o teto é cumulativo. Zerar aqui fazia a contagem recomeçar
-    # a cada "s"/número e o laço rodava `max_steps` passos de novo, em vez dos
+    # a cada número e o laço rodava `max_steps` passos de novo, em vez dos
     # `METIS_PASSOS_EXTRAS` pedidos. Agora ele segue (6/8, 7/8, 8/8) e roda
     # exatamente o que foi pedido.
   done
