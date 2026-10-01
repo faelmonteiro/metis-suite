@@ -195,7 +195,7 @@ cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/bash/loader.bash" "$INSTALL_DIR/zsh/screen_launcher.zsh" "$INSTALL_DIR/zsh/screen/preview_mouse.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/bash/loader.bash" "$INSTALL_DIR/zsh/screen/preview_mouse.sh" 2>/dev/null || true
 echo -e "${GREEN}  ✅ Arquivos copiados com sucesso.${NC}"
 
 # 4. Configurar ambiente virtual Python isolado

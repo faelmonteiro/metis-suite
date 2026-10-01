@@ -176,7 +176,7 @@ explain_screen() {
 alias explain-screen="explain"
 alias screen-explain="explain"
 alias screen="explain"
-alias explain_screen="explain_screen"
+alias explain_screen="explain"
 
 # Menu Interativo Fix
 fix() {
