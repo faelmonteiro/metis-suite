@@ -21,6 +21,27 @@ REPO_URL="https://github.com/faelmonteiro/metis-suite.git"
 CLEANUP_TEMP=0
 SOURCE_DIR=""
 
+# Função para migrar configurações legadas
+migrate_legacy_config() {
+    local config_dir="$1"
+    
+    # Corrige modelos legados
+    if [ -f "$config_dir/config_models.json" ]; then
+        sed -i 's|qwen/qwen3.8-27b|llama-3.3-70b-versatile|g' "$config_dir/config_models.json"
+    fi
+
+    # Garante ENABLE_COMMAND_TOOL habilitado
+    if [ -f "$config_dir/.env" ]; then
+        if grep -q 'ENABLE_COMMAND_TOOL="0"' "$config_dir/.env"; then
+            sed -i 's/ENABLE_COMMAND_TOOL="0"/ENABLE_COMMAND_TOOL="1"/g' "$config_dir/.env"
+        elif grep -q 'ENABLE_COMMAND_TOOL=0' "$config_dir/.env"; then
+            sed -i 's/ENABLE_COMMAND_TOOL=0/ENABLE_COMMAND_TOOL=1/g' "$config_dir/.env"
+        elif ! grep -q 'ENABLE_COMMAND_TOOL' "$config_dir/.env"; then
+            echo "ENABLE_COMMAND_TOOL=1" >> "$config_dir/.env"
+        fi
+    fi
+}
+
 # 1. Identifica a origem das atualizações
 if [ -d "$SCRIPT_DIR/.git" ]; then
     echo -e "  ${CYAN}📡 Atualizando repositório Git local em $SCRIPT_DIR...${NC}"
@@ -72,36 +93,57 @@ if [ -d "$INSTALL_DIR" ]; then
     cp "$SOURCE_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SOURCE_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 
-    # Instalar / Vincular Metis Screen (Go nativo)
-    if [ -f "$SOURCE_DIR/bin/metis-screen" ]; then
-        cp "$SOURCE_DIR/bin/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+    # Função comum para instalar/atualizar metis-screen (Go nativo)
+install_metis_screen() {
+    local src_dir="$1"
+    local install_dir="$2"
+    local bin_dir="$3"
+
+    if [ -f "$src_dir/bin/metis-screen" ]; then
+        cp "$src_dir/bin/metis-screen" "$install_dir/bin/metis-screen" || return 1
     elif [ -f "$HOME/metis-screen/metis-screen" ]; then
-        cp "$HOME/metis-screen/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
+        cp "$HOME/metis-screen/metis-screen" "$install_dir/bin/metis-screen" || return 1
     elif command -v go &>/dev/null; then
         echo -e "  ${CYAN}Compilando Metis Screen (Go)...${NC}"
-        SCREEN_SRC="$HOME/metis-screen"
+        local SCREEN_SRC="$HOME/metis-screen"
         if [ ! -d "$SCREEN_SRC" ]; then
             SCREEN_SRC="$(mktemp -d)/metis-screen-src"
-            git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet 2>/dev/null || true
+            git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet || {
+                echo -e "${YELLOW}  ⚠️ Falha ao clonar repo do metis-screen. Tentando compilar de $HOME/metis-screen se existir...${NC}"
+            }
         fi
         if [ -d "$SCREEN_SRC" ]; then
-            (cd "$SCREEN_SRC" && go build -o metis-screen main.go 2>/dev/null && cp metis-screen "$INSTALL_DIR/bin/metis-screen") || true
+            (cd "$SCREEN_SRC" && go build -o metis-screen main.go && cp metis-screen "$install_dir/bin/metis-screen") || return 1
+        else
+            return 1
         fi
+    else
+        return 1
     fi
 
-    if [ -f "$INSTALL_DIR/bin/metis-screen" ]; then
-        chmod +x "$INSTALL_DIR/bin/metis-screen"
-        mkdir -p "$HOME/.local/bin"
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/metis-screen"
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/explain" 2>/dev/null || true
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "$HOME/.local/bin/screen" 2>/dev/null || true
+    if [ -f "$install_dir/bin/metis-screen" ]; then
+        chmod +x "$install_dir/bin/metis-screen"
+        mkdir -p "$bin_dir"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/metis-screen"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/explain"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/screen"
         if [ -w "/usr/local/bin" ]; then
-            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/metis-screen" 2>/dev/null || true
-            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/explain" 2>/dev/null || true
-            ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/screen" 2>/dev/null || true
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/metis-screen"
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/explain"
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/screen"
         fi
-        echo -e "${GREEN}  ✅ Metis Screen (Go nativo) atualizado com sucesso em ~/.local/bin/metis-screen.${NC}"
+        echo -e "${GREEN}  ✅ Metis Screen (Go nativo) atualizado em $bin_dir/metis-screen.${NC}"
+        return 0
     fi
+    return 1
+}
+
+# Instalar / Vincular Metis Screen (Go nativo)
+if install_metis_screen "$SOURCE_DIR" "$INSTALL_DIR" "$HOME/.local/bin"; then
+    :
+else
+    echo -e "${YELLOW}  ⚠️ Metis Screen não atualizado (Go não disponível ou falha no build).${NC}"
+fi
 
     # Restaura configurações legadas se existiam
     [ -f "$BACKUP_TMP/.env" ] && cp "$BACKUP_TMP/.env" "$INSTALL_DIR/app/.env"
@@ -127,21 +169,8 @@ if [ -d "$INSTALL_DIR" ]; then
         fi
     fi
 
-    # Corrige automaticamente modelos legados inválidos caso ainda constem no config
-    if [ -f "$CONFIG_DIR/config_models.json" ]; then
-        sed -i 's|qwen/qwen3.8-27b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
-    fi
-
-    # Garante que ENABLE_COMMAND_TOOL esteja habilitado por padrão no .env
-    if [ -f "$CONFIG_DIR/.env" ]; then
-        if grep -q 'ENABLE_COMMAND_TOOL="0"' "$CONFIG_DIR/.env"; then
-            sed -i 's/ENABLE_COMMAND_TOOL="0"/ENABLE_COMMAND_TOOL="1"/g' "$CONFIG_DIR/.env" 2>/dev/null || true
-        elif grep -q 'ENABLE_COMMAND_TOOL=0' "$CONFIG_DIR/.env"; then
-            sed -i 's/ENABLE_COMMAND_TOOL=0/ENABLE_COMMAND_TOOL=1/g' "$CONFIG_DIR/.env" 2>/dev/null || true
-        elif ! grep -q 'ENABLE_COMMAND_TOOL' "$CONFIG_DIR/.env"; then
-            echo "ENABLE_COMMAND_TOOL=1" >> "$CONFIG_DIR/.env"
-        fi
-    fi
+    # Migra configurações legadas
+    migrate_legacy_config "$CONFIG_DIR"
 
     chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
@@ -197,8 +226,8 @@ if [ -d "$INSTALL_DIR" ]; then
     # Atualiza dependências Python no venv
     if [ -d "$INSTALL_DIR/venv" ]; then
         echo -e "  ${CYAN}🐍 Atualizando dependências no venv...${NC}"
-        "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet 2>/dev/null || true
-        "$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || true
+        "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --upgrade --quiet 2>/dev/null || echo -e "  ${YELLOW}⚠️ Falha ao atualizar requirements.txt${NC}"
+        "$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || echo -e "  ${YELLOW}⚠️ Falha ao atualizar pacote local${NC}"
     fi
 
     # Garante acesso ao bus da sessão do usuário mesmo via SSH
@@ -358,49 +387,54 @@ except Exception:
 
     clean_global_desktop_shortcuts
 
-    # 4. Atualização da integração com os terminais (Bash & Kitty ZSH)
+    # 4. Atualização da integração com Kitty (obrigatório)
     update_terminal_integration() {
         local kitty_conf="$HOME/.config/kitty/kitty.conf"
-        if [ -f "$kitty_conf" ] || command -v kitty &>/dev/null; then
-            mkdir -p "$HOME/.config/kitty"
-            touch "$kitty_conf"
-            local zsh_path
-            zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
-            if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
-                echo "" >> "$kitty_conf"
-                echo "# Shell padrão do Kitty com Metis (apenas no Kitty; terminais comuns usam Bash)" >> "$kitty_conf"
-                echo "shell $zsh_path" >> "$kitty_conf"
-            else
-                sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
-            fi
-
-            if ! grep -Eq "^[[:space:]]*copy_on_select[[:space:]]" "$kitty_conf"; then
-                echo "" >> "$kitty_conf"
-                echo "# Copia automaticamente o texto selecionado com o mouse para a área de transferência" >> "$kitty_conf"
-                echo "copy_on_select yes" >> "$kitty_conf"
-            fi
-
-            sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
-            sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
-
-            sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
-            sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
-            sed -i "/.*explain_screen\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
-            sed -i "/# --- \[ Metis Explain Screen.*/d" "$kitty_conf" 2>/dev/null || true
-
+        
+        # Kitty é obrigatório para Metis
+        if ! command -v kitty &>/dev/null; then
+            echo -e "${RED}  ❌ Kitty não encontrado. Instale o Kitty primeiro.${NC}"
+            return 1
+        fi
+        
+        mkdir -p "$HOME/.config/kitty"
+        touch "$kitty_conf"
+        local zsh_path
+        zsh_path="$(which zsh 2>/dev/null || command -v zsh || echo "/usr/bin/zsh")"
+        if ! grep -Eq "^[[:space:]]*shell[[:space:]]" "$kitty_conf"; then
             echo "" >> "$kitty_conf"
-            echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
-            echo "allow_remote_control yes" >> "$kitty_conf"
-            echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-            echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
+            echo "# Shell padrão do Kitty com Metis" >> "$kitty_conf"
+            echo "shell $zsh_path" >> "$kitty_conf"
+        else
+            sed -i "s|^[[:space:]]*shell[[:space:]].*|shell $zsh_path|g" "$kitty_conf" 2>/dev/null || true
+        fi
 
-            # Garante loader no ~/.zshrc para o Kitty se zshrc existir
-            if [ -f "$HOME/.zshrc" ] && ! grep -Fq "metis/zsh/loader.zsh" "$HOME/.zshrc"; then
-                echo "" >> "$HOME/.zshrc"
-                echo "# >>> METIS SUITE >>>" >> "$HOME/.zshrc"
-                echo "[[ -f \"$INSTALL_DIR/zsh/loader.zsh\" ]] && source \"$INSTALL_DIR/zsh/loader.zsh\"" >> "$HOME/.zshrc"
-                echo "# <<< METIS SUITE <<<" >> "$HOME/.zshrc"
-            fi
+        if ! grep -Eq "^[[:space:]]*copy_on_select[[:space:]]" "$kitty_conf"; then
+            echo "" >> "$kitty_conf"
+            echo "# Copia automaticamente o texto selecionado com o mouse" >> "$kitty_conf"
+            echo "copy_on_select yes" >> "$kitty_conf"
+        fi
+
+        sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
+
+        sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/.*explain_screen\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/# --- \[ Metis Explain Screen.*/d" "$kitty_conf" 2>/dev/null || true
+
+        echo "" >> "$kitty_conf"
+        echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
+        echo "allow_remote_control yes" >> "$kitty_conf"
+        echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
+        echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
+
+        # Garante loader no ~/.zshrc para o Kitty
+        if [ -f "$HOME/.zshrc" ] && ! grep -Fq "metis/zsh/loader.zsh" "$HOME/.zshrc"; then
+            echo "" >> "$HOME/.zshrc"
+            echo "# >>> METIS SUITE >>>" >> "$HOME/.zshrc"
+            echo "[[ -f \"$INSTALL_DIR/zsh/loader.zsh\" ]] && source \"$INSTALL_DIR/zsh/loader.zsh\"" >> "$HOME/.zshrc"
+            echo "# <<< METIS SUITE <<<" >> "$HOME/.zshrc"
         fi
 
         # Garante integração no ~/.bashrc
@@ -442,9 +476,6 @@ if [ "$CLEANUP_TEMP" -eq 1 ] && [ -n "$SOURCE_DIR" ]; then
 fi
 
 echo -e "\n${GREEN}${BOLD}✅ Metis AI Suite atualizado com sucesso!${NC}"
-echo -e "  ${CYAN}[Alt + E]${NC} Explain Screen no terminal comum"
-if [ -f "$HOME/.config/kitty/kitty.conf" ] || command -v kitty &>/dev/null; then
-echo -e "  ${CYAN}[Ctrl + Shift + E]${NC} Explain Screen no Kitty"
-fi
+echo -e "  ${CYAN}[Ctrl + Shift + E]${NC} Explain Screen no Kitty (captura scrollback)"
 echo -e "  ${CYAN}[Ctrl + G]${NC} Menu FZF • ${CYAN}[Alt + H]${NC} Histórico • ${CYAN}[metis gui]${NC} GUI • ${CYAN}[metis vision]${NC} Visão"
 echo -e "\nℹ️  Suas configurações em ~/.config/metis/ foram mantidas intactas.\n"

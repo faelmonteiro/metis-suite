@@ -147,11 +147,30 @@ if ! command -v metis >/dev/null 2>&1; then
     }
 fi
 
-# Assistente Explain Screen (Terminal Copilot & Screen AI)
+# Assistente Explain Screen (Terminal Copilot & Screen AI) - Kitty only
 explain() {
     if [ "$1" = "screen" ] || [ "$1" = "tela" ]; then
         shift
     fi
+
+    # Metis só funciona no Kitty
+    if [[ -z "${KITTY_PID:-}" && -z "${KITTY_WINDOW_ID:-}" ]] || ! command -v kitty >/dev/null 2>&1; then
+        echo "❌ Metis Explain Screen requer terminal Kitty." >&2
+        echo "   Abra o Kitty e use Ctrl+Shift+E ou digite 'explain' lá dentro." >&2
+        return 1
+    fi
+
+    # Captura scrollback via kitty remote control
+    if [[ $# -eq 0 ]]; then
+        local kitty_socket="${KITTY_LISTEN_ON:-unix:/tmp/mykitty}"
+        local scrollback
+        scrollback="$(kitty @ --to "$kitty_socket" get-text --extent=screen --match="id:${KITTY_WINDOW_ID:-}" 2>/dev/null | head -n 100)"
+        if [[ -n "$scrollback" ]]; then
+            printf '%s\n' "$scrollback" | metis-screen -tui
+            return
+        fi
+    fi
+
     if command -v metis-screen >/dev/null 2>&1; then
         metis-screen "$@"
     elif [[ -x "$HOME/.local/bin/metis-screen" ]]; then
@@ -254,11 +273,9 @@ if [[ $- == *i* ]]; then
     }
 
     # Registro de atalhos no Readline
-    # Alt+E exclusivo para terminais comuns do sistema (desativado no Kitty)
-    if [[ -z "$KITTY_PID" && -z "$KITTY_WINDOW_ID" && "$TERM" != *"kitty"* ]]; then
-        bind -x '"\ee": _metis_bash_explain_screen' 2>/dev/null || true
-        bind -x '"\eE": _metis_bash_explain_screen' 2>/dev/null || true
-    fi
+    # Metis só funciona no Kitty - atalhos só ativos dentro do Kitty
+    # Ctrl+Shift+E é configurado via kitty.conf (pipe @screen_scrollback)
+    # Alt+E desabilitado no Kitty para não conflitar com o pipeline nativo
     bind -x '"\C-g": _metis_bash_fix_prompt' 2>/dev/null || true
     bind -x '"\C-G": _metis_bash_fix_prompt' 2>/dev/null || true
     bind -x '"\eh": _metis_bash_ai_history' 2>/dev/null || true

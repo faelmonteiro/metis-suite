@@ -35,6 +35,13 @@ export METIS_PYENV
 export ZSH_AI_DIR="$HOME/.ZSH/ai"
 [[ -f "$ZSH_AI_DIR/loader.zsh" ]] || ZSH_AI_DIR="${0:A:h}"
 
+# Valida ZSH_AI_DIR
+if [[ ! -d "$ZSH_AI_DIR" ]]; then
+    print -u2 "❌ Metis ZSH: diretório de módulos não encontrado em $ZSH_AI_DIR"
+    print -u2 "   Execute o instalador ou verifique a instalação em ~/.local/share/metis"
+    return 1
+fi
+
 # Adiciona o executável do venv e binários locais ao PATH se existirem
 if [[ -n "$METIS_PYENV" && -d "$METIS_PYENV/bin" ]]; then
     export PATH="$METIS_PYENV/bin:$PATH"
@@ -69,9 +76,49 @@ else
 fi
 
 
-alias screen-explain="metis-screen"
-alias explain_screen="metis-screen"
-alias explain="metis-screen"
+explain() {
+    if [[ "$1" == "screen" || "$1" == "tela" ]]; then
+        shift
+    fi
+
+    # Metis só funciona no Kitty
+    if [[ -z "${KITTY_PID:-}" && -z "${KITTY_WINDOW_ID:-}" ]] || ! command -v kitty >/dev/null 2>&1; then
+        print -u2 "❌ Metis Explain Screen requer terminal Kitty."
+        print -u2 "   Abra o Kitty e use Ctrl+Shift+E ou digite 'explain' lá dentro."
+        return 1
+    fi
+
+    # Captura scrollback via kitty remote control
+    if [[ $# -eq 0 ]]; then
+        local kitty_socket="${KITTY_LISTEN_ON:-unix:/tmp/mykitty}"
+        local scrollback
+        scrollback="$(kitty @ --to "$kitty_socket" get-text --extent=screen --match="id:${KITTY_WINDOW_ID:-}" 2>/dev/null | head -n 100)"
+        if [[ -n "$scrollback" ]]; then
+            printf '%s\n' "$scrollback" | metis-screen -tui
+            return
+        fi
+    fi
+
+    if command -v metis-screen >/dev/null 2>&1; then
+        metis-screen "$@"
+    elif [[ -x "$HOME/.local/bin/metis-screen" ]]; then
+        "$HOME/.local/bin/metis-screen" "$@"
+    elif [[ -x "/usr/local/bin/metis-screen" ]]; then
+        "/usr/local/bin/metis-screen" "$@"
+    elif command -v metis >/dev/null 2>&1; then
+        metis explain "$@"
+    elif [[ -x "$METIS_INSTALL_DIR/bin/metis" ]]; then
+        "$METIS_INSTALL_DIR/bin/metis" explain "$@"
+    elif [[ -x "$METIS_INSTALL_DIR/app/vision/run.sh" ]]; then
+        "$METIS_INSTALL_DIR/app/vision/run.sh" "$@"
+    else
+        print -u2 "❌ Não foi possível carregar o assistente screen."
+        return 1
+    fi
+}
+
+alias screen-explain="explain"
+alias explain_screen="explain"
 
 # Widget interativo para acionar o explain/metis-screen direto no ZSH
 _metis_explain_screen_widget() {
@@ -95,15 +142,6 @@ _metis_explain_screen_widget() {
 }
 zle -N _metis_explain_screen_widget 2>/dev/null || true
 
-# Mapeamentos universais: Alt+E apenas para terminais padrão do sistema (GNOME Terminal, Mint Terminal, etc.)
-# No terminal Kitty, o Alt+E é desativado para manter o Kitty com seu pipeline nativo [Ctrl + Shift + E]
-if [[ -z "$KITTY_PID" && -z "$KITTY_WINDOW_ID" && "$TERM" != *"kitty"* ]]; then
-    bindkey '^[e' _metis_explain_screen_widget 2>/dev/null || true
-    bindkey '^[E' _metis_explain_screen_widget 2>/dev/null || true
-
-    # Mapeamentos legados: Ctrl+Shift+E (suporta sequências CSI-u e Xterm em terminais comuns)
-    bindkey '^[[101;6u' _metis_explain_screen_widget 2>/dev/null || true
-    bindkey '^[[69;6u' _metis_explain_screen_widget 2>/dev/null || true
-    bindkey '^[[27;6;101~' _metis_explain_screen_widget 2>/dev/null || true
-    bindkey '^[[27;6;69~' _metis_explain_screen_widget 2>/dev/null || true
-fi
+# Metis só funciona no Kitty - atalhos só ativos dentro do Kitty
+# Ctrl+Shift+E é configurado via kitty.conf (pipe @screen_scrollback)
+# Alt+E desabilitado no Kitty para não conflitar com o pipeline nativo

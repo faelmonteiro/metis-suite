@@ -102,20 +102,20 @@ render_metis_header() {
 clear 2>/dev/null || true
 render_metis_header
 
-# 1. Detecção Automática da Distro e Instalação Completa de Dependências
+# 1. Detecção Automática da Distro e Instalação Completa de Dependências (Kitty + ZSH obrigatórios)
 install_system_deps() {
-    echo -e "\n${CYAN}🔍 [1/6] Detectando distribuição e instalando dependências (Terminal + Drivers Gráficos Qt)...${NC}"
+    echo -e "\n${CYAN}🔍 [1/6] Detectando distribuição e instalando dependências (Kitty + ZSH + Python + Qt)...${NC}"
 
     # Pré-verificação: se as dependências essenciais já estão instaladas, evita invocar sudo
     local deps_ok=1
-    for c in python3 curl git jq xclip fc-cache fzf; do
+    for c in python3 curl git jq fc-cache fzf; do
         if ! command -v "$c" &>/dev/null; then
             deps_ok=0
             break
         fi
     done
-    if [ $deps_ok -eq 1 ] && python3 -c "import venv" &>/dev/null; then
-        echo -e "${GREEN}  ✅ Todas as dependências essenciais do sistema já estão presentes.${NC}"
+    if [ $deps_ok -eq 1 ] && python3 -c "import venv" &>/dev/null && command -v kitty &>/dev/null && command -v zsh &>/dev/null; then
+        echo -e "${GREEN}  ✅ Todas as dependências essenciais (incluindo Kitty e ZSH) já estão presentes.${NC}"
         return 0
     fi
 
@@ -129,32 +129,32 @@ install_system_deps() {
         }
         echo -e "${GREEN}  ✅ Pacotes essenciais instalados.${NC}"
 
-        # Pacotes adicionais de terminal e drivers gráficos Qt
-        echo -e "  ${GRAY}Instalando pacotes adicionais (FZF, drivers gráficos Qt)...${NC}"
-        sudo apt-get install -y -qq fzf wl-clipboard libgl1 libegl1 libxkbcommon-x11-0 \
+        # Pacotes adicionais: Kitty, ZSH, FZF, drivers gráficos Qt
+        echo -e "  ${GRAY}Instalando Kitty, ZSH, FZF e drivers gráficos Qt...${NC}"
+        sudo apt-get install -y -qq kitty zsh fzf wl-clipboard libgl1 libegl1 libxkbcommon-x11-0 \
                    libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
                    libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
                    libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 2>/dev/null || true
-        echo -e "${GREEN}  ✅ Dependências do sistema instaladas com sucesso.${NC}"
+        echo -e "${GREEN}  ✅ Dependências do sistema instaladas com sucesso (Kitty + ZSH incluídos).${NC}"
     elif command -v dnf &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição baseada em Fedora/RedHat detectada (DNF).${NC}"
-        sudo dnf install -y python3 python3-pip fzf curl git jq wl-clipboard xclip fontconfig mesa-libGL mesa-libEGL libxkbcommon-x11 xcb-util-cursor
+        sudo dnf install -y python3 python3-pip kitty zsh fzf curl git jq wl-clipboard xclip fontconfig mesa-libGL mesa-libEGL libxkbcommon-x11 xcb-util-cursor
         echo -e "${GREEN}  ✅ Dependências instaladas com sucesso.${NC}"
     elif command -v pacman &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição baseada em Arch Linux detectada (Pacman).${NC}"
-        sudo pacman -Sy --noconfirm python python-pip fzf curl git jq wl-clipboard xclip fontconfig libglvnd libxkbcommon-x11 xcb-util-cursor
+        sudo pacman -Sy --noconfirm python python-pip kitty zsh fzf curl git jq wl-clipboard xclip fontconfig libglvnd libxkbcommon-x11 xcb-util-cursor
         echo -e "${GREEN}  ✅ Dependências instaladas com sucesso.${NC}"
     elif command -v zypper &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição openSUSE detectada (Zypper).${NC}"
-        sudo zypper install -y python3 python3-pip fzf curl git jq wl-clipboard xclip fontconfig libglvnd libxkbcommon-x11-0 libxcb-cursor0
+        sudo zypper install -y python3 python3-pip kitty zsh fzf curl git jq wl-clipboard xclip fontconfig libglvnd libxkbcommon-x11-0 libxcb-cursor0
         echo -e "${GREEN}  ✅ Dependências instaladas com sucesso.${NC}"
     elif command -v xbps-install &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição Void Linux detectada (XBPS).${NC}"
-        sudo xbps-install -Sy python3 python3-pip fzf curl git jq wl-clipboard xclip fontconfig
+        sudo xbps-install -Sy python3 python3-pip kitty zsh fzf curl git jq wl-clipboard xclip fontconfig
         echo -e "${GREEN}  ✅ Dependências instaladas com sucesso.${NC}"
     elif command -v apk &>/dev/null; then
         echo -e "  ${CYAN_SOFT}📦 Distribuição Alpine Linux detectada (APK).${NC}"
-        sudo apk add python3 py3-pip fzf curl git jq wl-clipboard xclip fontconfig
+        sudo apk add python3 py3-pip kitty zsh fzf curl git jq wl-clipboard xclip fontconfig
         echo -e "${GREEN}  ✅ Dependências instaladas com sucesso.${NC}"
     else
         echo -e "${RED}  ❌ Gerenciador de pacotes não identificado automaticamente.${NC}"
@@ -195,7 +195,7 @@ cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/" 2>/dev/null || true
 cp "$SCRIPT_DIR/update.sh" "$INSTALL_DIR/" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/bash/loader.bash" "$INSTALL_DIR/zsh/screen/preview_mouse.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/bin/metis" "$INSTALL_DIR/app/vision/run.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/update.sh" "$INSTALL_DIR/bash/loader.bash" 2>/dev/null || true
 echo -e "${GREEN}  ✅ Arquivos copiados com sucesso.${NC}"
 
 # 4. Configurar ambiente virtual Python isolado
@@ -205,12 +205,12 @@ python3 -m venv "$INSTALL_DIR/venv"
 
 echo -e "  ${GRAY}Instalando dependências (Core, Terminal e GUI PyQt6)...${NC}"
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" --quiet 2>/dev/null || {
-    echo -e "  ${YELLOW}⚠️ Executando instalação resiliente por etapas...${NC}"
-    "$INSTALL_DIR/venv/bin/pip" install httpx python-dotenv prompt_toolkit fpdf2 pyperclip --quiet || true
-    "$INSTALL_DIR/venv/bin/pip" install PyQt6 --quiet || true
-    "$INSTALL_DIR/venv/bin/pip" install g4f curl_cffi --quiet 2>/dev/null || true
+    echo -e "  ${YELLOW}⚠️ Falha na instalação completa, tentando por etapas...${NC}"
+    "$INSTALL_DIR/venv/bin/pip" install httpx python-dotenv prompt_toolkit fpdf2 pyperclip --quiet || echo -e "  ${YELLOW}⚠️ Falha ao instalar deps core${NC}"
+    "$INSTALL_DIR/venv/bin/pip" install PyQt6 --quiet || echo -e "  ${YELLOW}⚠️ Falha ao instalar PyQt6${NC}"
+    "$INSTALL_DIR/venv/bin/pip" install g4f curl_cffi --quiet 2>/dev/null || echo -e "  ${YELLOW}⚠️ Falha ao instalar g4f/curl_cffi${NC}"
 }
-"$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || true
+"$INSTALL_DIR/venv/bin/pip" install -e "$INSTALL_DIR" --no-deps --quiet 2>/dev/null || echo -e "  ${YELLOW}⚠️ Falha ao instalar pacote local${NC}"
 
 # Verificação do suporte gráfico PyQt6
 if "$INSTALL_DIR/venv/bin/python" -c "import PyQt6.QtWidgets" &>/dev/null; then
@@ -237,21 +237,29 @@ else
     echo -e "${GRAY}  ℹ️  Arquivo .env existente preservado.${NC}"
 fi
 
-# Corrige automaticamente modelos legados inválidos caso existam de instalações prévias
-if [ -f "$CONFIG_DIR/config_models.json" ]; then
-    sed -i 's|qwen/qwen3.8-27b|llama-3.3-70b-versatile|g' "$CONFIG_DIR/config_models.json" 2>/dev/null || true
-fi
-
-# Garante que ENABLE_COMMAND_TOOL esteja habilitado por padrão no .env
-if [ -f "$CONFIG_DIR/.env" ]; then
-    if grep -q 'ENABLE_COMMAND_TOOL="0"' "$CONFIG_DIR/.env"; then
-        sed -i 's/ENABLE_COMMAND_TOOL="0"/ENABLE_COMMAND_TOOL="1"/g' "$CONFIG_DIR/.env" 2>/dev/null || true
-    elif grep -q 'ENABLE_COMMAND_TOOL=0' "$CONFIG_DIR/.env"; then
-        sed -i 's/ENABLE_COMMAND_TOOL=0/ENABLE_COMMAND_TOOL=1/g' "$CONFIG_DIR/.env" 2>/dev/null || true
-    elif ! grep -q 'ENABLE_COMMAND_TOOL' "$CONFIG_DIR/.env"; then
-        echo "ENABLE_COMMAND_TOOL=1" >> "$CONFIG_DIR/.env"
+# Função para migrar configurações legadas
+migrate_legacy_config() {
+    local config_dir="$1"
+    
+    # Corrige modelos legados
+    if [ -f "$config_dir/config_models.json" ]; then
+        sed -i 's|qwen/qwen3.8-27b|llama-3.3-70b-versatile|g' "$config_dir/config_models.json"
     fi
-fi
+
+    # Garante ENABLE_COMMAND_TOOL habilitado
+    if [ -f "$config_dir/.env" ]; then
+        if grep -q 'ENABLE_COMMAND_TOOL="0"' "$config_dir/.env"; then
+            sed -i 's/ENABLE_COMMAND_TOOL="0"/ENABLE_COMMAND_TOOL="1"/g' "$config_dir/.env"
+        elif grep -q 'ENABLE_COMMAND_TOOL=0' "$config_dir/.env"; then
+            sed -i 's/ENABLE_COMMAND_TOOL=0/ENABLE_COMMAND_TOOL=1/g' "$config_dir/.env"
+        elif ! grep -q 'ENABLE_COMMAND_TOOL' "$config_dir/.env"; then
+            echo "ENABLE_COMMAND_TOOL=1" >> "$config_dir/.env"
+        fi
+    fi
+}
+
+# Migra configurações legadas
+migrate_legacy_config "$CONFIG_DIR"
 
 # 6. Criar atalhos executáveis, fontes personalizadas e Desktop Entry
 echo -e "\n${CYAN}🚀 [5/6] Registrando lançadores, fontes e ícones no sistema...${NC}"
@@ -260,34 +268,55 @@ ln -sf "$INSTALL_DIR/bin/metis" "$BIN_DIR/metis"
 ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/metis-vision"
 ln -sf "$INSTALL_DIR/app/vision/run.sh" "$BIN_DIR/screenai"
 
-# Instalar / Vincular Metis Screen (Go nativo)
-if [ -f "$SCRIPT_DIR/bin/metis-screen" ]; then
-    cp "$SCRIPT_DIR/bin/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
-elif [ -f "$HOME/metis-screen/metis-screen" ]; then
-    cp "$HOME/metis-screen/metis-screen" "$INSTALL_DIR/bin/metis-screen" 2>/dev/null || true
-elif command -v go &>/dev/null; then
-    echo -e "  ${CYAN}Compilando Metis Screen (Go)...${NC}"
-    SCREEN_SRC="$HOME/metis-screen"
-    if [ ! -d "$SCREEN_SRC" ]; then
-        SCREEN_SRC="$(mktemp -d)/metis-screen-src"
-        git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet 2>/dev/null || true
-    fi
-    if [ -d "$SCREEN_SRC" ]; then
-        (cd "$SCREEN_SRC" && go build -o metis-screen main.go 2>/dev/null && cp metis-screen "$INSTALL_DIR/bin/metis-screen") || true
-    fi
-fi
+# Função comum para instalar/atualizar metis-screen (Go nativo)
+install_metis_screen() {
+    local src_dir="$1"
+    local install_dir="$2"
+    local bin_dir="$3"
 
-if [ -f "$INSTALL_DIR/bin/metis-screen" ]; then
-    chmod +x "$INSTALL_DIR/bin/metis-screen"
-    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/metis-screen"
-    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/explain" 2>/dev/null || true
-    ln -sf "$INSTALL_DIR/bin/metis-screen" "$BIN_DIR/screen" 2>/dev/null || true
-    if [ -w "/usr/local/bin" ]; then
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/metis-screen" 2>/dev/null || true
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/explain" 2>/dev/null || true
-        ln -sf "$INSTALL_DIR/bin/metis-screen" "/usr/local/bin/screen" 2>/dev/null || true
+    if [ -f "$src_dir/bin/metis-screen" ]; then
+        cp "$src_dir/bin/metis-screen" "$install_dir/bin/metis-screen" || return 1
+    elif [ -f "$HOME/metis-screen/metis-screen" ]; then
+        cp "$HOME/metis-screen/metis-screen" "$install_dir/bin/metis-screen" || return 1
+    elif command -v go &>/dev/null; then
+        echo -e "  ${CYAN}Compilando Metis Screen (Go)...${NC}"
+        local SCREEN_SRC="$HOME/metis-screen"
+        if [ ! -d "$SCREEN_SRC" ]; then
+            SCREEN_SRC="$(mktemp -d)/metis-screen-src"
+            git clone --depth 1 "https://github.com/faelmonteiro/metis-terminal-assistent-ia-.git" "$SCREEN_SRC" --quiet || {
+                echo -e "${YELLOW}  ⚠️ Falha ao clonar repo do metis-screen. Tentando compilar de $HOME/metis-screen se existir...${NC}"
+            }
+        fi
+        if [ -d "$SCREEN_SRC" ]; then
+            (cd "$SCREEN_SRC" && go build -o metis-screen main.go && cp metis-screen "$install_dir/bin/metis-screen") || return 1
+        else
+            return 1
+        fi
+    else
+        return 1
     fi
-    echo -e "${GREEN}  ✅ Metis Screen (Go nativo) instalado com sucesso em $BIN_DIR/metis-screen.${NC}"
+
+    if [ -f "$install_dir/bin/metis-screen" ]; then
+        chmod +x "$install_dir/bin/metis-screen"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/metis-screen"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/explain"
+        ln -sf "$install_dir/bin/metis-screen" "$bin_dir/screen"
+        if [ -w "/usr/local/bin" ]; then
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/metis-screen"
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/explain"
+            ln -sf "$install_dir/bin/metis-screen" "/usr/local/bin/screen"
+        fi
+        echo -e "${GREEN}  ✅ Metis Screen (Go nativo) instalado em $bin_dir/metis-screen.${NC}"
+        return 0
+    fi
+    return 1
+}
+
+# Instalar / Vincular Metis Screen (Go nativo)
+if install_metis_screen "$SCRIPT_DIR" "$INSTALL_DIR" "$BIN_DIR"; then
+    :
+else
+    echo -e "${YELLOW}  ⚠️ Metis Screen não instalado (Go não disponível ou falha no build).${NC}"
 fi
 
 # Instalar Fonte de Glifos do Metis (MetisIcons.ttf)
@@ -536,81 +565,20 @@ KITTY_ENABLED=0
 configure_kitty_terminal() {
     local kitty_conf="$HOME/.config/kitty/kitty.conf"
 
-    if ! command -v kitty &>/dev/null && [ ! -f "$kitty_conf" ]; then
-        echo ""
-        echo -e "${GOLD}✨ Terminal Kitty (Opcional - Experiência Visual Completa):${NC}"
-        echo -e "   O Kitty permite captura de tela 100% automática (sem mouse), digitação autônoma e ícones em alta definição."
-        echo -e "   ${GRAY}Nota: Se você optar pelo Kitty, o ZSH será instalado e configurado EXCLUSIVAMENTE dentro dele.${NC}"
-        echo -e "   ${GRAY}Seus outros terminais continuarão 100% livres e usando o Bash padrão do sistema.${NC}"
-        local instalar_kitty="n"
-        if [ -t 0 ]; then
-            read -t 20 -p "   Deseja instalar o Kitty e configurá-lo integrado com ZSH e Metis? (s/N) [padrão: Não]: " instalar_kitty || instalar_kitty="n"
-        fi
-        case "$instalar_kitty" in
-            [sS][iI][mM]|[sS])
-                echo -e "  ${GRAY}Instalando Kitty e ZSH via gerenciador de pacotes...${NC}"
-                if command -v apt-get &>/dev/null; then
-                    sudo apt-get install -y -qq kitty zsh 2>/dev/null || true
-                elif command -v dnf &>/dev/null; then
-                    sudo dnf install -y kitty zsh 2>/dev/null || true
-                elif command -v pacman &>/dev/null; then
-                    sudo pacman -Sy --noconfirm kitty zsh 2>/dev/null || true
-                elif command -v zypper &>/dev/null; then
-                    sudo zypper install -y kitty zsh 2>/dev/null || true
-                elif command -v xbps-install &>/dev/null; then
-                    sudo xbps-install -Sy kitty zsh 2>/dev/null || true
-                elif command -v apk &>/dev/null; then
-                    sudo apk add kitty zsh 2>/dev/null || true
-                fi
-
-                if command -v kitty &>/dev/null; then
-                    echo -e "${GREEN}  ✅ Terminal Kitty e ZSH instalados com sucesso!${NC}"
-                    KITTY_ENABLED=1
-                else
-                    echo -e "${YELLOW}  ⚠️ Não foi possível instalar o Kitty automaticamente. Continuando com o terminal padrão.${NC}"
-                    KITTY_ENABLED=0
-                fi
-                ;;
-            *)
-                echo -e "${GRAY}  ℹ️  Continuando apenas com os terminais padrão do sistema (Bash puro, sem ZSH).${NC}"
-                KITTY_ENABLED=0
-                ;;
-        esac
-    elif command -v kitty &>/dev/null || [ -f "$kitty_conf" ]; then
-        echo ""
-        echo -e "${GOLD}✨ Terminal Kitty detectado no sistema:${NC}"
-        echo -e "   Deseja configurar o Kitty integrado com ZSH e Metis?"
-        echo -e "   ${GRAY}(O ZSH será configurado apenas no Kitty; seus outros terminais permanecerão no Bash puro)${NC}"
-        local configurar_kitty="s"
-        if [ -t 0 ]; then
-            read -t 15 -p "   Configurar Kitty com ZSH para o Metis? (S/n) [padrão: Sim]: " configurar_kitty || configurar_kitty="s"
-        fi
-        case "$configurar_kitty" in
-            [nN][aA][oO]|[nN])
-                echo -e "${GRAY}  ℹ️  Terminal Kitty não será modificado.${NC}"
-                KITTY_ENABLED=0
-                ;;
-            *)
-                if ! command -v zsh &>/dev/null; then
-                    echo -e "  ${GRAY}Instalando ZSH para o Kitty...${NC}"
-                    if command -v apt-get &>/dev/null; then
-                        sudo apt-get install -y -qq zsh 2>/dev/null || true
-                    elif command -v dnf &>/dev/null; then
-                        sudo dnf install -y zsh 2>/dev/null || true
-                    elif command -v pacman &>/dev/null; then
-                        sudo pacman -Sy --noconfirm zsh 2>/dev/null || true
-                    elif command -v zypper &>/dev/null; then
-                        sudo zypper install -y zsh 2>/dev/null || true
-                    elif command -v xbps-install &>/dev/null; then
-                        sudo xbps-install -Sy zsh 2>/dev/null || true
-                    elif command -v apk &>/dev/null; then
-                        sudo apk add zsh 2>/dev/null || true
-                    fi
-                fi
-                KITTY_ENABLED=1
-                ;;
-        esac
+    # Kitty é obrigatório - instalado em install_system_deps
+    echo -e "${GOLD}✨ Configurando Terminal Kitty + ZSH (obrigatório para Metis)...${NC}"
+    
+    # Verifica se Kitty e ZSH estão disponíveis
+    if ! command -v kitty &>/dev/null; then
+        echo -e "${RED}  ❌ Kitty não encontrado após instalação. Abortando.${NC}"
+        exit 1
     fi
+    if ! command -v zsh &>/dev/null; then
+        echo -e "${RED}  ❌ ZSH não encontrado após instalação. Abortando.${NC}"
+        exit 1
+    fi
+
+    KITTY_ENABLED=1
 
     if [ "$KITTY_ENABLED" -eq 1 ]; then
         mkdir -p "$HOME/.config/kitty"
@@ -741,11 +709,8 @@ echo -e "${BORDER}╰───────────────────�
 echo -e "\n${GOLD_BRIGHT}${BOLD}╭─────────────────────────────────────────────────────────────────────────────────╮${NC}"
 echo -e "${GOLD_BRIGHT}${BOLD}│       🎉 INSTALAÇÃO DO METIS AI SUITE CONCLUÍDA COM SUCESSO!                    │${NC}"
 echo -e "${BORDER}├─────────────────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BORDER}│${NC}  ${GOLD}${BOLD}Atalhos do Terminal:${NC}"
-echo -e "${BORDER}│${NC}    ${CYAN}[Alt + E]${NC}           Explain Screen no terminal comum (analisa seleção do mouse ou erro)"
-if [ "$KITTY_ENABLED" -eq 1 ]; then
+echo -e "${BORDER}│${NC}  ${GOLD}${BOLD}Atalhos do Terminal (Kitty obrigatório):${NC}"
 echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + Shift + E]${NC}  Explain Screen no Kitty (captura scrollback completa)"
-fi
 echo -e "${BORDER}│${NC}    ${CYAN}[Ctrl + G]${NC}          Menu interativo FZF (Perguntas, notas e modelos)"
 echo -e "${BORDER}│${NC}    ${CYAN}[Alt + H]${NC}           Histórico de prompts de IA"
 echo -e "${BORDER}│${NC}"
