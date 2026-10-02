@@ -604,7 +604,13 @@ configure_kitty_terminal() {
 
         # Higieniza configurações obsoletas ou inválidas no kitty.conf
         sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
-        sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
+
+        # Remove TODAS as ocorrências de listen_on/allow_remote_control em vez de
+        # normalizar em lugar. Sem isto, cada execução do instalador deixava as
+        # linhas antigas intactas e anexava mais uma cópia no fim, acumulando
+        # duplicatas a cada update.
+        sed -i "/^[[:space:]]*listen_on[[:space:]]/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/^[[:space:]]*allow_remote_control[[:space:]]/d" "$kitty_conf" 2>/dev/null || true
 
         sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
         sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
@@ -615,7 +621,15 @@ configure_kitty_terminal() {
         echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
         echo "allow_remote_control yes" >> "$kitty_conf"
         echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-        echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
+        # @text é um placeholder válido do pipe do kitty. O antigo
+        # @screen_scrollback não existe em nenhuma versão do kitty: o parser
+        # o ignora em silêncio, então o item lido nunca era o esperado.
+        # O metis-screen obtém a seleção pela própria IPC do kitty, então o
+        # conteúdo do pipe é apenas o texto integral da tela como contexto.
+        #
+        # Caminho absoluto: o item do PATH pode apontar para um binário antigo
+        # em /usr/local/bin, quebrado por um update anterior.
+        echo "map ctrl+shift+e pipe @text none $INSTALL_DIR/bin/metis-screen" >> "$kitty_conf"
         echo -e "${GREEN}  ✅ Atalho [Ctrl + Shift + E] integrado ao Kitty chamando o Metis Screen (Go nativo).${NC}"
     fi
 }

@@ -42,7 +42,13 @@ METIS_SCRIPTS="${METIS_SCRIPTS:-$HOME/metis-suite}"
 # Roteamento de comandos
 if [ "$1" = "gui" ]; then
     shift
-    exec "$PYTHON_BIN" "$METIS_ROOT/gui.py" "$@"
+    if [ -f "$METIS_ROOT/app/gui.py" ]; then
+        exec "$PYTHON_BIN" "$METIS_ROOT/app/gui.py" "$@"
+    elif [ -f "$METIS_ROOT/gui.py" ]; then
+        exec "$PYTHON_BIN" "$METIS_ROOT/gui.py" "$@"
+    else
+        exec "$PYTHON_BIN" "$APP_PY" "$@"
+    fi
 elif [ "$1" = "vision" ] || [ "$1" = "screenai" ]; then
     shift
     exec "$METIS_ROOT/vision/run.sh" "$@"

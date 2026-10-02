@@ -416,7 +416,12 @@ except Exception:
         fi
 
         sed -i "/^[[:space:]]*clear_selection_on_clipboard_loss/d" "$kitty_conf" 2>/dev/null || true
-        sed -i "s|^[[:space:]]*listen_on.*|listen_on unix:/tmp/mykitty|g" "$kitty_conf" 2>/dev/null || true
+
+        # Remove TODAS as ocorrências em vez de normalizar em lugar: normalizar
+        # deixava as linhas antigas e o bloco abaixo anexava mais uma cópia,
+        # acumulando duplicatas a cada execução do update.
+        sed -i "/^[[:space:]]*listen_on[[:space:]]/d" "$kitty_conf" 2>/dev/null || true
+        sed -i "/^[[:space:]]*allow_remote_control[[:space:]]/d" "$kitty_conf" 2>/dev/null || true
 
         sed -i "/.*metis-screen.*/d" "$kitty_conf" 2>/dev/null || true
         sed -i "/.*screen_launcher\.zsh.*/d" "$kitty_conf" 2>/dev/null || true
@@ -427,7 +432,10 @@ except Exception:
         echo "# --- [ Metis Explain Screen (Ctrl + Shift + E) - Go Nativo ] ---" >> "$kitty_conf"
         echo "allow_remote_control yes" >> "$kitty_conf"
         echo "listen_on unix:/tmp/mykitty" >> "$kitty_conf"
-        echo "map ctrl+shift+e pipe @screen_scrollback none metis-screen" >> "$kitty_conf"
+        # @text é um placeholder válido do pipe do kitty; @screen_scrollback não
+        # existe e era descartado sem erro pelo parser. Caminho absoluto evita
+        # cair num binário antigo em /usr/local/bin via PATH.
+        echo "map ctrl+shift+e pipe @text none $INSTALL_DIR/bin/metis-screen" >> "$kitty_conf"
 
         # Garante loader no ~/.zshrc para o Kitty
         if [ -f "$HOME/.zshrc" ] && ! grep -Fq "metis/zsh/loader.zsh" "$HOME/.zshrc"; then
